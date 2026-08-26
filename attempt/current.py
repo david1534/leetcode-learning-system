@@ -25,6 +25,20 @@ Related practice: https://leetcode.com/problems/two-sum/
 """
 
 
-def pair_sum_indices(*args):
-    """Replace *args with a clear typed signature, then implement your solution."""
+def pair_sum_indices(inputArray, target):
+    seen = {}
+    for index, value in enumerate(inputArray):
+        complement = abs(value - target)
+        if value not in seen:
+            seen[complement] = index
+        else:
+            compIndex = seen[value]
+            return [compIndex, index]
     raise NotImplementedError
+
+# input = [7,2,11,5]
+# targ = 9
+# seen = [2:0]
+# index = 1
+# value = 2
+# complement = 7
