@@ -167,7 +167,11 @@ def cleanup_legacy_attempt(root: Path) -> None:
     for name in ("current.py", "session.json"):
         (legacy / name).unlink(missing_ok=True)
     if legacy.exists() and not any(legacy.iterdir()):
-        legacy.rmdir()
+        try:
+            legacy.rmdir()
+        except PermissionError:
+            # Managed OneDrive folders may retain an empty reparse-point directory.
+            pass
 
 
 def active_seconds(session: dict[str, Any], now: datetime | None = None) -> int:
