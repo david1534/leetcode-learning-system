@@ -29,16 +29,16 @@ def pair_sum_indices(inputArray, target):
     seen = {}
     for index, value in enumerate(inputArray):
         complement = abs(value - target)
-        if value not in seen:
+        if value and complement not in seen:
             seen[complement] = index
         else:
             compIndex = seen[value]
             return [compIndex, index]
     raise NotImplementedError
 
-# input = [7,2,11,5]
+# input = [7,7,2,5]
 # targ = 9
 # seen = [2:0]
 # index = 1
-# value = 2
-# complement = 7
+# value = 7
+# complement = 2
