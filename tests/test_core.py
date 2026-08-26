@@ -4,6 +4,8 @@ import json
 from datetime import UTC, datetime, timedelta
 
 from study.core import (
+    MAX_ACTIVE_SEGMENT_SECONDS,
+    active_seconds,
     due_problems,
     load_problems,
     next_new_problem,
@@ -11,6 +13,7 @@ from study.core import (
     rebuild_cards,
     record_review,
     run_solution,
+    save_session,
 )
 
 
@@ -112,3 +115,20 @@ def test_event_files_are_immutable_and_unique(tmp_path):
 def test_all_seeded_case_shapes_are_json_round_trippable(repo_root):
     for problem in load_problems(repo_root):
         assert json.loads(json.dumps(problem["cases"])) == problem["cases"]
+
+
+def test_active_timer_caps_long_unpaused_segment(tmp_path):
+    root = seed_repo(tmp_path)
+    started = datetime(2026, 8, 26, 12, tzinfo=UTC)
+    session = {
+        "schema_version": 2,
+        "problem_id": "one",
+        "started_at": started.isoformat(),
+        "active_started_at": started.isoformat(),
+        "accumulated_seconds": 120,
+        "hints_used": 0,
+        "checkpoint_count": 0,
+    }
+    save_session(root, session)
+    later = started + timedelta(hours=5)
+    assert active_seconds(session, later) == MAX_ACTIVE_SEGMENT_SECONDS + 120

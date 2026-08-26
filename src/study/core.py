@@ -10,6 +10,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from shutil import copy2
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -22,6 +23,7 @@ RATINGS = {
     "good": Rating.Good,
     "easy": Rating.Easy,
 }
+MAX_ACTIVE_SEGMENT_SECONDS = 60 * 60
 
 
 def find_root(start: Path | None = None) -> Path:
@@ -109,12 +111,98 @@ def next_new_problem(root: Path, include_diagnostic: bool = False) -> dict[str, 
 
 
 def session_path(root: Path) -> Path:
-    return root / ".practice" / "session.json"
+    tracked = root / "attempt" / "session.json"
+    legacy = root / ".practice" / "session.json"
+    return tracked if tracked.exists() or not legacy.exists() else legacy
+
+
+def candidate_path(root: Path) -> Path:
+    tracked = root / "attempt" / "current.py"
+    legacy = root / ".practice" / "current.py"
+    return tracked if tracked.exists() or not legacy.exists() else legacy
 
 
 def load_session(root: Path) -> dict[str, Any] | None:
     path = session_path(root)
     return json.loads(path.read_text(encoding="utf-8")) if path.exists() else None
+
+
+def _modern_session(session: dict[str, Any], now: datetime | None = None) -> dict[str, Any]:
+    now = (now or datetime.now(UTC)).astimezone(UTC)
+    started_at = session.get("started_at", now.isoformat())
+    return {
+        "schema_version": 2,
+        "problem_id": session["problem_id"],
+        "started_at": started_at,
+        "active_started_at": session.get("active_started_at", started_at),
+        "accumulated_seconds": int(session.get("accumulated_seconds", 0)),
+        "hints_used": int(session.get("hints_used", 0)),
+        "checkpoint_count": int(session.get("checkpoint_count", 0)),
+    }
+
+
+def save_session(root: Path, session: dict[str, Any]) -> Path:
+    path = root / "attempt" / "session.json"
+    path.parent.mkdir(exist_ok=True)
+    path.write_text(json.dumps(session, indent=2) + "\n", encoding="utf-8")
+    return path
+
+
+def migrate_legacy_attempt(root: Path, now: datetime | None = None) -> bool:
+    """Move an ignored v1 attempt into the tracked v2 layout without changing its code."""
+    legacy_session = root / ".practice" / "session.json"
+    legacy_candidate = root / ".practice" / "current.py"
+    if not legacy_session.exists() or (root / "attempt" / "session.json").exists():
+        return False
+    session = json.loads(legacy_session.read_text(encoding="utf-8"))
+    save_session(root, _modern_session(session, now))
+    (root / "attempt" / "checkpoints").mkdir(parents=True, exist_ok=True)
+    if legacy_candidate.exists():
+        copy2(legacy_candidate, root / "attempt" / "current.py")
+    return True
+
+
+def cleanup_legacy_attempt(root: Path) -> None:
+    legacy = root / ".practice"
+    for name in ("current.py", "session.json"):
+        (legacy / name).unlink(missing_ok=True)
+    if legacy.exists() and not any(legacy.iterdir()):
+        legacy.rmdir()
+
+
+def active_seconds(session: dict[str, Any], now: datetime | None = None) -> int:
+    now = (now or datetime.now(UTC)).astimezone(UTC)
+    total = int(session.get("accumulated_seconds", 0))
+    active = session.get("active_started_at")
+    if active:
+        elapsed = now - datetime.fromisoformat(active).astimezone(UTC)
+        segment = max(0, int(elapsed.total_seconds()))
+        total += min(segment, MAX_ACTIVE_SEGMENT_SECONDS)
+    return total
+
+
+def pause_timer(root: Path, now: datetime | None = None) -> dict[str, Any]:
+    now = (now or datetime.now(UTC)).astimezone(UTC)
+    session = load_session(root)
+    if session is None:
+        raise RuntimeError("No active practice session.")
+    session = _modern_session(session, now)
+    session["accumulated_seconds"] = active_seconds(session, now)
+    session["active_started_at"] = None
+    save_session(root, session)
+    return session
+
+
+def resume_timer(root: Path, now: datetime | None = None) -> dict[str, Any]:
+    now = (now or datetime.now(UTC)).astimezone(UTC)
+    session = load_session(root)
+    if session is None:
+        raise RuntimeError("No active practice session.")
+    session = _modern_session(session, now)
+    if session.get("active_started_at") is None:
+        session["active_started_at"] = now.isoformat()
+        save_session(root, session)
+    return session
 
 
 def render_template(problem: dict[str, Any]) -> str:
@@ -129,18 +217,23 @@ def render_template(problem: dict[str, Any]) -> str:
     )
 
 
-def start_problem(root: Path, problem_id: str) -> Path:
+def start_problem(root: Path, problem_id: str, now: datetime | None = None) -> Path:
     problem = problem_by_id(root, problem_id)
-    practice = root / ".practice"
-    practice.mkdir(exist_ok=True)
+    now = (now or datetime.now(UTC)).astimezone(UTC)
+    practice = root / "attempt"
+    (practice / "checkpoints").mkdir(parents=True, exist_ok=True)
     current = practice / "current.py"
     current.write_text(render_template(problem), encoding="utf-8")
     session = {
+        "schema_version": 2,
         "problem_id": problem_id,
-        "started_at": datetime.now(UTC).isoformat(),
+        "started_at": now.isoformat(),
+        "active_started_at": now.isoformat(),
+        "accumulated_seconds": 0,
         "hints_used": 0,
+        "checkpoint_count": 0,
     }
-    session_path(root).write_text(json.dumps(session, indent=2) + "\n", encoding="utf-8")
+    save_session(root, session)
     return current
 
 

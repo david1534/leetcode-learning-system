@@ -1,5 +1,6 @@
 .venv/
 .practice/
+.study-reflection.json
 __pycache__/
 .pytest_cache/
 .ruff_cache/

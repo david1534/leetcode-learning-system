@@ -25,42 +25,47 @@ adapts future review dates from your ratings instead of using a fixed calendar.
 
 ## Setup
 
-Python 3.11 or newer and Git are required.
+Python 3.11 or newer, Git, and VS Code are required. Open the cloned repository in VS Code and
+press `Ctrl+Shift+B`. The first run creates `.venv` and installs the required packages for you.
+
+To verify or repair setup manually:
 
 ```powershell
 py -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -e ".[dev]"
 python -m study doctor
-python -m study today
 ```
 
 VS Code users can run the included tasks from **Terminal > Run Task**.
 
+The normal daily entry point is `Ctrl+Shift+B`. It safely updates from GitHub, resumes a public
+attempt branch when one exists, otherwise starts the oldest due review or next roadmap problem,
+and opens the candidate. You never need to copy a problem ID or remember a Python command.
+
 ## Daily workflow
 
-```powershell
-git pull --rebase
-python -m study today
-python -m study start arrays-001-pair-sum
-python -m study hint
-python -m study test
-python -m study finish --rating good --minutes 35 --explained
-git add curriculum progress solutions src tests .github .vscode AGENTS.md README.md pyproject.toml
-git commit -m "study: complete pair sum review"
-git push
-```
+1. Press `Ctrl+Shift+B` and work in `attempt/current.py`.
+2. Tell Codex **"give me a hint"** or run **Study: Next Hint** when needed.
+3. Tell Codex **"test my solution"** or run **Study: Test & Save Draft**. Each test saves a public
+   attempt-branch checkpoint with only the pass count; detailed failures remain local.
+4. Tell Codex **"pause my practice"** before changing laptops.
+5. Tell Codex **"I'm finished"**. Explain your reasoning, confirm its recommended recall rating,
+   and approve publication. Codex records the review/reflection and merges it into `main`.
 
-`start` creates `.practice/current.py`, which is deliberately ignored by Git. Edit that file in
-VS Code. `finish` records an immutable review event and promotes passing work to `solutions/`.
-An `Again` rating may be recorded after a failed test; stronger ratings require all tests to pass.
-Good and Easy also require `--explained`; Good permits at most one hint and Easy permits none.
+If Codex is unavailable, run **Study: Finish Session** for the guided terminal fallback.
 
-Use `python -m study status` for roadmap progress and `python -m study reminder` to preview the
-text used by the daily GitHub issue.
+Use the **Study: Status** VS Code task for roadmap progress.
 
 Because some OneDrive policies block tool caches, the documented quality command is
 `ruff check --no-cache .`.
+
+### Recovery and advanced commands
+
+Normal study does not require these commands. If GitHub was temporarily unavailable, run the
+**Study: Pause & Sync** task again or use `python -m study sync`. If a completed attempt was
+committed but could not merge, use `python -m study sync --complete`. The system never force-pushes,
+discards candidate code, resolves conflicts, or includes unrelated files automatically.
 
 ## Curriculum
 
@@ -91,7 +96,8 @@ minutes late and GitHub may disable schedules after prolonged repository inactiv
 
 ## Public-repository safety
 
-Only code, hint counts, ratings, dates, and mastery progress are tracked. `.practice/` and private
-reflections stay local. Before the first public commit, configure a repository-local personal
+Draft code, checkpoint pass counts, hint counts, ratings, dates, and full learning reflections are
+public by design. Failed inputs and error details stay local. Before the first public commit,
+configure a repository-local personal
 GitHub identity—prefer the GitHub-provided `noreply` address—and verify `git log` does not expose
 an employer email.

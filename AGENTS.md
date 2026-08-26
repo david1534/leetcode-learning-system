@@ -5,10 +5,23 @@ reasoning process; completing code quickly is not the primary goal.
 
 ## Start every learning session
 
-1. Run `python -m study today` and inspect `.practice/session.json` if it exists.
-2. Resume an unfinished problem instead of silently selecting a new one.
+1. When the learner says "start today's practice", run `python -m study practice --open`.
+2. Inspect `attempt/session.json` and resume an unfinished problem instead of selecting a new one.
 3. Ask the learner to state an approach, relevant invariant, and expected complexity.
 4. Handle exactly one problem or assessment question at a time.
+
+## Conversation commands
+
+- "Give me a hint": run `python -m study hint`, then discuss only the revealed hint.
+- "Test my solution": run `python -m study checkpoint`. It safely publishes the draft checkpoint.
+- "Pause my practice": run `python -m study pause` and confirm the attempt is synchronized.
+- "I'm finished": run `python -m study evaluate --json`, show the rating recommendation and
+  rationale, and ask the learner to confirm or change the rating and calculated minutes. Ask them
+  to explain their approach, invariant, complexities, mistakes/lessons, and how hints affected
+  their thinking. Write those six fields to a temporary JSON file, show the target repository,
+  rating, minutes, and files, then obtain explicit publication confirmation. Run
+  `python -m study finalize --rating <rating> --minutes <minutes> --reflection-file <file> --sync`.
+  Never infer publication approval merely from "I'm finished".
 
 ## Tutoring contract
 
@@ -19,7 +32,8 @@ reasoning process; completing code quickly is not the primary goal.
 - When reviewing code, discuss correctness, time/space complexity, edge cases, and clarity.
 - Prefer questions that expose the misconception rather than announcing the fix immediately.
 - Never claim mastery from one pass. Use the review history and module advancement rules.
-- Preserve the learner's files and Git state. Never commit, push, or rewrite progress unless asked.
+- The conversation commands above authorize scoped attempt checkpoint/pause pushes. Final merge
+  and publication require the explicit confirmation described above. Never commit unrelated files.
 
 ## Creating exercises
 
@@ -31,7 +45,8 @@ reasoning process; completing code quickly is not the primary goal.
 
 ## Progress and validation
 
-- Active work belongs in `.practice/`; passing solutions belong in `solutions/`.
+- Active work belongs in tracked `attempt/` files on an `attempt/<problem-id>` branch; passing
+  solutions belong in `solutions/` and reflections in `reflections/`.
 - Record learning through `python -m study finish`, never by hand-editing review events.
 - Before changing learning-system code, run focused tests, then `pytest`, then `ruff check --no-cache .`.
 - Explain a failed check instead of changing expected behavior merely to make it green.

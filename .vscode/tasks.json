@@ -1,9 +1,12 @@
 {
   "version": "2.0.0",
   "tasks": [
-    {"label": "Study: Today's Queue", "type": "shell", "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe", "args": ["-m", "study", "today"], "problemMatcher": []},
-    {"label": "Study: Test Current Problem", "type": "shell", "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe", "args": ["-m", "study", "test"], "group": {"kind": "test", "isDefault": true}, "problemMatcher": []},
-    {"label": "Quality: Full Suite", "type": "shell", "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe", "args": ["-m", "pytest"], "group": "test", "problemMatcher": []}
+    {"label": "Study: Start or Resume", "type": "shell", "command": "powershell.exe", "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}\\scripts\\study.ps1", "practice", "--open"], "group": {"kind": "build", "isDefault": true}, "problemMatcher": []},
+    {"label": "Study: Test & Save Draft", "type": "shell", "command": "powershell.exe", "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}\\scripts\\study.ps1", "checkpoint"], "group": {"kind": "test", "isDefault": true}, "problemMatcher": []},
+    {"label": "Study: Next Hint", "type": "shell", "command": "powershell.exe", "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}\\scripts\\study.ps1", "hint"], "problemMatcher": []},
+    {"label": "Study: Pause & Sync", "type": "shell", "command": "powershell.exe", "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}\\scripts\\study.ps1", "pause"], "problemMatcher": []},
+    {"label": "Study: Finish Session", "type": "shell", "command": "powershell.exe", "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}\\scripts\\study.ps1", "complete"], "problemMatcher": []},
+    {"label": "Study: Status", "type": "shell", "command": "powershell.exe", "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}\\scripts\\study.ps1", "status"], "problemMatcher": []},
+    {"label": "Quality: Full Suite", "type": "shell", "command": "powershell.exe", "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}\\scripts\\study.ps1", "_quality"], "group": "test", "problemMatcher": []}
   ]
 }
-
