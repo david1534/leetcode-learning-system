@@ -2,7 +2,7 @@
   "version": "2.0.0",
   "tasks": [
     {"label": "Study: Start or Resume", "type": "shell", "command": "powershell.exe", "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}\\scripts\\study.ps1", "practice", "--open"], "group": {"kind": "build", "isDefault": true}, "problemMatcher": []},
-    {"label": "Study: Test & Save Draft", "type": "shell", "command": "powershell.exe", "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}\\scripts\\study.ps1", "checkpoint"], "group": {"kind": "test", "isDefault": true}, "problemMatcher": []},
+    {"label": "Study: Check Solution Locally", "type": "shell", "command": "powershell.exe", "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}\\scripts\\study.ps1", "checkpoint"], "group": {"kind": "test", "isDefault": true}, "problemMatcher": []},
     {"label": "Study: Next Hint", "type": "shell", "command": "powershell.exe", "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}\\scripts\\study.ps1", "hint"], "problemMatcher": []},
     {"label": "Study: Pause & Sync", "type": "shell", "command": "powershell.exe", "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}\\scripts\\study.ps1", "pause"], "problemMatcher": []},
     {"label": "Study: Finish Session", "type": "shell", "command": "powershell.exe", "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}\\scripts\\study.ps1", "complete"], "problemMatcher": []},

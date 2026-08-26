@@ -13,13 +13,18 @@ reasoning process; completing code quickly is not the primary goal.
 ## Conversation commands
 
 - "Give me a hint": run `python -m study hint`, then discuss only the revealed hint.
-- "Test my solution": run `python -m study checkpoint`. It safely publishes the draft checkpoint.
+- "Test my solution": run `python -m study checkpoint --json`. Deterministic cases are the
+  correctness safety net, but the checkpoint remains local until pause or completion. Review the
+  candidate and result conversationally: confirm a pass, or discuss one likely misconception at a
+  time without exposing hidden inputs or replacing the learner's code.
 - "Pause my practice": run `python -m study pause` and confirm the attempt is synchronized.
 - "I'm finished": run `python -m study evaluate --json`, show the rating recommendation and
-  rationale, and ask the learner to confirm or change the rating and calculated minutes. Ask them
-  to explain their approach, invariant, complexities, mistakes/lessons, and how hints affected
-  their thinking. Write those six fields to a temporary JSON file, show the target repository,
-  rating, minutes, and files, then obtain explicit publication confirmation. Run
+  rationale, and ask the learner to confirm or change the rating and calculated minutes. Draft the
+  approach, invariant, complexities, mistakes/lessons, and hint effect from the chat, candidate
+  code, and session evidence. Do not invent unsupported details; ask one focused question only if
+  a material learning detail is missing. Show the complete draft for correction. Write the six
+  fields to a temporary JSON file, show the target repository, rating, minutes, and files, then
+  obtain explicit publication confirmation. Run
   `python -m study finalize --rating <rating> --minutes <minutes> --reflection-file <file> --sync`.
   Never infer publication approval merely from "I'm finished".
 
@@ -27,7 +32,8 @@ reasoning process; completing code quickly is not the primary goal.
 
 - Do not write or replace the candidate solution unless the learner explicitly asks for it.
 - Ask for an attempt before giving help. Give immediate, concrete feedback on each answer.
-- Use the stored hint ladder in order: targeted question, pattern clue, pseudocode. Reveal a
+- Use the stored hint ladder in order: targeted question, pattern clue, pseudocode. Hint requests
+  remain local until pause or completion. Reveal a
   complete solution only after an explicit request or surrender.
 - When reviewing code, discuss correctness, time/space complexity, edge cases, and clarity.
 - Prefer questions that expose the misconception rather than announcing the fix immediately.

@@ -12,6 +12,7 @@ from study.core import (
     problem_by_id,
     rebuild_cards,
     record_review,
+    render_template,
     run_solution,
     save_session,
 )
@@ -54,6 +55,27 @@ def test_catalog_contains_diagnostic_and_complete_first_module(repo_root):
     assert sum(problem["kind"] == "transfer" for problem in arrays) == 1
     assert all(len(problem["hints"]) == 3 for problem in problems)
     assert all(problem["cases"] for problem in problems)
+    assert all(problem["signature"].startswith(problem["function"]) for problem in problems)
+    assert all(problem["parameters"] for problem in problems)
+    assert all(problem["returns"]["description"] for problem in problems)
+    assert all(example["explanation"] for problem in problems for example in problem["examples"])
+
+
+def test_pair_sum_template_has_named_readable_example(repo_root):
+    problem = problem_by_id(repo_root, "arrays-001-pair-sum")
+    rendered = render_template(problem)
+    assert "def pair_sum_indices(nums: list[int], target: int) -> list[int]:" in rendered
+    assert "nums = [7, 2, 11, 5]" in rendered
+    assert "target = 7" in rendered
+    assert "nums[1] + nums[3] equals 2 + 5 = 7" in rendered
+    compile(rendered, "attempt/current.py", "exec")
+
+
+def test_every_problem_template_is_valid_python(repo_root):
+    for problem in load_problems(repo_root):
+        rendered = render_template(problem)
+        compile(rendered, f"{problem['id']}.py", "exec")
+        assert max(map(len, rendered.splitlines())) <= 100
 
 
 def test_runner_reports_passes_and_failures(tmp_path, repo_root):
@@ -121,7 +143,7 @@ def test_active_timer_caps_long_unpaused_segment(tmp_path):
     root = seed_repo(tmp_path)
     started = datetime(2026, 8, 26, 12, tzinfo=UTC)
     session = {
-        "schema_version": 2,
+        "schema_version": 3,
         "problem_id": "one",
         "started_at": started.isoformat(),
         "active_started_at": started.isoformat(),
@@ -132,3 +154,38 @@ def test_active_timer_caps_long_unpaused_segment(tmp_path):
     save_session(root, session)
     later = started + timedelta(hours=5)
     assert active_seconds(session, later) == MAX_ACTIVE_SEGMENT_SECONDS + 120
+
+
+def test_save_session_migrates_legacy_checkpoint_history(tmp_path):
+    root = tmp_path
+    checkpoints = root / "attempt" / "checkpoints"
+    checkpoints.mkdir(parents=True)
+    legacy = {
+        "schema_version": 1,
+        "problem_id": "one",
+        "attempt": 2,
+        "checked_at": "2026-08-26T12:00:00+00:00",
+        "passed_cases": 3,
+        "total_cases": 4,
+    }
+    (checkpoints / "002.json").write_text(json.dumps(legacy), encoding="utf-8")
+    session = {
+        "schema_version": 2,
+        "problem_id": "one",
+        "started_at": "2026-08-26T12:00:00+00:00",
+        "active_started_at": None,
+        "accumulated_seconds": 60,
+        "hints_used": 0,
+        "checkpoint_count": 2,
+    }
+
+    save_session(root, session)
+
+    saved = json.loads((root / "attempt" / "session.json").read_text(encoding="utf-8"))
+    assert saved["latest_checkpoint"] == {
+        "attempt": 2,
+        "checked_at": "2026-08-26T12:00:00+00:00",
+        "passed_cases": 3,
+        "total_cases": 4,
+    }
+    assert not checkpoints.exists()

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -19,8 +20,31 @@ def test_start_hint_and_test_lifecycle(monkeypatch, tmp_path, capsys):
     assert main(["start", "arrays-001-pair-sum"]) == 0
     assert (root / "attempt" / "session.json").exists()
     assert main(["hint"]) == 0
-    assert "Hint 1/3" in capsys.readouterr().out
+    assert "Targeted question:" in capsys.readouterr().out
     assert main(["test"]) == 1
+
+
+def test_checkpoint_saves_one_local_summary_and_supports_json(monkeypatch, tmp_path, capsys):
+    root = tmp_path
+    (root / "curriculum").mkdir()
+    source = Path(__file__).parents[1] / "curriculum" / "problems.json"
+    (root / "curriculum" / "problems.json").write_text(source.read_text(encoding="utf-8"))
+    (root / "progress" / "reviews").mkdir(parents=True)
+    (root / "solutions").mkdir()
+    (root / "pyproject.toml").write_text("[project]\nname='x'\n")
+    monkeypatch.chdir(root)
+
+    assert main(["start", "arrays-001-pair-sum"]) == 0
+    capsys.readouterr()
+    assert main(["checkpoint", "--json"]) == 0
+    result = json.loads(capsys.readouterr().out)
+    session = json.loads((root / "attempt" / "session.json").read_text(encoding="utf-8"))
+
+    assert result["problem_id"] == "arrays-001-pair-sum"
+    assert result["checkpoint_count"] == 1
+    assert result["failure_count"] > 0
+    assert session["latest_checkpoint"]["total_cases"] == 4
+    assert not (root / "attempt" / "checkpoints").exists()
 
 
 def test_practice_starts_next_problem_then_resumes(monkeypatch, tmp_path, capsys):

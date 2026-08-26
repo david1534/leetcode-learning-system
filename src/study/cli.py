@@ -65,13 +65,6 @@ def open_candidate(root: Path) -> None:
         subprocess.run([code, "-r", str(candidate_path(root))], check=False)
 
 
-def on_attempt_branch(root: Path) -> bool:
-    try:
-        return branch_name(root).startswith("attempt/")
-    except GitFlowError:
-        return False
-
-
 def cmd_doctor(root: Path, _args: argparse.Namespace) -> int:
     checks: list[tuple[str, bool, str]] = []
     checks.append(("Python >= 3.11", python_version_ok(), sys.version.split()[0]))
@@ -191,7 +184,7 @@ def cmd_practice(root: Path, args: argparse.Namespace) -> int:
     reason = "due review" if due else "next roadmap problem"
     print_problem(problem, f"Started {reason}: ")
     print(f"Open {path.relative_to(root)} and write your solution.")
-    print("When ready, run the VS Code task: Study: Test & Save Draft")
+    print("When ready, run the VS Code task: Study: Check Solution Locally")
     if args.open:
         open_candidate(root)
     return 0
@@ -225,16 +218,11 @@ def cmd_hint(root: Path, _args: argparse.Namespace) -> int:
             "Ask Codex for a solution review if needed."
         )
         return 0
-    print(f"Hint {used + 1}/{len(problem['hints'])}: {problem['hints'][used]}")
+    stages = ("Targeted question", "Pattern clue", "Pseudocode")
+    label = stages[used] if used < len(stages) else f"Hint {used + 1}"
+    print(f"{label}: {problem['hints'][used]}")
     session["hints_used"] = used + 1
     save_session(root, session)
-    if on_attempt_branch(root):
-        commit_paths(
-            root,
-            f"study(draft): {problem['id']} hint {session['hints_used']}",
-            ["attempt/session.json"],
-        )
-        push_current(root)
     return 0
 
 
@@ -264,7 +252,7 @@ def passed_count(total: int, failures: list) -> int:
     return 0 if any(failure.index == 0 for failure in failures) else total - len(failures)
 
 
-def checkpoint(root: Path, push: bool = True) -> tuple[dict, int, int, list]:
+def checkpoint(root: Path) -> tuple[dict, int, int, list]:
     session = load_session(root)
     if session is None:
         raise RuntimeError("No active problem. Press Ctrl+Shift+B to start one.")
@@ -273,45 +261,35 @@ def checkpoint(root: Path, push: bool = True) -> tuple[dict, int, int, list]:
     total = len(problem["cases"])
     passed = passed_count(total, failures)
     session["checkpoint_count"] = int(session.get("checkpoint_count", 0)) + 1
+    session["latest_checkpoint"] = {
+        "attempt": session["checkpoint_count"],
+        "checked_at": datetime.now(UTC).isoformat(),
+        "passed_cases": passed,
+        "total_cases": total,
+    }
     save_session(root, session)
-    checkpoints = root / "attempt" / "checkpoints"
-    checkpoints.mkdir(parents=True, exist_ok=True)
-    checkpoint_path = checkpoints / f"{session['checkpoint_count']:03d}.json"
-    checkpoint_path.write_text(
-        json.dumps(
-            {
-                "schema_version": 1,
-                "problem_id": problem["id"],
-                "attempt": session["checkpoint_count"],
-                "checked_at": datetime.now(UTC).isoformat(),
-                "passed_cases": passed,
-                "total_cases": total,
-            },
-            indent=2,
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-    if on_attempt_branch(root):
-        commit_paths(
-            root,
-            f"study(draft): {problem['id']} attempt {session['checkpoint_count']} "
-            f"({passed}/{total})",
-            ["attempt"],
-        )
-        if push:
-            push_current(root)
     return problem, passed, total, failures
 
 
-def cmd_checkpoint(root: Path, _args: argparse.Namespace) -> int:
+def cmd_checkpoint(root: Path, args: argparse.Namespace) -> int:
     problem, passed, total, failures = checkpoint(root)
-    print(f"Checkpoint saved for {problem['id']}: {passed}/{total} cases passed.")
-    if passed < total:
+    result = {
+        "problem_id": problem["id"],
+        "passed_cases": passed,
+        "total_cases": total,
+        "all_passed": passed == total,
+        "checkpoint_count": load_session(root)["checkpoint_count"],
+        "failure_count": len(failures),
+    }
+    if args.json:
+        print(json.dumps(result, indent=2))
+    else:
+        print(f"Local check saved for {problem['id']}: {passed}/{total} cases passed.")
+    if passed < total and not args.json:
         print("Failure details stayed local:")
         for failure in failures:
             print(f"  - {format_failure(failure)}")
-        print("Fix the draft and test again.")
+        print("Ask Codex to discuss one issue, then revise the draft and check again.")
     return 0
 
 
@@ -695,7 +673,12 @@ def build_parser() -> argparse.ArgumentParser:
     start.add_argument("--replace", action="store_true", help="replace an unfinished session")
     commands.add_parser("hint", help="reveal the next progressive hint")
     commands.add_parser("test", help="run cases for the active attempt")
-    commands.add_parser("checkpoint", help="test and publish a pass-count-only draft checkpoint")
+    checkpoint_command = commands.add_parser(
+        "checkpoint", help="run cases and save a local checkpoint"
+    )
+    checkpoint_command.add_argument(
+        "--json", action="store_true", help="emit coaching metadata as JSON"
+    )
     commands.add_parser("pause", help="pause active time and synchronize the draft")
     evaluate = commands.add_parser("evaluate", help="show completion facts and rating guidance")
     evaluate.add_argument("--json", action="store_true")

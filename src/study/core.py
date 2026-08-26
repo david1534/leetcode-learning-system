@@ -4,13 +4,15 @@ import copy
 import hashlib
 import importlib.util
 import json
+import pprint
 import subprocess
 import sys
+import textwrap
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from shutil import copy2
+from shutil import copy2, rmtree
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -130,8 +132,8 @@ def load_session(root: Path) -> dict[str, Any] | None:
 def _modern_session(session: dict[str, Any], now: datetime | None = None) -> dict[str, Any]:
     now = (now or datetime.now(UTC)).astimezone(UTC)
     started_at = session.get("started_at", now.isoformat())
-    return {
-        "schema_version": 2,
+    modern = {
+        "schema_version": 3,
         "problem_id": session["problem_id"],
         "started_at": started_at,
         "active_started_at": session.get("active_started_at", started_at),
@@ -139,9 +141,22 @@ def _modern_session(session: dict[str, Any], now: datetime | None = None) -> dic
         "hints_used": int(session.get("hints_used", 0)),
         "checkpoint_count": int(session.get("checkpoint_count", 0)),
     }
+    if "latest_checkpoint" in session:
+        modern["latest_checkpoint"] = session["latest_checkpoint"]
+    return modern
 
 
 def save_session(root: Path, session: dict[str, Any]) -> Path:
+    legacy_checkpoints = root / "attempt" / "checkpoints"
+    legacy_files = sorted(legacy_checkpoints.glob("*.json"))
+    if "latest_checkpoint" not in session and legacy_files:
+        latest = json.loads(legacy_files[-1].read_text(encoding="utf-8"))
+        session["latest_checkpoint"] = {
+            key: latest[key]
+            for key in ("attempt", "checked_at", "passed_cases", "total_cases")
+        }
+    if legacy_checkpoints.exists():
+        rmtree(legacy_checkpoints)
     path = root / "attempt" / "session.json"
     path.parent.mkdir(exist_ok=True)
     path.write_text(json.dumps(session, indent=2) + "\n", encoding="utf-8")
@@ -156,7 +171,6 @@ def migrate_legacy_attempt(root: Path, now: datetime | None = None) -> bool:
         return False
     session = json.loads(legacy_session.read_text(encoding="utf-8"))
     save_session(root, _modern_session(session, now))
-    (root / "attempt" / "checkpoints").mkdir(parents=True, exist_ok=True)
     if legacy_candidate.exists():
         copy2(legacy_candidate, root / "attempt" / "current.py")
     return True
@@ -209,27 +223,106 @@ def resume_timer(root: Path, now: datetime | None = None) -> dict[str, Any]:
     return session
 
 
-def render_template(problem: dict[str, Any]) -> str:
-    examples = json.dumps(problem["examples"], indent=2)
-    return (
-        f'"""{problem["title"]}\n\n{problem["prompt"]}\n\n'
-        f"Examples:\n{examples}\n\nRelated practice: {problem['related_url']}\n"
-        '"""\n\n\n'
-        f"def {problem['function']}(*args):\n"
-        '    """Replace *args with a clear typed signature, then implement your solution."""\n'
-        "    raise NotImplementedError\n"
+def display_value(value: Any) -> str:
+    """Format JSON-compatible exercise values as readable Python literals."""
+    return pprint.pformat(value, width=88, sort_dicts=False)
+
+
+def wrapped(text: str, *, initial: str = "", subsequent: str = "") -> list[str]:
+    return textwrap.wrap(
+        text,
+        width=88,
+        initial_indent=initial,
+        subsequent_indent=subsequent,
+        break_long_words=False,
+        break_on_hyphens=False,
     )
+
+
+def render_template(problem: dict[str, Any]) -> str:
+    lines = [
+        '"""',
+        problem["title"],
+        "=" * len(problem["title"]),
+        f"Difficulty: {problem['difficulty'].title()} | Suggested time: "
+        f"{problem['estimated_minutes']} minutes",
+        "",
+        "Problem",
+        "-------",
+        *wrapped(problem["prompt"]),
+        "",
+        "Function signature",
+        "------------------",
+        problem["signature"],
+        "",
+        "Parameters",
+        "----------",
+    ]
+    for parameter in problem["parameters"]:
+        prefix = f"{parameter['name']} ({parameter['type']}): "
+        lines.extend(
+            wrapped(
+                parameter["description"],
+                initial=prefix,
+                subsequent=" " * len(prefix),
+            )
+        )
+    lines.extend(
+        [
+            "",
+            "Returns",
+            "-------",
+            *wrapped(
+                problem["returns"]["description"],
+                initial=f"{problem['returns']['type']}: ",
+                subsequent="    ",
+            ),
+            "",
+            "Constraints",
+            "-----------",
+        ]
+    )
+    for constraint in problem["constraints"]:
+        lines.extend(wrapped(constraint, initial="- ", subsequent="  "))
+    for index, example in enumerate(problem["examples"], start=1):
+        heading = f"Example {index}"
+        lines.extend(["", heading, "-" * len(heading)])
+        for name, value in example["inputs"].items():
+            lines.append(f"{name} = {display_value(value)}")
+        lines.append(f"Output: {display_value(example['output'])}")
+        lines.extend(
+            wrapped(
+                example["explanation"],
+                initial="Explanation: ",
+                subsequent="             ",
+            )
+        )
+    lines.extend(
+        [
+            "",
+            "Related practice",
+            "----------------",
+            problem["related_url"],
+            '"""',
+            "",
+            "",
+            f"def {problem['signature']}:",
+            "    raise NotImplementedError",
+            "",
+        ]
+    )
+    return "\n".join(lines)
 
 
 def start_problem(root: Path, problem_id: str, now: datetime | None = None) -> Path:
     problem = problem_by_id(root, problem_id)
     now = (now or datetime.now(UTC)).astimezone(UTC)
     practice = root / "attempt"
-    (practice / "checkpoints").mkdir(parents=True, exist_ok=True)
+    practice.mkdir(parents=True, exist_ok=True)
     current = practice / "current.py"
     current.write_text(render_template(problem), encoding="utf-8")
     session = {
-        "schema_version": 2,
+        "schema_version": 3,
         "problem_id": problem_id,
         "started_at": now.isoformat(),
         "active_started_at": now.isoformat(),

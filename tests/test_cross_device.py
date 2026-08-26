@@ -57,17 +57,21 @@ def test_attempt_moves_between_laptops_and_merges_to_main(monkeypatch, tmp_path,
     candidate = laptop_a / "attempt" / "current.py"
     candidate.write_text("def pair_sum_indices(nums, target):\n    return [0, 1]\n")
     assert main(["checkpoint"]) == 0
-    checkpoint = json.loads(
-        (laptop_a / "attempt" / "checkpoints" / "001.json").read_text(encoding="utf-8")
-    )
+    checkpoint = json.loads((laptop_a / "attempt" / "session.json").read_text(encoding="utf-8"))[
+        "latest_checkpoint"
+    ]
     assert set(checkpoint) == {
-        "schema_version",
-        "problem_id",
         "attempt",
         "checked_at",
         "passed_cases",
         "total_cases",
     }
+
+    before_pause = clone(remote, tmp_path / "before-pause")
+    git(before_pause, "switch", "--track", "origin/attempt/arrays-001-pair-sum")
+    assert "return [0, 1]" not in (before_pause / "attempt" / "current.py").read_text()
+
+    assert main(["pause"]) == 0
 
     laptop_b = clone(remote, tmp_path / "laptop-b")
     monkeypatch.chdir(laptop_b)

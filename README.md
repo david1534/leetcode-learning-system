@@ -11,7 +11,7 @@ The roadmap starts with foundational structures and repeatedly revisits older pa
 and 5 minutes of rating and synchronization. New material is intended for weekdays; reviews can
 be due any day.
 
-`roadmap -> daily queue -> attempt -> test/hints -> recall rating -> next review`
+`roadmap -> daily queue -> attempt -> local coaching checks -> recall rating -> next review`
 
 Ratings have consistent meanings:
 
@@ -47,11 +47,13 @@ and opens the candidate. You never need to copy a problem ID or remember a Pytho
 
 1. Press `Ctrl+Shift+B` and work in `attempt/current.py`.
 2. Tell Codex **"give me a hint"** or run **Study: Next Hint** when needed.
-3. Tell Codex **"test my solution"** or run **Study: Test & Save Draft**. Each test saves a public
-   attempt-branch checkpoint with only the pass count; detailed failures remain local.
+3. Tell Codex **"test my solution"** or run **Study: Check Solution Locally**. Deterministic cases
+   verify correctness locally, then Codex discusses one issue at a time without exposing hidden
+   inputs. Nothing is pushed during a check.
 4. Tell Codex **"pause my practice"** before changing laptops.
-5. Tell Codex **"I'm finished"**. Explain your reasoning, confirm its recommended recall rating,
-   and approve publication. Codex records the review/reflection and merges it into `main`.
+5. Tell Codex **"I'm finished"**. Codex drafts the reflection from your conversation and code;
+   correct it if needed, confirm the recommended recall rating and minutes, and explicitly approve
+   publication. Codex records the review/reflection and merges it into `main`.
 
 If Codex is unavailable, run **Study: Finish Session** for the guided terminal fallback.
 
@@ -96,8 +98,9 @@ minutes late and GitHub may disable schedules after prolonged repository inactiv
 
 ## Public-repository safety
 
-Draft code, checkpoint pass counts, hint counts, ratings, dates, and full learning reflections are
-public by design. Failed inputs and error details stay local. Before the first public commit,
+Draft code synchronized at start/pause, hint counts, checkpoint summaries synchronized at pause,
+ratings, dates, and full learning reflections are public by design. Intermediate checks, failed
+inputs, and error details stay local. Before the first public commit,
 configure a repository-local personal
 GitHub identity—prefer the GitHub-provided `noreply` address—and verify `git log` does not expose
 an employer email.
