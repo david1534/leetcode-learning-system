@@ -28,7 +28,7 @@ Related practice: https://leetcode.com/problems/two-sum/
 def pair_sum_indices(inputArray, target):
     seen = {}
     for index, value in enumerate(inputArray):
-        complement = abs(target - value)
+        complement = target - value
         if complement in seen:
             compIndex = seen[complement]
             return [compIndex, index]
