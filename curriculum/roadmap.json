@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "session_minutes": 45,
+  "stages": [
+    {"id": 1, "name": "Foundations", "topics": ["diagnostic", "arrays-hashing", "two-pointers", "stack", "binary-search"]},
+    {"id": 2, "name": "Linear patterns", "topics": ["sliding-window", "linked-list", "intervals"]},
+    {"id": 3, "name": "Hierarchical search", "topics": ["trees", "heap", "tries", "backtracking"]},
+    {"id": 4, "name": "Graphs and optimization", "topics": ["graphs", "advanced-graphs", "greedy", "dynamic-programming-1d"]},
+    {"id": 5, "name": "Advanced synthesis", "topics": ["dynamic-programming-2d", "bit-manipulation", "math-geometry", "mixed"]}
+  ],
+  "advancement": {
+    "minimum_good_or_easy_review_days": 2,
+    "require_all_core_solutions": true,
+    "require_transfer_problem": true,
+    "require_verbal_explanation": true
+  }
+}
+

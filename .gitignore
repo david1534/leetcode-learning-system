@@ -1,0 +1,12 @@
+.venv/
+.practice/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.pyc
+*.egg-info/
+.coverage
+htmlcov/
+.codex-log/
+.idea/
+.DS_Store

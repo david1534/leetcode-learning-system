@@ -1,0 +1,263 @@
+{
+  "version": 1,
+  "problems": [
+    {
+      "id": "diagnostic-001-frequency",
+      "title": "Most Frequent Value",
+      "topic": "diagnostic",
+      "kind": "diagnostic",
+      "difficulty": "easy",
+      "estimated_minutes": 8,
+      "function": "most_frequent",
+      "prompt": "Return the value occurring most often. If several values tie, return the one that appears first in nums. nums is non-empty.",
+      "constraints": ["1 <= len(nums) <= 100000", "Values are integers"],
+      "examples": [{"input": [[4, 1, 4, 2, 1, 4]], "output": 4}],
+      "hints": ["What information must be remembered while scanning once?", "Keep a frequency table and update the best value only when a count strictly improves.", "Initialize best to the first value; for each item increment its count, then replace best when that count is greater than the best count."],
+      "cases": [
+        {"args": [[4, 1, 4, 2, 1, 4]], "expected": 4},
+        {"args": [[3, 2, 2, 3]], "expected": 3},
+        {"args": [[9]], "expected": 9},
+        {"args": [[-1, -1, 2]], "expected": -1}
+      ],
+      "related_url": "https://leetcode.com/problems/top-k-frequent-elements/"
+    },
+    {
+      "id": "diagnostic-002-two-pointers",
+      "title": "Sorted Pair Exists",
+      "topic": "diagnostic",
+      "kind": "diagnostic",
+      "difficulty": "easy",
+      "estimated_minutes": 8,
+      "function": "has_pair_sum_sorted",
+      "prompt": "Given an ascending sorted list, return whether two distinct positions sum to target.",
+      "constraints": ["0 <= len(nums) <= 100000", "nums is sorted ascending"],
+      "examples": [{"input": [[1, 3, 5, 8], 11], "output": true}],
+      "hints": ["How does sorted order tell you which side can be discarded?", "Use pointers at both ends; move left for a small sum and right for a large sum.", "While left < right, compare nums[left] + nums[right] with target and move exactly one pointer."],
+      "cases": [
+        {"args": [[1, 3, 5, 8], 11], "expected": true},
+        {"args": [[1, 2, 4, 9], 8], "expected": false},
+        {"args": [[3, 3], 6], "expected": true},
+        {"args": [[], 2], "expected": false}
+      ],
+      "related_url": "https://leetcode.com/problems/two-sum-ii-input-array-is-sorted/"
+    },
+    {
+      "id": "diagnostic-003-stack",
+      "title": "Balanced Symbols",
+      "topic": "diagnostic",
+      "kind": "diagnostic",
+      "difficulty": "easy",
+      "estimated_minutes": 8,
+      "function": "balanced_symbols",
+      "prompt": "Return whether a string containing only ()[]{} is correctly balanced and nested.",
+      "constraints": ["0 <= len(text) <= 100000"],
+      "examples": [{"input": ["{[()]}"] , "output": true}],
+      "hints": ["Which earlier character must a closing symbol match?", "A stack exposes the most recent unmatched opening symbol.", "Push openings; for a closing symbol require a non-empty stack with the matching top; finish with an empty stack."],
+      "cases": [
+        {"args": ["{[()]}"] , "expected": true},
+        {"args": ["([)]"], "expected": false},
+        {"args": [""], "expected": true},
+        {"args": ["("], "expected": false}
+      ],
+      "related_url": "https://leetcode.com/problems/valid-parentheses/"
+    },
+    {
+      "id": "diagnostic-004-binary-search",
+      "title": "First At Least",
+      "topic": "diagnostic",
+      "kind": "diagnostic",
+      "difficulty": "medium",
+      "estimated_minutes": 10,
+      "function": "first_at_least",
+      "prompt": "Return the first index whose value is at least target in a sorted list, or len(nums) if no such index exists.",
+      "constraints": ["0 <= len(nums) <= 100000", "nums is sorted ascending"],
+      "examples": [{"input": [[1, 2, 2, 7], 2], "output": 1}],
+      "hints": ["Which half can be removed while preserving the first valid index?", "Treat every value >= target as a candidate, save it, and continue left.", "Initialize answer to len(nums); on a valid midpoint set answer = mid and high = mid - 1, otherwise low = mid + 1."],
+      "cases": [
+        {"args": [[1, 2, 2, 7], 2], "expected": 1},
+        {"args": [[1, 4, 9], 5], "expected": 2},
+        {"args": [[1, 4, 9], 10], "expected": 3},
+        {"args": [[], 4], "expected": 0}
+      ],
+      "related_url": "https://leetcode.com/problems/search-insert-position/"
+    },
+    {
+      "id": "diagnostic-005-bfs",
+      "title": "Fewest Hops",
+      "topic": "diagnostic",
+      "kind": "diagnostic",
+      "difficulty": "medium",
+      "estimated_minutes": 10,
+      "function": "fewest_hops",
+      "prompt": "Given an unweighted adjacency dictionary and two nodes, return the fewest edges between them or -1 when unreachable.",
+      "constraints": ["The graph may contain cycles", "Every neighbor is also a dictionary key"],
+      "examples": [{"input": [{"A": ["B", "C"], "B": ["D"], "C": [], "D": []}, "A", "D"], "output": 2}],
+      "hints": ["Which traversal discovers nodes in increasing number of edges?", "Use a FIFO queue containing node and distance; mark visited when enqueuing.", "Start with (start, 0); pop left, return distance at goal, and enqueue unseen neighbors with distance + 1."],
+      "cases": [
+        {"args": [{"A": ["B", "C"], "B": ["D"], "C": [], "D": []}, "A", "D"], "expected": 2},
+        {"args": [{"A": ["B"], "B": ["A"], "C": []}, "A", "C"], "expected": -1},
+        {"args": [{"A": []}, "A", "A"], "expected": 0}
+      ],
+      "related_url": "https://leetcode.com/problems/find-if-path-exists-in-graph/"
+    },
+    {
+      "id": "arrays-001-pair-sum",
+      "title": "Pair Sum Indices",
+      "topic": "arrays-hashing",
+      "kind": "core",
+      "difficulty": "easy",
+      "estimated_minutes": 20,
+      "function": "pair_sum_indices",
+      "prompt": "Return the two indices of distinct values that add to target. Exactly one solution exists; return indices in increasing order.",
+      "constraints": ["2 <= len(nums) <= 100000", "Exactly one valid pair exists"],
+      "examples": [{"input": [[7, 2, 11, 5], 7], "output": [1, 3]}],
+      "hints": ["For the current number, what complementary value would complete the target?", "Store previously seen value-to-index mappings so the complement can be checked in constant average time.", "Scan left to right; before storing nums[i], look for target - nums[i] in seen and return [seen[complement], i]."],
+      "cases": [
+        {"args": [[7, 2, 11, 5], 7], "expected": [1, 3]},
+        {"args": [[3, 3], 6], "expected": [0, 1]},
+        {"args": [[-4, 8, 1, 6], 2], "expected": [0, 3]},
+        {"args": [[0, 4, 3, 0], 0], "expected": [0, 3]}
+      ],
+      "related_url": "https://leetcode.com/problems/two-sum/"
+    },
+    {
+      "id": "arrays-002-anagram-groups",
+      "title": "Group Rearranged Words",
+      "topic": "arrays-hashing",
+      "kind": "core",
+      "difficulty": "medium",
+      "estimated_minutes": 25,
+      "function": "group_rearranged_words",
+      "prompt": "Group lowercase words that are rearrangements of the same letters. Preserve the first-seen group order and word order within each group.",
+      "constraints": ["0 <= len(words) <= 10000", "Words contain lowercase English letters"],
+      "examples": [{"input": [["eat", "tea", "tan", "ate"]], "output": [["eat", "tea", "ate"], ["tan"]]}],
+      "hints": ["What canonical signature is identical for every rearrangement?", "Use a sorted word or a 26-count tuple as a dictionary key.", "Build a dictionary from signature to list; Python dictionaries preserve insertion order, so returning values preserves first-seen group order."],
+      "cases": [
+        {"args": [["eat", "tea", "tan", "ate", "nat", "bat"]], "expected": [["eat", "tea", "ate"], ["tan", "nat"], ["bat"]]},
+        {"args": [[""]], "expected": [[""]]},
+        {"args": [[]], "expected": []},
+        {"args": [["a", "a", "b"]], "expected": [["a", "a"], ["b"]]}
+      ],
+      "related_url": "https://leetcode.com/problems/group-anagrams/"
+    },
+    {
+      "id": "arrays-003-longest-streak",
+      "title": "Longest Consecutive Streak",
+      "topic": "arrays-hashing",
+      "kind": "core",
+      "difficulty": "medium",
+      "estimated_minutes": 25,
+      "function": "longest_consecutive_streak",
+      "prompt": "Return the length of the longest run of consecutive integer values in an unsorted list. Aim for O(n) average time.",
+      "constraints": ["0 <= len(nums) <= 100000"],
+      "examples": [{"input": [[100, 4, 200, 1, 3, 2]], "output": 4}],
+      "hints": ["If every value starts a forward scan, what repeated work occurs?", "Put values in a set and start counting only where value - 1 is absent.", "For each sequence start, increment current while current + 1 exists and track the maximum length."],
+      "cases": [
+        {"args": [[100, 4, 200, 1, 3, 2]], "expected": 4},
+        {"args": [[0, -1, 1, 2, 2]], "expected": 4},
+        {"args": [[]], "expected": 0},
+        {"args": [[8]], "expected": 1}
+      ],
+      "related_url": "https://leetcode.com/problems/longest-consecutive-sequence/"
+    },
+    {
+      "id": "arrays-004-product-others",
+      "title": "Product of the Other Positions",
+      "topic": "arrays-hashing",
+      "kind": "core",
+      "difficulty": "medium",
+      "estimated_minutes": 25,
+      "function": "product_of_others",
+      "prompt": "Return an array where result[i] is the product of all nums values except nums[i]. Do not use division.",
+      "constraints": ["2 <= len(nums) <= 100000", "Products fit in Python integers"],
+      "examples": [{"input": [[1, 2, 3, 4]], "output": [24, 12, 8, 6]}],
+      "hints": ["Can each answer be split into a product to its left and a product to its right?", "Write prefix products into result, then sweep backward with a running suffix product.", "Forward: result[i] = prefix then prefix *= nums[i]. Backward: result[i] *= suffix then suffix *= nums[i]."],
+      "cases": [
+        {"args": [[1, 2, 3, 4]], "expected": [24, 12, 8, 6]},
+        {"args": [[-1, 1, 0, -3, 3]], "expected": [0, 0, 9, 0, 0]},
+        {"args": [[0, 0, 2]], "expected": [0, 0, 0]},
+        {"args": [[2, 5]], "expected": [5, 2]}
+      ],
+      "related_url": "https://leetcode.com/problems/product-of-array-except-self/"
+    },
+    {
+      "id": "arrays-005-sudoku-check",
+      "title": "Partial Grid Validity",
+      "topic": "arrays-hashing",
+      "kind": "core",
+      "difficulty": "medium",
+      "estimated_minutes": 30,
+      "function": "valid_partial_grid",
+      "prompt": "Return whether a 9x9 partial Sudoku board is valid. Dots are empty; filled digits must not repeat in any row, column, or 3x3 box.",
+      "constraints": ["board has 9 rows of 9 strings", "Cells are . or digits 1 through 9"],
+      "examples": [{"input": [["53..7....", "6..195...", ".98....6.", "8...6...3", "4..8.3..1", "7...2...6", ".6....28.", "...419..5", "....8..79"]], "output": true}],
+      "hints": ["What three uniqueness groups does every filled cell belong to?", "Maintain sets for nine rows, columns, and boxes; a box can be identified by (row // 3, col // 3).", "For each digit, reject if it is already in any of its three sets; otherwise add it to all three."],
+      "cases": [
+        {"args": [["53..7....", "6..195...", ".98....6.", "8...6...3", "4..8.3..1", "7...2...6", ".6....28.", "...419..5", "....8..79"]], "expected": true},
+        {"args": [["83..7....", "6..195...", ".98....6.", "8...6...3", "4..8.3..1", "7...2...6", ".6....28.", "...419..5", "....8..79"]], "expected": false}
+      ],
+      "related_url": "https://leetcode.com/problems/valid-sudoku/"
+    },
+    {
+      "id": "arrays-006-top-frequent",
+      "title": "Most Frequent Values",
+      "topic": "arrays-hashing",
+      "kind": "core",
+      "difficulty": "medium",
+      "estimated_minutes": 30,
+      "function": "most_frequent_values",
+      "prompt": "Return the k most frequent distinct integers ordered by decreasing frequency; break ties by the value that appears first in nums.",
+      "constraints": ["1 <= k <= number of distinct values", "1 <= len(nums) <= 100000"],
+      "examples": [{"input": [[1, 1, 1, 2, 2, 3], 2], "output": [1, 2]}],
+      "hints": ["Record both count and first position so the tie rule is explicit.", "Frequency is at most len(nums); buckets indexed by frequency avoid sorting all distinct values.", "Build buckets of values in first-seen order, then traverse frequencies from high to low until k values are collected."],
+      "cases": [
+        {"args": [[1, 1, 1, 2, 2, 3], 2], "expected": [1, 2]},
+        {"args": [[4, 5, 4, 5, 6], 2], "expected": [4, 5]},
+        {"args": [[9], 1], "expected": [9]},
+        {"args": [[-1, -1, 2, 2, 3, 2], 2], "expected": [2, -1]}
+      ],
+      "related_url": "https://leetcode.com/problems/top-k-frequent-elements/"
+    },
+    {
+      "id": "arrays-007-encode-decode",
+      "title": "Encode and Decode Strings",
+      "topic": "arrays-hashing",
+      "kind": "core",
+      "difficulty": "medium",
+      "estimated_minutes": 30,
+      "function": "round_trip_strings",
+      "prompt": "Implement round_trip_strings(values) by designing an unambiguous single-string encoding and decoding it back to the exact original list. Strings may contain any delimiter you choose.",
+      "constraints": ["0 <= len(values) <= 10000", "Strings may be empty or contain digits and punctuation"],
+      "examples": [{"input": [["a#b", "", "12"]], "output": ["a#b", "", "12"]}],
+      "hints": ["A delimiter alone is ambiguous when data can contain it. What metadata makes the next boundary known?", "Prefix each string with its character length and a separator, then consume exactly that many characters.", "Encode as length + '#' + value. Decode by reading digits to '#', parse length, then slice exactly that many characters and repeat."],
+      "cases": [
+        {"args": [["a#b", "", "12"]], "expected": ["a#b", "", "12"]},
+        {"args": [[]], "expected": []},
+        {"args": [["hello", "world"]], "expected": ["hello", "world"]},
+        {"args": [["###", "0#x", " "]], "expected": ["###", "0#x", " "]}
+      ],
+      "related_url": "https://leetcode.com/problems/encode-and-decode-strings/"
+    },
+    {
+      "id": "arrays-008-transfer-inventory",
+      "title": "Inventory Reconciliation",
+      "topic": "arrays-hashing",
+      "kind": "transfer",
+      "difficulty": "medium",
+      "estimated_minutes": 30,
+      "function": "inventory_changes",
+      "prompt": "Given before and after lists of item IDs where duplicates represent quantities, return [item_id, delta] pairs for every changed item. Order by first appearance across before followed by after.",
+      "constraints": ["IDs are strings", "Lists may be empty", "delta is after count minus before count"],
+      "examples": [{"input": [["a", "b", "a"], ["b", "c", "c"]], "output": [["a", -2], ["c", 2]]}],
+      "hints": ["Can one mapping represent both removals and additions?", "Subtract counts from before and add counts from after while separately preserving first-seen order.", "Build an ordered union of IDs; update delta[id] by -1 for before and +1 for after; emit nonzero entries in stored order."],
+      "cases": [
+        {"args": [["a", "b", "a"], ["b", "c", "c"]], "expected": [["a", -2], ["c", 2]]},
+        {"args": [[], ["x"]], "expected": [["x", 1]]},
+        {"args": [["x", "y"], ["y", "x"]], "expected": []},
+        {"args": [["p", "q"], ["r", "q", "r"]], "expected": [["p", -1], ["r", 2]]}
+      ],
+      "related_url": "https://leetcode.com/tag/hash-table/"
+    }
+  ]
+}
+
