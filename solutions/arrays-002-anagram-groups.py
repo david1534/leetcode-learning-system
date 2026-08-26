@@ -38,4 +38,15 @@ https://leetcode.com/problems/group-anagrams/
 
 
 def group_rearranged_words(words: list[str]) -> list[list[str]]:
-    raise NotImplementedError
+    finalDict = {}
+    for word in words:
+        charMap = {key: 0 for key in range(26)}
+        for char in word:
+            num = ord(char) - ord("a")
+            charMap[num] += 1
+        tupleKey = tuple(charMap.values())
+        if tupleKey not in finalDict:
+            finalDict[tupleKey] = []
+        finalDict[tupleKey].append(word)
+    output = list(finalDict.values())
+    return output
