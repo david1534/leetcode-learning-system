@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "event_id": "91305de82f294291b7bd2d2c46cf30af",
+  "problem_id": "arrays-001-pair-sum",
+  "topic": "arrays-hashing",
+  "kind": "core",
+  "reviewed_at": "2026-08-26T18:15:20.026863+00:00",
+  "rating": "hard",
+  "minutes": 60,
+  "hints_used": 2,
+  "explained": true,
+  "tests_passed": true
+}
