@@ -37,4 +37,11 @@ https://leetcode.com/problems/longest-consecutive-sequence/
 
 
 def longest_consecutive_streak(nums: list[int]) -> int:
-    raise NotImplementedError
+    numSet = set(nums)
+    for num in numSet:
+        prevNum = num - 1
+        if prevNum not in numSet:
+            num += num
+            
+    
+    return output
