@@ -501,23 +501,24 @@ def load_session(root: Path) -> dict[str, Any] | None:
 def _modern_session(session: dict[str, Any], now: datetime | None = None) -> dict[str, Any]:
     now = (now or datetime.now(UTC)).astimezone(UTC)
     started_at = session.get("started_at", now.isoformat())
-    modern = {
-        "schema_version": 5,
-        "problem_id": session["problem_id"],
-        "started_at": started_at,
-        "active_started_at": session.get("active_started_at", started_at),
-        "accumulated_seconds": int(session.get("accumulated_seconds", 0)),
-        "hints_used": int(session.get("hints_used", 0)),
-        "checkpoint_count": int(session.get("checkpoint_count", 0)),
-        "assistance_log": list(session.get("assistance_log", [])),
-        "focus_extensions": list(session.get("focus_extensions", [])),
-        "learning_event_paths": list(session.get("learning_event_paths", [])),
-        "substantial_gate_recorded": bool(session.get("substantial_gate_recorded", False)),
-    }
-    if "initial_reasoning" in session:
-        modern["initial_reasoning"] = session["initial_reasoning"]
-    if "latest_checkpoint" in session:
-        modern["latest_checkpoint"] = session["latest_checkpoint"]
+    # Preserve all evidence fields when pausing/resuming. Explicit normalization upgrades legacy
+    # sessions, while the copy prevents newer fields from being silently discarded here.
+    modern = copy.deepcopy(session)
+    modern.update(
+        {
+            "schema_version": 5,
+            "problem_id": session["problem_id"],
+            "started_at": started_at,
+            "active_started_at": session.get("active_started_at", started_at),
+            "accumulated_seconds": int(session.get("accumulated_seconds", 0)),
+            "hints_used": int(session.get("hints_used", 0)),
+            "checkpoint_count": int(session.get("checkpoint_count", 0)),
+            "assistance_log": list(session.get("assistance_log", [])),
+            "focus_extensions": list(session.get("focus_extensions", [])),
+            "learning_event_paths": list(session.get("learning_event_paths", [])),
+            "substantial_gate_recorded": bool(session.get("substantial_gate_recorded", False)),
+        }
+    )
     return modern
 
 

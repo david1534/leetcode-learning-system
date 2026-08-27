@@ -113,6 +113,16 @@ def focus_message(session: dict) -> str | None:
     return None
 
 
+def repair_gate_lines(gate: dict, *, indent: str = "") -> list[str]:
+    state = "ready now" if gate["eligible"] else "available next Eastern day"
+    return [
+        f"{indent}{gate['skill']} / {gate['category']} ({state})",
+        f"{indent}Error ID: {gate['event_id']}",
+        f"{indent}Prompt: {gate['repair_prompt']}",
+        f"{indent}Start with: python -m study repair --error-id {gate['event_id']}",
+    ]
+
+
 def cmd_doctor(root: Path, _args: argparse.Namespace) -> int:
     checks: list[tuple[str, bool, str]] = []
     checks.append(("Python >= 3.11", python_version_ok(), sys.version.split()[0]))
@@ -166,8 +176,9 @@ def cmd_today(root: Path, args: argparse.Namespace) -> int:
     if gates:
         print("\nRepair gates:")
         for gate in gates:
-            state = "ready" if gate["eligible"] else "available tomorrow"
-            print(f"  - {gate['skill']} / {gate['category']} ({state})")
+            lines = repair_gate_lines(gate, indent="    ")
+            print(f"  - {lines[0].strip()}")
+            print("\n".join(lines[1:]))
 
     local_now = now.astimezone(EASTERN)
     if local_now.weekday() < 5 or args.include_new:
@@ -234,14 +245,12 @@ def cmd_practice(root: Path, args: argparse.Namespace) -> int:
     eligible_gates = [gate for gate in gates if gate["eligible"]]
     if not due and eligible_gates:
         gate = eligible_gates[0]
-        print(
-            f"Repair required before new material: {gate['skill']} / {gate['category']}\n"
-            f"Prompt: {gate['repair_prompt']}\n"
-            "Submit the delayed reconstruction with `study repair`."
-        )
+        print("Repair required before new material:")
+        print("\n".join(repair_gate_lines(gate)))
         return 0
     if not due and gates:
-        print("A repair gate becomes eligible tomorrow. Due reviews remain available meanwhile.")
+        print("A repair gate becomes eligible next Eastern day. Due reviews remain available.")
+        print("\n".join(repair_gate_lines(gates[0])))
         return 0
     problem = due[0] if due else next_new_problem(root)
     if problem is None:
@@ -457,6 +466,8 @@ def cmd_insights(root: Path, args: argparse.Namespace) -> int:
     print(f"Transfer success: {percentage(result['transfer_success_rate'])}")
     print(f"Active hours recorded: {result['active_hours']}")
     print(f"Open repair gates: {result['open_repair_gates']}")
+    for gate in open_repair_gates(root):
+        print("\n".join(repair_gate_lines(gate, indent="  ")))
     if result["errors_by_category"]:
         print("Errors by category:")
         for category, count in result["errors_by_category"].items():
@@ -706,6 +717,15 @@ def cmd_finalize(root: Path, args: argparse.Namespace) -> int:
     if unsafe:
         raise RuntimeError(f"Reflection contains public-content risks: {', '.join(unsafe)}")
 
+    name = branch_name(root)
+    if not name.startswith("attempt/"):
+        raise GitFlowError("Completion must run on an attempt branch.")
+    allowed_existing = set(session.get("learning_event_paths", []))
+    unrelated = tracked_changes(root, exclude_attempt=True)
+    extra = [path for path in unrelated if path not in allowed_existing]
+    if extra:
+        raise GitFlowError(f"Unrelated tracked changes block completion: {', '.join(extra)}")
+
     destination = root / "solutions" / f"{problem['id']}.py"
     destination.parent.mkdir(exist_ok=True)
     shutil.copy2(candidate_path(root), destination)
@@ -726,9 +746,6 @@ def cmd_finalize(root: Path, args: argparse.Namespace) -> int:
         bool(session.get("first_checkpoint_passed", False)),
     )
     shutil.rmtree(root / "attempt")
-    name = branch_name(root)
-    if not name.startswith("attempt/"):
-        raise GitFlowError("Completion must run on an attempt branch.")
     paths = [
         "attempt",
         destination.relative_to(root).as_posix(),
@@ -736,11 +753,6 @@ def cmd_finalize(root: Path, args: argparse.Namespace) -> int:
         review_path.relative_to(root).as_posix(),
         *session.get("learning_event_paths", []),
     ]
-    unrelated = tracked_changes(root, exclude_attempt=True)
-    allowed = set(paths[1:])
-    extra = [path for path in unrelated if path not in allowed]
-    if extra:
-        raise GitFlowError(f"Unrelated tracked changes block completion: {', '.join(extra)}")
     commit_paths(root, f"study: finish {problem['id']} ({args.rating})", paths)
     push_current(root)
     if args.sync:
@@ -868,6 +880,7 @@ def cmd_status(root: Path, _args: argparse.Namespace) -> int:
 
 def reminder_text(root: Path) -> str:
     due = due_problems(root)
+    gates = open_repair_gates(root)
     lines = [
         f"# Practice due - {current_eastern_date()}",
         "",
@@ -885,9 +898,22 @@ def reminder_text(root: Path) -> str:
     else:
         lines.extend(["No spaced-repetition reviews are due today.", ""])
 
+    if gates:
+        lines.extend(["", "## Repair gates", ""])
+        for gate in gates:
+            state = "ready now" if gate["eligible"] else "available next Eastern day"
+            lines.extend(
+                [
+                    f"- **{gate['skill']} / {gate['category']}** ({state})",
+                    f"  - Error ID: `{gate['event_id']}`",
+                    f"  - Prompt: {gate['repair_prompt']}",
+                    f"  - Start with: `python -m study repair --error-id {gate['event_id']}`",
+                ]
+            )
+
     local_now = datetime.now(EASTERN)
     new_problem = next_new_problem(root)
-    if local_now.weekday() < 5 and new_problem:
+    if local_now.weekday() < 5 and new_problem and not gates:
         lines.extend(
             [
                 "",

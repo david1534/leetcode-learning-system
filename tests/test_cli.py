@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from study.cli import (
@@ -12,7 +12,13 @@ from study.cli import (
     reminder_text,
     render_reflection,
 )
-from study.core import problem_by_id, record_review, render_template
+from study.core import (
+    problem_by_id,
+    record_learning_error,
+    record_review,
+    render_template,
+    save_session,
+)
 
 
 def test_start_hint_and_test_lifecycle(monkeypatch, tmp_path, capsys):
@@ -161,6 +167,107 @@ def test_reminder_has_due_review(tmp_path):
     assert "arrays-001-pair-sum" in text
 
 
+def test_repair_gate_is_actionable_and_suppresses_new_work_in_reminder(tmp_path, monkeypatch):
+    root = tmp_path
+    (root / "curriculum").mkdir()
+    source = Path(__file__).parents[1] / "curriculum" / "problems.json"
+    (root / "curriculum" / "problems.json").write_text(source.read_text(encoding="utf-8"))
+    (root / "progress" / "reviews").mkdir(parents=True)
+    (root / "attempt").mkdir()
+    started = datetime(2026, 8, 24, 12, tzinfo=UTC)
+    save_session(
+        root,
+        {
+            "schema_version": 5,
+            "problem_id": "arrays-001-pair-sum",
+            "started_at": started.isoformat(),
+            "active_started_at": None,
+            "accumulated_seconds": 0,
+            "hints_used": 0,
+            "checkpoint_count": 0,
+        },
+    )
+    path = record_learning_error(
+        root,
+        "complement lookup",
+        "pattern-selection",
+        "misconception",
+        "blocking",
+        "Selected a pattern that loses the required indices.",
+        "Notice that original indices must be preserved.",
+        "Keep prior values mapped to their indices.",
+        "Apply complement lookup to a fresh list.",
+        recorded_at=started,
+    )
+    error_id = json.loads(path.read_text(encoding="utf-8"))["event_id"]
+
+    class WeekdayDatetime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            value = datetime(2026, 8, 27, 12, tzinfo=UTC)
+            return value if tz is None else value.astimezone(tz)
+
+    monkeypatch.setattr("study.cli.datetime", WeekdayDatetime)
+    text = reminder_text(root)
+
+    assert "## Repair gates" in text
+    assert f"Error ID: `{error_id}`" in text
+    assert f"study repair --error-id {error_id}" in text
+    assert "## New foundation work" not in text
+
+
+def test_practice_and_insights_show_repair_error_id(monkeypatch, tmp_path, capsys):
+    root = tmp_path
+    (root / "curriculum").mkdir()
+    source = Path(__file__).parents[1] / "curriculum" / "problems.json"
+    (root / "curriculum" / "problems.json").write_text(source.read_text(encoding="utf-8"))
+    (root / "progress" / "reviews").mkdir(parents=True)
+    (root / "pyproject.toml").write_text("[project]\nname='x'\n")
+    (root / "attempt").mkdir()
+    started = datetime.now(UTC) - timedelta(days=2)
+    save_session(
+        root,
+        {
+            "schema_version": 5,
+            "problem_id": "arrays-001-pair-sum",
+            "started_at": started.isoformat(),
+            "active_started_at": None,
+            "accumulated_seconds": 0,
+            "hints_used": 0,
+            "checkpoint_count": 0,
+        },
+    )
+    path = record_learning_error(
+        root,
+        "complement lookup",
+        "pattern-selection",
+        "misconception",
+        "blocking",
+        "Selected a pattern that loses the required indices.",
+        "Notice that original indices must be preserved.",
+        "Keep prior values mapped to their indices.",
+        "Apply complement lookup to a fresh list.",
+        recorded_at=started,
+    )
+    error_id = json.loads(path.read_text(encoding="utf-8"))["event_id"]
+    (root / "attempt" / "session.json").unlink()
+    (root / "attempt").rmdir()
+    monkeypatch.chdir(root)
+
+    assert main(["practice", "--no-sync"]) == 0
+    practice_output = capsys.readouterr().out
+    assert f"Error ID: {error_id}" in practice_output
+    assert f"study repair --error-id {error_id}" in practice_output
+
+    assert main(["today"]) == 0
+    today_output = capsys.readouterr().out
+    assert f"Error ID: {error_id}" in today_output
+
+    assert main(["insights"]) == 0
+    insights_output = capsys.readouterr().out
+    assert f"Error ID: {error_id}" in insights_output
+
+
 def test_passing_finish_promotes_solution_and_records_event(monkeypatch, tmp_path):
     root = tmp_path
     (root / "curriculum").mkdir()
@@ -305,6 +412,89 @@ def test_finalize_rejects_rating_above_substantial_help(monkeypatch, tmp_path, c
     ) == 2
     assert "permits at most Again" in capsys.readouterr().err
     assert (root / "attempt" / "session.json").exists()
+
+
+def test_finalize_preflight_failures_do_not_mutate_attempt_or_publish_files(
+    monkeypatch, tmp_path, capsys
+):
+    root = tmp_path
+    (root / "curriculum").mkdir()
+    source = Path(__file__).parents[1] / "curriculum" / "problems.json"
+    (root / "curriculum" / "problems.json").write_text(source.read_text(encoding="utf-8"))
+    (root / "progress" / "reviews").mkdir(parents=True)
+    (root / "solutions").mkdir()
+    (root / "pyproject.toml").write_text("[project]\nname='x'\n")
+    monkeypatch.chdir(root)
+    problem = problem_by_id(root, "arrays-001-pair-sum")
+    assert main(["start", problem["id"]]) == 0
+    candidate = root / "attempt" / "current.py"
+    candidate.write_text(
+        render_template(problem).replace(
+            "    raise NotImplementedError",
+            "    seen = {}\n"
+            "    for index, value in enumerate(nums):\n"
+            "        if target - value in seen:\n"
+            "            return [seen[target - value], index]\n"
+            "        seen[value] = index",
+        ),
+        encoding="utf-8",
+    )
+    assert main(
+        [
+            "note",
+            "reasoning",
+            "--approach",
+            "Use a seen-value map.",
+            "--invariant",
+            "Seen contains prior values.",
+            "--complexity",
+            "O(n) time and space",
+        ]
+    ) == 0
+    reflection = root / "reflection.json"
+    reflection.write_text(
+        json.dumps(
+            {
+                "approach": "Use a seen-value map.",
+                "insight": "Seen contains prior values.",
+                "time_complexity": "O(n)",
+                "space_complexity": "O(n)",
+                "lessons": "Check the complement before storing the current value.",
+                "assistance": "No algorithmic assistance was used.",
+                "rating_rationale": "The solution was independently reconstructed.",
+            }
+        ),
+        encoding="utf-8",
+    )
+    command = [
+        "finalize",
+        "--rating",
+        "easy",
+        "--minutes",
+        "10",
+        "--reflection-file",
+        str(reflection),
+    ]
+    capsys.readouterr()
+
+    monkeypatch.setattr("study.cli.branch_name", lambda _root: "main")
+    assert main(command) == 2
+    assert "attempt branch" in capsys.readouterr().err
+    assert candidate.exists()
+    assert (root / "attempt" / "session.json").exists()
+    assert not (root / "solutions" / f"{problem['id']}.py").exists()
+    assert not (root / "reflections").exists()
+    assert not list((root / "progress" / "reviews").glob("*.json"))
+
+    monkeypatch.setattr("study.cli.branch_name", lambda _root: f"attempt/{problem['id']}")
+    monkeypatch.setattr("study.cli.tracked_changes", lambda _root, exclude_attempt: ["README.md"])
+    assert main(command) == 2
+    assert "Unrelated tracked changes" in capsys.readouterr().err
+    assert candidate.exists()
+    assert (root / "attempt" / "session.json").exists()
+    assert not (root / "solutions" / f"{problem['id']}.py").exists()
+    assert not (root / "reflections").exists()
+    assert not list((root / "progress" / "reviews").glob("*.json"))
 
 
 def test_reflection_embeds_initial_reasoning_help_and_rating_evidence():

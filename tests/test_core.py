@@ -13,6 +13,7 @@ from study.core import (
     load_problems,
     next_new_problem,
     open_repair_gates,
+    pause_timer,
     problem_by_id,
     rebuild_cards,
     record_assistance,
@@ -21,6 +22,7 @@ from study.core import (
     record_repair,
     record_review,
     render_template,
+    resume_timer,
     run_solution,
     save_session,
 )
@@ -207,6 +209,43 @@ def test_learning_evidence_survives_modern_session_upgrade(tmp_path):
     assert saved["schema_version"] == 5
     assert saved["initial_reasoning"]["approach"] == "Use two pointers."
     assert saved["assistance_log"][0]["level"] == "substantial"
+
+
+def test_pause_and_resume_preserve_all_current_and_future_session_evidence(tmp_path):
+    root = seed_repo(tmp_path)
+    started = datetime(2026, 8, 26, 12, tzinfo=UTC)
+    (root / "attempt").mkdir()
+    session = {
+        "schema_version": 5,
+        "problem_id": "one",
+        "attempt_kind": "review",
+        "started_at": started.isoformat(),
+        "active_started_at": started.isoformat(),
+        "accumulated_seconds": 0,
+        "hints_used": 1,
+        "checkpoint_count": 1,
+        "checkpoint_count_at_last_hint": 1,
+        "first_checkpoint_passed": True,
+        "latest_checkpoint": {
+            "attempt": 1,
+            "checked_at": started.isoformat(),
+            "passed_cases": 1,
+            "total_cases": 1,
+        },
+        "initial_reasoning": {"quality": "complete"},
+        "future_evidence_field": {"preserve": True},
+    }
+    save_session(root, session)
+
+    paused = pause_timer(root, started + timedelta(minutes=10))
+    resumed = resume_timer(root, started + timedelta(minutes=11))
+
+    for saved in (paused, resumed):
+        assert saved["attempt_kind"] == "review"
+        assert saved["first_checkpoint_passed"] is True
+        assert saved["checkpoint_count_at_last_hint"] == 1
+        assert saved["latest_checkpoint"]["passed_cases"] == 1
+        assert saved["future_evidence_field"] == {"preserve": True}
 
 
 def test_reasoning_records_retrieval_fields_and_focus_boundary(tmp_path):
