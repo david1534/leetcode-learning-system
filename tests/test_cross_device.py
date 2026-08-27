@@ -55,6 +55,18 @@ def test_attempt_moves_between_laptops_and_merges_to_main(monkeypatch, tmp_path,
     assert git(laptop_a, "branch", "--show-current") == "attempt/arrays-001-pair-sum"
 
     candidate = laptop_a / "attempt" / "current.py"
+    assert main(
+        [
+            "note",
+            "reasoning",
+            "--approach",
+            "Use a seen map.",
+            "--invariant",
+            "Seen contains earlier values.",
+            "--complexity",
+            "O(n)",
+        ]
+    ) == 0
     candidate.write_text("def pair_sum_indices(nums, target):\n    return [0, 1]\n")
     assert main(["checkpoint"]) == 0
     checkpoint = json.loads((laptop_a / "attempt" / "session.json").read_text(encoding="utf-8"))[
@@ -94,7 +106,8 @@ def test_attempt_moves_between_laptops_and_merges_to_main(monkeypatch, tmp_path,
         time_complexity="O(n)",
         space_complexity="O(n)",
         lessons="A one-pass map avoids checking every pair.",
-        hint_effect="No hints were used.",
+        assistance="No algorithmic assistance was used.",
+        rating_rationale="The approach was independently recalled and verified.",
         reflection_file=None,
         sync=True,
     )

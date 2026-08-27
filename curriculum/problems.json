@@ -460,6 +460,7 @@
     },
     {
       "id": "arrays-001-pair-sum",
+      "skills": ["complement lookup", "one-pass hashing", "index invariants"],
       "title": "Pair Sum Indices",
       "topic": "arrays-hashing",
       "kind": "core",
@@ -575,6 +576,7 @@
     },
     {
       "id": "arrays-002-anagram-groups",
+      "skills": ["canonical representation", "hashable keys", "frequency counting"],
       "title": "Group Rearranged Words",
       "topic": "arrays-hashing",
       "kind": "core",
@@ -694,6 +696,7 @@
     },
     {
       "id": "arrays-003-longest-streak",
+      "skills": ["set membership", "sequence-start recognition", "amortized linear scans"],
       "title": "Longest Consecutive Streak",
       "topic": "arrays-hashing",
       "kind": "core",
@@ -782,6 +785,7 @@
     },
     {
       "id": "arrays-004-product-others",
+      "skills": ["prefix-suffix decomposition", "in-place accumulation", "zero handling"],
       "title": "Product of the Other Positions",
       "topic": "arrays-hashing",
       "kind": "core",
@@ -895,6 +899,7 @@
     },
     {
       "id": "arrays-005-sudoku-check",
+      "skills": ["constraint encoding", "multi-scope validation", "duplicate detection"],
       "title": "Partial Grid Validity",
       "topic": "arrays-hashing",
       "kind": "core",
@@ -980,6 +985,7 @@
     },
     {
       "id": "arrays-006-top-frequent",
+      "skills": ["frequency counting", "bucket selection", "output bounds"],
       "title": "Most Frequent Values",
       "topic": "arrays-hashing",
       "kind": "core",
@@ -1100,6 +1106,7 @@
     },
     {
       "id": "arrays-007-encode-decode",
+      "skills": ["length-prefix encoding", "boundary parsing", "round-trip invariants"],
       "title": "Encode and Decode Strings",
       "topic": "arrays-hashing",
       "kind": "core",
@@ -1197,6 +1204,7 @@
     },
     {
       "id": "arrays-008-transfer-inventory",
+      "skills": ["pattern transfer", "data reconciliation", "multi-step invariants"],
       "title": "Inventory Reconciliation",
       "topic": "arrays-hashing",
       "kind": "transfer",

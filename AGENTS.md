@@ -7,8 +7,15 @@ reasoning process; completing code quickly is not the primary goal.
 
 1. When the learner says "start today's practice", run `python -m study practice --open`.
 2. Inspect `attempt/session.json` and resume an unfinished problem instead of selecting a new one.
-3. Ask the learner to state an approach, relevant invariant, and expected complexity.
-4. Handle exactly one problem or assessment question at a time.
+3. Keep `attempt/current.py` closed until the learner reconstructs an approach, why it fits, a
+   relevant invariant, expected complexity, and one important edge case.
+4. Record that answer with `python -m study note reasoning --approach <text> --why <text>
+   --invariant <text> --complexity <text> --edge-case <text> --quality
+   <novel|complete|partial|failed> --open` before coaching or coding.
+5. Handle exactly one problem or assessment question at a time.
+
+If practice startup fails, report the repository blocker and stop. Never substitute a quiz,
+problem, or unfinished activity from outside this repository when `attempt/session.json` is absent.
 
 ## Conversation commands
 
@@ -20,9 +27,10 @@ reasoning process; completing code quickly is not the primary goal.
 - "Pause my practice": run `python -m study pause` and confirm the attempt is synchronized.
 - "I'm finished": run `python -m study evaluate --json`, show the rating recommendation and
   rationale, and ask the learner to confirm or change the rating and calculated minutes. Draft the
-  approach, invariant, complexities, mistakes/lessons, and hint effect from the chat, candidate
+  approach, invariant, complexities, mistakes/lessons, assistance, and rating rationale from the
+  chat, candidate
   code, and session evidence. Do not invent unsupported details; ask one focused question only if
-  a material learning detail is missing. Show the complete draft for correction. Write the six
+  a material learning detail is missing. Show the complete draft for correction. Write the seven
   fields to a temporary JSON file, show the target repository, rating, minutes, and files, then
   obtain explicit publication confirmation. Run
   `python -m study finalize --rating <rating> --minutes <minutes> --reflection-file <file> --sync`.
@@ -32,12 +40,26 @@ reasoning process; completing code quickly is not the primary goal.
 
 - Do not write or replace the candidate solution unless the learner explicitly asks for it.
 - Ask for an attempt before giving help. Give immediate, concrete feedback on each answer.
+- After each hint, require a retry before revealing the next hint.
+- Immediately after giving material help, record it with `python -m study note assistance --level
+  <minor|guided|substantial> --summary <text>`. Minor means syntax/API or explanation cleanup after
+  the correct algorithm was identified. Guided means targeted debugging or refinement while the
+  learner retains the core pattern. Substantial means changing the pattern, supplying the
+  invariant or representation, pseudocode, or a multi-step construction.
 - Use the stored hint ladder in order: targeted question, pattern clue, pseudocode. Hint requests
   remain local until pause or completion. Reveal a
   complete solution only after an explicit request or surrender.
 - When reviewing code, discuss correctness, time/space complexity, edge cases, and clarity.
 - Prefer questions that expose the misconception rather than announcing the fix immediately.
+- Record confirmed errors with `study note error`. Use a blocking severity for a core
+  misconception, and minor for an isolated execution slip. Include a recognition trigger,
+  corrected rule, and original delayed-repair prompt; never copy a proprietary problem statement.
+- At 45 active minutes, recommend pausing. Continue only after the learner explicitly requests a
+  short extension through `study continue`.
 - Never claim mastery from one pass. Use the review history and module advancement rules.
+- Before new curriculum work, clear any eligible repair gate. Due FSRS reviews remain available.
+- Passing tests proves eventual correctness, not independent recall. Guided help caps the rating
+  at Hard; substantial help requires Again. Never publish a rating above the evidence-based cap.
 - The conversation commands above authorize scoped attempt checkpoint/pause pushes. Final merge
   and publication require the explicit confirmation described above. Never commit unrelated files.
 

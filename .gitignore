@@ -3,6 +3,7 @@
 .study-reflection.json
 __pycache__/
 .pytest_cache/
+.test-temp*/
 .ruff_cache/
 *.pyc
 *.egg-info/

@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "correction_id": "anagram-groups-assistance-audit",
+  "target_event_id": "35bdca2035cc46408447f5890836fa5a",
+  "problem_id": "arrays-002-anagram-groups",
+  "corrected_rating": "again",
+  "corrected_at": "2026-08-27T00:00:00+00:00",
+  "reason": "The learner's initial pattern was incorrect and substantial coaching supplied the core representation and construction."
+}

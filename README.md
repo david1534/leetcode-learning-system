@@ -15,13 +15,15 @@ be due any day.
 
 Ratings have consistent meanings:
 
-- **Again:** you could not reconstruct a working approach.
-- **Hard:** you needed major help or substantial debugging.
-- **Good:** you passed with at most one hint and explained the complexity correctly.
+- **Again:** you could not reconstruct the core approach or substantial help supplied its pattern,
+  invariant, representation, pseudocode, or multi-step construction.
+- **Hard:** you retained the core algorithm but needed guided refinement or substantial debugging.
+- **Good:** you solved it with no algorithmic help, though extra time or checkpoints were needed.
 - **Easy:** you solved it quickly and independently with a correct explanation.
 
-The underlying learning ideas are retrieval practice, spaced repetition, and interleaving. FSRS
-adapts future review dates from your ratings instead of using a fixed calendar.
+The underlying learning ideas are retrieval practice, spaced repetition, interleaving, desirable
+difficulty, rapid corrective feedback, and transfer. FSRS adapts future review dates from your
+ratings instead of using a fixed calendar.
 
 ## Setup
 
@@ -45,19 +47,40 @@ and opens the candidate. You never need to copy a problem ID or remember a Pytho
 
 ## Daily workflow
 
-1. Press `Ctrl+Shift+B` and work in `attempt/current.py`.
-2. Tell Codex **"give me a hint"** or run **Study: Next Hint** when needed.
-3. Tell Codex **"test my solution"** or run **Study: Check Solution Locally**. Deterministic cases
+1. Press `Ctrl+Shift+B`. Before opening code, reconstruct the likely pattern, why it fits, its
+   invariant, expected complexity, and one important edge case. Reviews label this retrieval as
+   complete, partial, or failed.
+2. Record that compact plan; the candidate then opens for clean implementation.
+3. Tell Codex **"give me a hint"** or run **Study: Next Hint** when needed. Retry after every hint.
+4. Tell Codex **"test my solution"** or run **Study: Check Solution Locally**. Deterministic cases
    verify correctness locally, then Codex discusses one issue at a time without exposing hidden
    inputs. Nothing is pushed during a check.
-4. Tell Codex **"pause my practice"** before changing laptops.
-5. Tell Codex **"I'm finished"**. Codex drafts the reflection from your conversation and code;
+5. Tell Codex **"pause my practice"** before changing laptops.
+6. Tell Codex **"I'm finished"**. Codex drafts the reflection from your conversation and code;
    correct it if needed, confirm the recommended recall rating and minutes, and explicitly approve
    publication. Codex records the review/reflection and merges it into `main`.
+
+Codex records your initial reasoning and each material coaching intervention in the tracked attempt.
+Those facts survive pauses and device changes, appear in the published reflection, and enforce the
+highest honest rating. Passing tests cannot override substantial help: that review is Again.
 
 If Codex is unavailable, run **Study: Finish Session** for the guided terminal fallback.
 
 Use the **Study: Status** VS Code task for roadmap progress.
+
+The workflow records sanitized error events by skill, category, cause, and severity. A blocking
+misconception—or the same minor error recurring—creates a next-day repair gate. The gate asks for
+the recognition trigger, corrected rule, why the earlier reasoning failed, and application to an
+original scenario. Due reviews can continue, but new curriculum work waits for an independent
+repair. Run `python -m study insights` for recall, assistance, first-checkpoint, and error trends.
+
+At 45 active minutes the system recommends a break. Productive work can be explicitly extended in
+short blocks with `python -m study continue --minutes 10`; the boundary is deliberately soft.
+
+These choices follow robust findings from retrieval-practice, distributed-practice, interleaving,
+and effective-learning-technique research (Roediger & Karpicke; Cepeda et al.; Rohrer & Taylor;
+Dunlosky et al.). The design optimizes independent interview transfer per active hour rather than
+problem counts or streaks.
 
 Because some OneDrive policies block tool caches, the documented quality command is
 `ruff check --no-cache .`.
@@ -95,6 +118,13 @@ The GitHub Actions workflow runs at both possible UTC equivalents of 8:00 AM Eas
 the actual `America/New_York` hour, closes earlier open reminder issues, and creates today's issue.
 Enable GitHub watch/email/mobile notifications after publishing. Scheduled workflows can be a few
 minutes late and GitHub may disable schedules after prolonged repository inactivity.
+
+## GitHub automation
+
+**Code quality** runs the full test suite and Ruff after pushes and pull requests to protect `main`.
+**Daily practice reminder** runs at both UTC hours that can correspond to 8:00 AM Eastern, then
+creates an issue only when the Eastern-time guard matches. The other scheduled run is an intentional
+no-op for daylight-saving compatibility. Each workflow writes a summary explaining its outcome.
 
 ## Public-repository safety
 

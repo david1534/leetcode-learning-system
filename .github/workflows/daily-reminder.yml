@@ -8,6 +8,7 @@ permissions:
   issues: write
 jobs:
   remind:
+    name: Deliver 8 AM Eastern reminder
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,6 +18,7 @@ jobs:
           cache: pip
       - run: python -m pip install -e .
       - id: time
+        name: Check Eastern time
         shell: bash
         run: |
           echo "hour=$(TZ=America/New_York date +%H)" >> "$GITHUB_OUTPUT"
@@ -49,3 +51,19 @@ jobs:
               await github.rest.issues.createLabel({ owner, repo, name: 'practice-reminder', color: '1D76DB', description: 'Daily adaptive study reminder' });
             }
             await github.rest.issues.create({ owner, repo, title: `Practice due - ${process.env.REMINDER_DATE}`, body: fs.readFileSync(process.env.BODY_PATH, 'utf8'), labels: ['practice-reminder'], assignees: [owner] });
+      - name: Explain reminder result
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## Daily practice reminder"
+            echo "This workflow runs at both UTC offsets that can correspond to 8 AM Eastern."
+            echo ""
+            echo "- Eastern hour: ${{ steps.time.outputs.hour }}"
+            echo "- Trigger: ${{ github.event_name }}"
+            if [[ "${{ steps.time.outputs.hour }}" == "08" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+              echo "- Result: reminder delivery was attempted; inspect failed steps above if this run is red."
+            else
+              echo "- Result: intentionally skipped because this was the non-8-AM duplicate cron run."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

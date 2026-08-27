@@ -1,6 +1,7 @@
 """Pair Sum Indices
 
-Return the two indices of distinct values that add to target. Exactly one solution exists; return indices in increasing order.
+Return the two indices of distinct values that add to target. Exactly one solution exists;
+return indices in increasing order.
 
 Examples:
 [

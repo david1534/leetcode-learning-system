@@ -1,6 +1,12 @@
 {
   "version": 1,
   "session_minutes": 45,
+  "performance_goal": "Independently recognize and solve unseen interview-style problems",
+  "module_map": {
+    "purpose": "Build reusable recognition triggers, invariants, and implementation patterns",
+    "prerequisites": ["Python collections", "complexity analysis", "clear invariants"],
+    "transfer_target": "Select and apply the right pattern on a novel problem without coaching"
+  },
   "stages": [
     {"id": 1, "name": "Foundations", "topics": ["diagnostic", "arrays-hashing", "two-pointers", "stack", "binary-search"]},
     {"id": 2, "name": "Linear patterns", "topics": ["sliding-window", "linked-list", "intervals"]},
@@ -15,4 +21,3 @@
     "require_verbal_explanation": true
   }
 }
-

@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "correction_id": "pair-sum-assistance-audit",
+  "target_event_id": "91305de82f294291b7bd2d2c46cf30af",
+  "problem_id": "arrays-001-pair-sum",
+  "corrected_rating": "again",
+  "corrected_at": "2026-08-27T00:00:00+00:00",
+  "reason": "The learner did not independently reconstruct the approach and required substantial algorithmic assistance."
+}

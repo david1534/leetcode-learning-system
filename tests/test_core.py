@@ -7,10 +7,18 @@ from study.core import (
     MAX_ACTIVE_SEGMENT_SECONDS,
     active_seconds,
     due_problems,
+    effective_events,
+    focus_boundary_reached,
+    learning_insights,
     load_problems,
     next_new_problem,
+    open_repair_gates,
     problem_by_id,
     rebuild_cards,
+    record_assistance,
+    record_initial_reasoning,
+    record_learning_error,
+    record_repair,
     record_review,
     render_template,
     run_solution,
@@ -59,6 +67,14 @@ def test_catalog_contains_diagnostic_and_complete_first_module(repo_root):
     assert all(problem["parameters"] for problem in problems)
     assert all(problem["returns"]["description"] for problem in problems)
     assert all(example["explanation"] for problem in problems for example in problem["examples"])
+
+
+def test_published_rating_corrections_make_both_reviews_again(repo_root):
+    effective = {event["problem_id"]: event for event in effective_events(repo_root)}
+    assert effective["arrays-001-pair-sum"]["original_rating"] == "hard"
+    assert effective["arrays-001-pair-sum"]["rating"] == "again"
+    assert effective["arrays-002-anagram-groups"]["original_rating"] == "hard"
+    assert effective["arrays-002-anagram-groups"]["rating"] == "again"
 
 
 def test_pair_sum_template_has_named_readable_example(repo_root):
@@ -132,6 +148,308 @@ def test_event_files_are_immutable_and_unique(tmp_path):
     second = record_review(root, problem, "easy", 15, True, 0, True, reviewed_at=now)
     assert first != second
     assert len(list((root / "progress" / "reviews").glob("*.json"))) == 2
+
+
+def test_review_correction_replaces_rating_without_adding_attempt(tmp_path):
+    root = seed_repo(tmp_path)
+    problem = problem_by_id(root, "one")
+    review = record_review(
+        root,
+        problem,
+        "hard",
+        20,
+        True,
+        0,
+        True,
+        assistance_level="substantial",
+        assistance_count=4,
+        reviewed_at=datetime(2026, 8, 26, 12, tzinfo=UTC),
+    )
+    event = json.loads(review.read_text())
+    corrections = root / "progress" / "corrections"
+    corrections.mkdir()
+    correction = {
+        "schema_version": 1,
+        "correction_id": "test-correction",
+        "target_event_id": event["event_id"],
+        "problem_id": "one",
+        "corrected_rating": "again",
+        "corrected_at": "2026-08-27T00:00:00+00:00",
+        "reason": "Substantial help supplied the approach.",
+    }
+    (corrections / "correction.json").write_text(json.dumps(correction))
+
+    events = effective_events(root)
+
+    assert len(events) == 1
+    assert events[0]["original_rating"] == "hard"
+    assert events[0]["rating"] == "again"
+    assert len(rebuild_cards(root)) == 1
+
+
+def test_learning_evidence_survives_modern_session_upgrade(tmp_path):
+    root = seed_repo(tmp_path)
+    (root / "attempt").mkdir()
+    session = {
+        "schema_version": 3,
+        "problem_id": "one",
+        "started_at": "2026-08-26T12:00:00+00:00",
+        "active_started_at": None,
+        "accumulated_seconds": 0,
+        "hints_used": 0,
+        "checkpoint_count": 0,
+    }
+    save_session(root, session)
+    record_initial_reasoning(root, "Use two pointers.", "Pointers converge.", "O(n)")
+    record_assistance(root, "substantial", "Changed to a frequency map.")
+
+    saved = json.loads((root / "attempt" / "session.json").read_text())
+    assert saved["schema_version"] == 5
+    assert saved["initial_reasoning"]["approach"] == "Use two pointers."
+    assert saved["assistance_log"][0]["level"] == "substantial"
+
+
+def test_reasoning_records_retrieval_fields_and_focus_boundary(tmp_path):
+    root = seed_repo(tmp_path)
+    started = datetime(2026, 8, 26, 12, tzinfo=UTC)
+    (root / "attempt").mkdir()
+    save_session(
+        root,
+        {
+            "schema_version": 5,
+            "problem_id": "one",
+            "started_at": started.isoformat(),
+            "active_started_at": started.isoformat(),
+            "accumulated_seconds": 0,
+            "hints_used": 0,
+            "checkpoint_count": 0,
+        },
+    )
+    record_initial_reasoning(
+        root,
+        "Use a set.",
+        "Each item is processed once.",
+        "O(n)",
+        why="Membership checks match the constraint.",
+        edge_case="Empty input.",
+        quality="complete",
+        recorded_at=started,
+    )
+    session = json.loads((root / "attempt" / "session.json").read_text())
+    assert session["initial_reasoning"]["quality"] == "complete"
+    assert not focus_boundary_reached(session, started + timedelta(minutes=44))
+    assert focus_boundary_reached(session, started + timedelta(minutes=45))
+
+
+def test_blocking_and_recurring_errors_create_delayed_repair_gates(tmp_path):
+    root = seed_repo(tmp_path)
+    started = datetime(2026, 8, 26, 12, tzinfo=UTC)
+    (root / "attempt").mkdir()
+    save_session(
+        root,
+        {
+            "schema_version": 5,
+            "problem_id": "one",
+            "started_at": started.isoformat(),
+            "active_started_at": started.isoformat(),
+            "accumulated_seconds": 0,
+            "hints_used": 0,
+            "checkpoint_count": 0,
+        },
+    )
+    blocking = record_learning_error(
+        root,
+        "hash lookup",
+        "pattern-selection",
+        "misconception",
+        "blocking",
+        "Selected sorting despite needing original indices.",
+        "Original indices plus constant-time lookup.",
+        "Store prior values and indices.",
+        "Explain and apply complement lookup to a novel list.",
+        recorded_at=started,
+    )
+    target = json.loads(blocking.read_text())
+    gates = open_repair_gates(root, started + timedelta(hours=1))
+    assert len(gates) == 1 and not gates[0]["eligible"]
+    assert open_repair_gates(root, started + timedelta(days=1))[0]["eligible"]
+
+    record_repair(
+        root,
+        target["event_id"],
+        "Need original indices.",
+        "Use a prior-value map.",
+        "Sorting lost positions.",
+        "Applied it to a new complement example.",
+        True,
+        recorded_at=started + timedelta(days=1),
+    )
+    assert open_repair_gates(root, started + timedelta(days=2)) == []
+    assert learning_insights(root)["cleared_repairs"] == 1
+
+
+def test_recurring_minor_error_creates_gate_and_early_repair_is_rejected(tmp_path):
+    root = seed_repo(tmp_path)
+    started = datetime(2026, 8, 26, 12, tzinfo=UTC)
+    (root / "attempt").mkdir()
+    save_session(
+        root,
+        {
+            "schema_version": 5,
+            "problem_id": "one",
+            "started_at": started.isoformat(),
+            "active_started_at": started.isoformat(),
+            "accumulated_seconds": 0,
+            "hints_used": 0,
+            "checkpoint_count": 0,
+        },
+    )
+    paths = []
+    for offset in range(2):
+        paths.append(
+            record_learning_error(
+                root,
+                "edge handling",
+                "edge-case",
+                "omission",
+                "minor",
+                "Missed the empty input case.",
+                "Check the smallest legal input.",
+                "Handle empty input before scanning.",
+                "Apply the boundary rule to a new input shape.",
+                recorded_at=started + timedelta(hours=offset),
+            )
+        )
+    target = json.loads(paths[-1].read_text())
+    gates = open_repair_gates(root, started + timedelta(hours=2))
+    assert [gate["event_id"] for gate in gates] == [target["event_id"]]
+    try:
+        record_repair(
+            root,
+            target["event_id"],
+            "Smallest input.",
+            "Handle empty input first.",
+            "I omitted the boundary.",
+            "Applied it to an empty matrix.",
+            True,
+            recorded_at=started + timedelta(hours=2),
+        )
+    except RuntimeError as exc:
+        assert "next Eastern day" in str(exc)
+    else:
+        raise AssertionError("An early repair should be rejected.")
+
+
+def test_substantial_help_automatically_creates_repair_gate(tmp_path):
+    root = seed_repo(tmp_path)
+    started = datetime(2026, 8, 26, 12, tzinfo=UTC)
+    (root / "attempt").mkdir()
+    save_session(
+        root,
+        {
+            "schema_version": 5,
+            "problem_id": "one",
+            "started_at": started.isoformat(),
+            "active_started_at": started.isoformat(),
+            "accumulated_seconds": 0,
+            "hints_used": 0,
+            "checkpoint_count": 0,
+        },
+    )
+    record_assistance(root, "substantial", "Supplied the core representation.", recorded_at=started)
+    gates = open_repair_gates(root, started + timedelta(days=1))
+    assert len(gates) == 1
+    assert gates[0]["source"] == "substantial-help"
+
+
+def test_successful_repair_resets_recurring_minor_history(tmp_path):
+    root = seed_repo(tmp_path)
+    started = datetime(2026, 8, 25, 12, tzinfo=UTC)
+    (root / "attempt").mkdir()
+    save_session(
+        root,
+        {
+            "schema_version": 5,
+            "problem_id": "one",
+            "started_at": started.isoformat(),
+            "active_started_at": started.isoformat(),
+            "accumulated_seconds": 0,
+            "hints_used": 0,
+            "checkpoint_count": 0,
+        },
+    )
+    latest = None
+    for offset in range(2):
+        latest = record_learning_error(
+            root,
+            "edge handling",
+            "edge-case",
+            "omission",
+            "minor",
+            "Missed a boundary.",
+            "Inspect the smallest input.",
+            "Handle the boundary before scanning.",
+            "Apply this rule to a fresh container shape.",
+            recorded_at=started + timedelta(hours=offset),
+        )
+    assert latest is not None
+    error = json.loads(latest.read_text())
+    record_repair(
+        root,
+        error["event_id"],
+        "Smallest legal input.",
+        "Handle boundaries first.",
+        "I skipped the boundary.",
+        "Applied the rule to an empty grid.",
+        True,
+        recorded_at=started + timedelta(days=1),
+    )
+    record_learning_error(
+        root,
+        "edge handling",
+        "edge-case",
+        "omission",
+        "minor",
+        "Missed a different boundary.",
+        "Inspect the largest input.",
+        "Check both ends before scanning.",
+        "Apply the rule to a single-row grid.",
+        recorded_at=started + timedelta(days=2),
+    )
+    assert open_repair_gates(root, started + timedelta(days=3)) == []
+
+
+def test_public_learning_events_reject_sensitive_text(tmp_path):
+    root = seed_repo(tmp_path)
+    (root / "attempt").mkdir()
+    save_session(
+        root,
+        {
+            "schema_version": 5,
+            "problem_id": "one",
+            "started_at": "2026-08-26T12:00:00+00:00",
+            "active_started_at": None,
+            "accumulated_seconds": 0,
+            "hints_used": 0,
+            "checkpoint_count": 0,
+        },
+    )
+    try:
+        record_learning_error(
+            root,
+            "debugging",
+            "debugging",
+            "execution-slip",
+            "minor",
+            "Opened C:\\Users\\someone\\secret.txt",
+            "Inspect paths.",
+            "Use repository-relative paths.",
+            "Explain safe path handling.",
+        )
+    except RuntimeError as exc:
+        assert "public-content risks" in str(exc)
+    else:
+        raise AssertionError("Sensitive learning evidence should be rejected.")
 
 
 def test_all_seeded_case_shapes_are_json_round_trippable(repo_root):

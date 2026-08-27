@@ -7,6 +7,7 @@
     {"label": "Study: Pause & Sync", "type": "shell", "command": "powershell.exe", "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}\\scripts\\study.ps1", "pause"], "problemMatcher": []},
     {"label": "Study: Finish Session", "type": "shell", "command": "powershell.exe", "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}\\scripts\\study.ps1", "complete"], "problemMatcher": []},
     {"label": "Study: Status", "type": "shell", "command": "powershell.exe", "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}\\scripts\\study.ps1", "status"], "problemMatcher": []},
+    {"label": "Study: Learning Insights", "type": "shell", "command": "powershell.exe", "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}\\scripts\\study.ps1", "insights"], "problemMatcher": []},
     {"label": "Quality: Full Suite", "type": "shell", "command": "powershell.exe", "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}\\scripts\\study.ps1", "_quality"], "group": "test", "problemMatcher": []}
   ]
 }
