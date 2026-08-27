@@ -4,6 +4,9 @@ A NeetCode-inspired learning path that is local, testable, and designed for dura
 It combines original Python exercises, links to related free LeetCode practice, Socratic AI
 coaching, and an FSRS spaced-repetition queue.
 
+For the complete day-to-day instructions and command reference, see
+**[How to Use the Learning Workflow](WORKFLOW_GUIDE.md)**.
+
 ## How it works
 
 The roadmap starts with foundational structures and repeatedly revisits older patterns. A normal

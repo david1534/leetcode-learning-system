@@ -76,5 +76,8 @@ problem, or unfinished activity from outside this repository when `attempt/sessi
 - Active work belongs in tracked `attempt/` files on an `attempt/<problem-id>` branch; passing
   solutions belong in `solutions/` and reflections in `reflections/`.
 - Record learning through `python -m study finish`, never by hand-editing review events.
+- Treat `WORKFLOW_GUIDE.md` as the learner-facing source of truth. Any change to commands, daily
+  sequencing, rating rules, repair gates, synchronization, publication, reminders, time limits,
+  VS Code tasks, or public-data behavior must update that guide in the same change.
 - Before changing learning-system code, run focused tests, then `pytest`, then `ruff check --no-cache .`.
 - Explain a failed check instead of changing expected behavior merely to make it green.
