@@ -38,11 +38,15 @@ https://leetcode.com/problems/longest-consecutive-sequence/
 
 def longest_consecutive_streak(nums: list[int]) -> int:
     numSet = set(nums)
-    for num in numSet:                  # Loops through all numbers in the set
-        prevNum = num - 1
-        nextNum = num + 1               
-        if prevNum not in numSet:       # Determines start of streak
-            num += num
-
-    
-    return output
+    if not numSet: 
+        return 0
+    else:
+        largestStreak = 1                   # Tracks the largest streak
+        for num in numSet:                  # Loops through all numbers in the set
+            prevNum = num - 1               # Tracks the previous number
+            nextNum = num + 1               # Tracks the next number
+            if prevNum not in numSet:       # Determines start of streak
+                while nextNum in numSet:    # Ensures the next number is in the set
+                    largestStreak += 1      # Adds to the largest streak
+                    nextNum += 1            # Adds to the counter
+        return largestStreak

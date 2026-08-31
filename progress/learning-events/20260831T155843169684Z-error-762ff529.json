@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "event_id": "762ff529d43d4cbbbc83cdd47aa0f5a3",
+  "recorded_at": "2026-08-31T15:58:43.169684+00:00",
+  "event_type": "error",
+  "problem_id": "arrays-003-longest-streak",
+  "skill": "maximum tracking",
+  "category": "invariant",
+  "cause": "misconception",
+  "severity": "blocking",
+  "summary": "Used the global best length as the current streak counter, causing separate consecutive runs to be accumulated together.",
+  "trigger": "When computing a maximum across multiple candidates, distinguish the current candidate measurement from the best measurement seen so far.",
+  "corrected_rule": "Reset a current streak length for every valid sequence start, then update the global maximum after measuring that sequence.",
+  "repair_prompt": "Explain which two counters are needed to compare several independent consecutive-value runs and when each should be reset or updated."
+}
