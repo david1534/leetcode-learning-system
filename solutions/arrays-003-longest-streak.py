@@ -1,0 +1,54 @@
+"""
+Longest Consecutive Streak
+==========================
+Difficulty: Medium | Suggested time: 25 minutes
+
+Problem
+-------
+Return the length of the longest run of consecutive integer values in an unsorted list.
+Aim for O(n) average time.
+
+Function signature
+------------------
+longest_consecutive_streak(nums: list[int]) -> int
+
+Parameters
+----------
+nums (list[int]): An unsorted list that may contain duplicate integers.
+
+Returns
+-------
+int: The length of the longest consecutive-value run.
+
+Constraints
+-----------
+- 0 <= len(nums) <= 100000
+
+Example 1
+---------
+nums = [100, 4, 200, 1, 3, 2]
+Output: 4
+Explanation: The values 1, 2, 3, and 4 form the longest run, with length 4.
+
+Related practice
+----------------
+https://leetcode.com/problems/longest-consecutive-sequence/
+"""
+
+
+def longest_consecutive_streak(nums: list[int]) -> int:
+    numSet = set(nums)
+    if not numSet: 
+        return 0
+    largestStreak = 1                   # Tracks the largest streak
+    for num in numSet:                  # Loops through all numbers in the set
+        prevNum = num - 1               # Tracks the previous number
+        if prevNum not in numSet:       # Determines start of streak
+            nextNum = num + 1           # Tracks the next number
+            currStreak = 1              # Resets the current streak
+            while nextNum in numSet:    # Ensures the next number is in the set
+                currStreak += 1         # Increments the current streak
+                nextNum += 1            # Increments the next number
+            if currStreak > largestStreak:
+                largestStreak = currStreak
+    return largestStreak

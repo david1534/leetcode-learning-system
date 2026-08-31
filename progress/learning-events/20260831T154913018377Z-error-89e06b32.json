@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "event_id": "89e06b3276214982949c05b17941b5ce",
+  "recorded_at": "2026-08-31T15:49:13.018377+00:00",
+  "event_type": "error",
+  "problem_id": "arrays-003-longest-streak",
+  "skill": "empty-input handling",
+  "category": "edge-case",
+  "cause": "omission",
+  "severity": "minor",
+  "summary": "Initialized the answer to one without accounting for an empty input, which contains no streak.",
+  "trigger": "When a result is initialized to a nonzero base value, compare it against the minimum allowed input size.",
+  "corrected_rule": "For an empty collection, the longest consecutive streak length is zero.",
+  "repair_prompt": "Before running the main algorithm, determine the correct result when the input contains no values."
+}

@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "event_id": "4426b96fa3c0489d9293c8573285311e",
+  "recorded_at": "2026-08-31T15:40:34.228431+00:00",
+  "event_type": "error",
+  "problem_id": "arrays-003-longest-streak",
+  "skill": "set membership",
+  "category": "representation",
+  "cause": "misconception",
+  "severity": "blocking",
+  "summary": "Converted the set to a list and sliced it using a number value as though it were an ordered list index.",
+  "trigger": "When values and positions are different concepts, check whether an expression uses a data value as a sequence index.",
+  "corrected_rule": "Keep the set representation and follow numeric successors through membership checks; iteration order does not encode consecutive-value order.",
+  "repair_prompt": "Given an unordered set and a confirmed streak-start value, explain how to count consecutive successors without indexing, slicing, or sorting."
+}

@@ -1,0 +1,17 @@
+{
+  "schema_version": 3,
+  "event_id": "b2b6ce0b5da546d7bb7a1cac26c2f474",
+  "problem_id": "arrays-003-longest-streak",
+  "topic": "arrays-hashing",
+  "kind": "core",
+  "reviewed_at": "2026-08-31T18:02:03.643025+00:00",
+  "rating": "hard",
+  "minutes": 95,
+  "hints_used": 0,
+  "assistance_level": "guided",
+  "assistance_count": 9,
+  "recall_quality": "novel",
+  "first_checkpoint_passed": false,
+  "explained": true,
+  "tests_passed": true
+}

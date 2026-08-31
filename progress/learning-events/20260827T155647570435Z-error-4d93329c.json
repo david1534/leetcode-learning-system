@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "event_id": "4d93329c5fae4207b20ce45c798be0a7",
+  "recorded_at": "2026-08-27T15:56:47.570435+00:00",
+  "event_type": "error",
+  "problem_id": "arrays-003-longest-streak",
+  "skill": "sequence-start recognition",
+  "category": "pattern-selection",
+  "cause": "transfer-failure",
+  "severity": "blocking",
+  "summary": "Initially modeled consecutive values in an unsorted list as a contiguous sliding-window problem.",
+  "trigger": "When a problem asks for consecutive values but input positions do not determine membership in the run, test whether index adjacency is actually relevant.",
+  "corrected_rule": "Store unique values in a set and begin expansion only at x when x - 1 is absent.",
+  "repair_prompt": "Given an unsorted collection of integers, explain how to identify each maximal consecutive-value run exactly once without sorting."
+}
