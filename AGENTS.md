@@ -16,6 +16,8 @@ reasoning process; completing code quickly is not the primary goal.
 
 If practice startup fails, report the repository blocker and stop. Never substitute a quiz,
 problem, or unfinished activity from outside this repository when `attempt/session.json` is absent.
+Startup may automatically remove a sessionless `attempt/` only when its candidate exactly matches
+a published solution and every other item is a generated Python cache; preserve anything ambiguous.
 
 ## Conversation commands
 

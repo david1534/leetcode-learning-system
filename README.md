@@ -47,6 +47,8 @@ VS Code users can run the included tasks from **Terminal > Run Task**.
 The normal daily entry point is `Ctrl+Shift+B`. It safely updates from GitHub, resumes a public
 attempt branch when one exists, otherwise starts the oldest due review or next roadmap problem,
 and opens the candidate. You never need to copy a problem ID or remember a Python command.
+If an editor recreates an already-published candidate after completion, startup safely removes it
+and generated caches; any unmatched or unrecognized attempt file is preserved and reported.
 
 ## Daily workflow
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -64,15 +65,67 @@ def tracked_changes(root: Path, exclude_attempt: bool = False) -> list[str]:
     return paths
 
 
+def cleanup_stale_completed_attempt(root: Path) -> bool:
+    """Remove only attempt residue that is provably safe to discard."""
+    attempt = root / "attempt"
+    if not attempt.exists() or (attempt / "session.json").exists():
+        return False
+
+    tracked = run_git(root, "ls-files", "--", "attempt")
+    if tracked.code:
+        raise GitFlowError(f"Could not inspect stale attempt files: {tracked.output}")
+    if tracked.output:
+        return False
+
+    allowed_cache_dirs = {".mypy_cache", "__pycache__"}
+    unknown = sorted(
+        child.name
+        for child in attempt.iterdir()
+        if not (
+            child.name == "current.py" and child.is_file()
+            or child.name in allowed_cache_dirs and child.is_dir()
+        )
+    )
+    if unknown:
+        raise GitFlowError(
+            "Practice startup preserved attempt/ because it contains unrecognized files that "
+            f"may be learner work: {', '.join(unknown)}"
+        )
+
+    candidate = attempt / "current.py"
+    if candidate.exists():
+        candidate_bytes = candidate.read_bytes()
+        published = root / "solutions"
+        matches_published = published.exists() and any(
+            path.read_bytes() == candidate_bytes for path in published.glob("*.py")
+        )
+        if not matches_published:
+            raise GitFlowError(
+                "Practice startup preserved attempt/current.py because it does not exactly "
+                "match a published solution. Inspect it before removing anything."
+            )
+
+    try:
+        shutil.rmtree(attempt)
+    except OSError as exc:
+        raise GitFlowError(
+            "A completed attempt left safe-to-remove files, but Windows could not remove them. "
+            "Close any old attempt/current.py editor tab and retry practice. "
+            f"Details: {exc}"
+        ) from exc
+    return True
+
+
 def fetch(root: Path) -> None:
     result = run_git(root, "fetch", "--prune", "origin")
     if result.code:
         raise GitFlowError(f"Could not contact GitHub: {result.output}")
 
 
-def fast_forward_main(root: Path) -> None:
+def fast_forward_main(root: Path) -> bool:
     if branch_name(root) != "main":
         raise GitFlowError("Start/Resume expected the main branch. Run `python -m study sync`.")
+    recovered_stale_attempt = cleanup_stale_completed_attempt(root)
     if tracked_changes(root):
         raise GitFlowError(
             "Git has unsaved tracked changes. Commit, stash, or restore them before "
@@ -84,6 +137,7 @@ def fast_forward_main(root: Path) -> None:
         raise GitFlowError(
             "Local main and GitHub main have diverged. No files were changed; resolve Git manually."
         )
+    return recovered_stale_attempt
 
 
 def remote_attempts(root: Path) -> list[str]:
