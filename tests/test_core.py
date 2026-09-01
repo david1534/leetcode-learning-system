@@ -71,12 +71,23 @@ def test_catalog_contains_diagnostic_and_complete_first_module(repo_root):
     assert all(example["explanation"] for problem in problems for example in problem["examples"])
 
 
-def test_published_rating_corrections_make_both_reviews_again(repo_root):
-    effective = {event["problem_id"]: event for event in effective_events(repo_root)}
-    assert effective["arrays-001-pair-sum"]["original_rating"] == "hard"
-    assert effective["arrays-001-pair-sum"]["rating"] == "again"
-    assert effective["arrays-002-anagram-groups"]["original_rating"] == "hard"
-    assert effective["arrays-002-anagram-groups"]["rating"] == "again"
+def test_published_rating_corrections_preserve_history_and_new_reviews(repo_root):
+    effective = effective_events(repo_root)
+    by_event_id = {event["event_id"]: event for event in effective}
+    pair_sum_history = [
+        event for event in effective if event["problem_id"] == "arrays-001-pair-sum"
+    ]
+    anagram = next(
+        event for event in effective if event["problem_id"] == "arrays-002-anagram-groups"
+    )
+
+    corrected_pair_sum = by_event_id["91305de82f294291b7bd2d2c46cf30af"]
+    assert corrected_pair_sum["original_rating"] == "hard"
+    assert corrected_pair_sum["rating"] == "again"
+    assert pair_sum_history[-1]["rating"] == "good"
+    assert "rating_correction" not in pair_sum_history[-1]
+    assert anagram["original_rating"] == "hard"
+    assert anagram["rating"] == "again"
 
 
 def test_pair_sum_template_has_named_readable_example(repo_root):
