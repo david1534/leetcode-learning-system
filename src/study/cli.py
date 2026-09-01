@@ -201,7 +201,11 @@ def cmd_practice(root: Path, args: argparse.Namespace) -> int:
                 resume_timer(root)
             current_branch = branch_name(root)
         if current_branch == "main":
-            fast_forward_main(root)
+            if fast_forward_main(root):
+                print(
+                    "Removed stale files from a completed attempt. Close any old "
+                    "attempt/current.py editor tab if it is still open."
+                )
             attempts = remote_attempts(root)
             if len(attempts) > 1:
                 raise GitFlowError(

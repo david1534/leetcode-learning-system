@@ -18,6 +18,11 @@ Startup safely synchronizes with GitHub and follows this priority:
 2. Start the oldest due FSRS review.
 3. Start the next roadmap problem when no review is due.
 
+After a completed session, an editor or OneDrive can occasionally recreate the old candidate or a
+Python cache. Startup removes that residue automatically only when the candidate exactly matches a
+published solution and no unrecognized files are present. If this recovery message appears, close
+the old `attempt/current.py` editor tab so it cannot be saved again.
+
 If startup reports a repository blocker, stop and resolve it. Do not replace the repository
 activity with an unrelated problem or quiz.
 

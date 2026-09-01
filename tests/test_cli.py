@@ -4,6 +4,8 @@ import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import pytest
+
 from study.cli import (
     main,
     public_content_errors,
@@ -19,6 +21,93 @@ from study.core import (
     render_template,
     save_session,
 )
+from study.gitflow import GitFlowError, cleanup_stale_completed_attempt
+
+
+def test_stale_completed_attempt_cleanup_is_narrow_and_safe(monkeypatch, tmp_path):
+    root = tmp_path
+    attempt = root / "attempt"
+    solutions = root / "solutions"
+    attempt.mkdir()
+    solutions.mkdir()
+    published = b"def solved():\n    return True\n"
+    (solutions / "done.py").write_bytes(published)
+    (attempt / "current.py").write_bytes(published)
+    (attempt / ".mypy_cache").mkdir()
+    (attempt / ".mypy_cache" / "metadata.json").write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(
+        "study.gitflow.run_git", lambda *_args: type("Result", (), {"code": 0, "output": ""})()
+    )
+
+    assert cleanup_stale_completed_attempt(root) is True
+    assert not attempt.exists()
+
+
+def test_stale_attempt_cleanup_removes_cache_only_residue(monkeypatch, tmp_path):
+    attempt = tmp_path / "attempt"
+    (attempt / "__pycache__").mkdir(parents=True)
+    monkeypatch.setattr(
+        "study.gitflow.run_git", lambda *_args: type("Result", (), {"code": 0, "output": ""})()
+    )
+
+    assert cleanup_stale_completed_attempt(tmp_path) is True
+    assert not attempt.exists()
+
+
+def test_stale_attempt_cleanup_preserves_ambiguous_work(monkeypatch, tmp_path):
+    root = tmp_path
+    attempt = root / "attempt"
+    solutions = root / "solutions"
+    attempt.mkdir()
+    solutions.mkdir()
+    (solutions / "done.py").write_text("published", encoding="utf-8")
+    (attempt / "current.py").write_text("different learner work", encoding="utf-8")
+    monkeypatch.setattr(
+        "study.gitflow.run_git", lambda *_args: type("Result", (), {"code": 0, "output": ""})()
+    )
+
+    with pytest.raises(GitFlowError, match="does not exactly match"):
+        cleanup_stale_completed_attempt(root)
+    assert (attempt / "current.py").read_text(encoding="utf-8") == "different learner work"
+
+    (attempt / "current.py").write_text("published", encoding="utf-8")
+    (attempt / "notes.txt").write_text("keep me", encoding="utf-8")
+    with pytest.raises(GitFlowError, match="unrecognized files"):
+        cleanup_stale_completed_attempt(root)
+    assert (attempt / "notes.txt").exists()
+
+    (attempt / "notes.txt").unlink()
+    monkeypatch.setattr(
+        "study.gitflow.run_git",
+        lambda *_args: type("Result", (), {"code": 0, "output": "attempt/current.py"})(),
+    )
+    assert cleanup_stale_completed_attempt(root) is False
+    assert (attempt / "current.py").exists()
+
+
+def test_stale_attempt_cleanup_preserves_active_session_and_reports_locks(
+    monkeypatch, tmp_path
+):
+    root = tmp_path
+    attempt = root / "attempt"
+    solutions = root / "solutions"
+    attempt.mkdir()
+    solutions.mkdir()
+    (attempt / "session.json").write_text("{}", encoding="utf-8")
+    assert cleanup_stale_completed_attempt(root) is False
+    assert attempt.exists()
+
+    (attempt / "session.json").unlink()
+    (attempt / "__pycache__").mkdir()
+    monkeypatch.setattr(
+        "study.gitflow.run_git", lambda *_args: type("Result", (), {"code": 0, "output": ""})()
+    )
+    monkeypatch.setattr(
+        "study.gitflow.shutil.rmtree",
+        lambda _path: (_ for _ in ()).throw(PermissionError("locked")),
+    )
+    with pytest.raises(GitFlowError, match="Close any old attempt/current.py editor tab"):
+        cleanup_stale_completed_attempt(root)
 
 
 def test_start_hint_and_test_lifecycle(monkeypatch, tmp_path, capsys):
