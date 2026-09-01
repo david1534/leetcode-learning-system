@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "event_id": "856867bbd2644b5c8a64b6b465ebdec6",
+  "recorded_at": "2026-09-01T18:09:21.676144+00:00",
+  "event_type": "error",
+  "problem_id": "arrays-002-anagram-groups",
+  "skill": "loop-invariant",
+  "category": "invariant",
+  "cause": "omission",
+  "severity": "minor",
+  "summary": "Stated the maximum number of groups, which is a size bound rather than a correctness invariant.",
+  "trigger": "When asked what remains true after each iteration of a grouping algorithm.",
+  "corrected_rule": "An invariant must connect every processed item to the correct state: each processed word is in exactly the bucket identified by its full frequency signature, in encounter order.",
+  "repair_prompt": "For an original stream of items grouped by canonical keys, state what is true about all processed items after iteration i."
+}

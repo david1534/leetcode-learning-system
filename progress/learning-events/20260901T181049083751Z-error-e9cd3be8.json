@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "event_id": "e9cd3be8553e466884a2592bf01b859c",
+  "recorded_at": "2026-09-01T18:10:49.083751+00:00",
+  "event_type": "error",
+  "problem_id": "arrays-002-anagram-groups",
+  "skill": "canonical representation",
+  "category": "pattern-selection",
+  "cause": "recall-gap",
+  "severity": "blocking",
+  "source": "substantial-help",
+  "summary": "Supplied the correctness invariant: after processing the first i words, every processed word appears exactly once in the bucket keyed by its complete 26-letter frequency tuple, with encounter order preserved within each bucket.",
+  "trigger": "Recognize the constraints that call for the supplied core pattern.",
+  "corrected_rule": "Reconstruct the pattern and invariant without assistance.",
+  "repair_prompt": "Explain the recognition trigger and invariant, then apply the pattern to a fresh example without hints."
+}

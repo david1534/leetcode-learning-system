@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "event_id": "07db1b8a1f3a4abbb7146b88e81d7344",
+  "recorded_at": "2026-09-01T18:01:16.751118+00:00",
+  "event_type": "error",
+  "problem_id": "arrays-002-anagram-groups",
+  "skill": "frequency-signature",
+  "category": "representation",
+  "cause": "misconception",
+  "severity": "minor",
+  "summary": "Proposed a 26-position binary presence signature, which loses repeated-letter counts.",
+  "trigger": "When grouping strings by character composition and repeated characters are allowed.",
+  "corrected_rule": "Store the integer frequency of each letter in the 26 positions; equal frequency vectors identify rearrangements.",
+  "repair_prompt": "For an original pair of lowercase strings containing repeated letters, construct their frequency signatures and decide whether they belong together."
+}

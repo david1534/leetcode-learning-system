@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "event_id": "6f34d745c756459b8863dd506f0b0c3d",
+  "recorded_at": "2026-09-01T18:37:26.836623+00:00",
+  "event_type": "error",
+  "problem_id": "arrays-002-anagram-groups",
+  "skill": "hashmap-bucket-initialization",
+  "category": "implementation",
+  "cause": "execution-slip",
+  "severity": "minor",
+  "summary": "Attempted to append through a frequency key before creating its list for the first occurrence.",
+  "trigger": "When appending an item to a dictionary bucket whose key may not have been seen yet.",
+  "corrected_rule": "Create the empty bucket on first occurrence, or use an API that supplies a default list, before appending.",
+  "repair_prompt": "In an original grouping task, show how the first and second items with the same unseen key are inserted without a missing-key failure."
+}
