@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "event_id": "cf59f0f99e694ed2995c9f06bc5ff2a9",
+  "recorded_at": "2026-09-01T18:41:57.683948+00:00",
+  "event_type": "error",
+  "problem_id": "arrays-002-anagram-groups",
+  "skill": "dictionary-membership",
+  "category": "python-api",
+  "cause": "misconception",
+  "severity": "minor",
+  "summary": "Used a value lookup to test whether a dictionary key exists, causing access to a missing key.",
+  "trigger": "When deciding whether to initialize a dictionary entry before its first lookup.",
+  "corrected_rule": "Test membership against the dictionary itself before indexing; only then initialize the absent key.",
+  "repair_prompt": "For an original dictionary and unseen key, write the logical condition that detects absence without indexing the missing entry."
+}

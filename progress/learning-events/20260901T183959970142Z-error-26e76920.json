@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "event_id": "26e7692096784783a7d9b5948cbe1ec8",
+  "recorded_at": "2026-09-01T18:39:59.970142+00:00",
+  "event_type": "error",
+  "problem_id": "arrays-002-anagram-groups",
+  "skill": "hashmap-bucket-preservation",
+  "category": "implementation",
+  "cause": "execution-slip",
+  "severity": "minor",
+  "summary": "Reinitialized the signature bucket for every word, erasing previously appended words with the same signature.",
+  "trigger": "When inserting into a dictionary bucket that may already contain earlier grouped items.",
+  "corrected_rule": "Initialize a bucket only when its key is absent; always append without replacing an existing bucket.",
+  "repair_prompt": "For an original sequence with two items sharing a key, trace the bucket before and after inserting the second item without losing the first."
+}
