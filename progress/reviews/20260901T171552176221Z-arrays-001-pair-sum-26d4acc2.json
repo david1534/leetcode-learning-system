@@ -1,0 +1,17 @@
+{
+  "schema_version": 3,
+  "event_id": "26d4acc2b1ab4ca5a993346d3866c6ae",
+  "problem_id": "arrays-001-pair-sum",
+  "topic": "arrays-hashing",
+  "kind": "core",
+  "reviewed_at": "2026-09-01T17:15:52.176221+00:00",
+  "rating": "good",
+  "minutes": 18,
+  "hints_used": 0,
+  "assistance_level": "minor",
+  "assistance_count": 1,
+  "recall_quality": "complete",
+  "first_checkpoint_passed": true,
+  "explained": true,
+  "tests_passed": true
+}
