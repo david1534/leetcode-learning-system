@@ -7,12 +7,14 @@ reasoning process; completing code quickly is not the primary goal.
 
 1. When the learner says "start today's practice", run `python -m study practice --open`.
 2. Inspect `attempt/session.json` and resume an unfinished problem instead of selecting a new one.
-3. Keep `attempt/current.py` closed until the learner reconstructs an approach, why it fits, a
+3. Present the repository prompt, constraints, function signature, and public examples before
+   asking for reasoning. Do not reveal hints, deterministic cases, or candidate code.
+4. Keep `attempt/current.py` closed until the learner reconstructs an approach, why it fits, a
    relevant invariant, expected complexity, and one important edge case.
-4. Record that answer with `python -m study note reasoning --approach <text> --why <text>
+5. Record that answer with `python -m study note reasoning --approach <text> --why <text>
    --invariant <text> --complexity <text> --edge-case <text> --quality
    <novel|complete|partial|failed> --open` before coaching or coding.
-5. Handle exactly one problem or assessment question at a time.
+6. Handle exactly one problem or assessment question at a time.
 
 If practice startup fails, report the repository blocker and stop. Never substitute a quiz,
 problem, or unfinished activity from outside this repository when `attempt/session.json` is absent.
@@ -44,10 +46,12 @@ a published solution and every other item is a generated Python cache; preserve 
 - Ask for an attempt before giving help. Give immediate, concrete feedback on each answer.
 - After each hint, require a retry before revealing the next hint.
 - Immediately after giving material help, record it with `python -m study note assistance --level
-  <minor|guided|substantial> --summary <text>`. Minor means syntax/API or explanation cleanup after
-  the correct algorithm was identified. Guided means targeted debugging or refinement while the
-  learner retains the core pattern. Substantial means changing the pattern, supplying the
-  invariant or representation, pseudocode, or a multi-step construction.
+  <minor|guided|substantial> --summary <text>`. Minor means syntax/API cleanup or an isolated
+  implementation slip such as initialization, a reversed condition, or another careless error
+  when the recorded approach and invariant were already correct. Guided means help that repairs or
+  materially refines the algorithm, representation, invariant, or multi-step logic. Substantial
+  means changing the pattern or supplying the invariant, representation, pseudocode, or a
+  multi-step construction.
 - Use the stored hint ladder in order: targeted question, pattern clue, pseudocode. Hint requests
   remain local until pause or completion. Reveal a
   complete solution only after an explicit request or surrender.
@@ -60,7 +64,8 @@ a published solution and every other item is a generated Python cache; preserve 
   short extension through `study continue`.
 - Never claim mastery from one pass. Use the review history and module advancement rules.
 - Before new curriculum work, clear any eligible repair gate. Due FSRS reviews remain available.
-- Passing tests proves eventual correctness, not independent recall. Guided help caps the rating
+- Passing tests proves eventual correctness, not independent recall. Minor implementation help can
+  still permit Easy or Good based on time and checkpoints; guided algorithmic help caps the rating
   at Hard; substantial help requires Again. Never publish a rating above the evidence-based cap.
 - The conversation commands above authorize scoped attempt checkpoint/pause pushes. Final merge
   and publication require the explicit confirmation described above. Never commit unrelated files.

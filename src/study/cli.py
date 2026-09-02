@@ -23,6 +23,7 @@ from study.core import (
     candidate_path,
     cleanup_legacy_attempt,
     current_eastern_date,
+    display_value,
     due_problems,
     effective_events,
     extend_focus,
@@ -72,6 +73,23 @@ from study.gitflow import (
 
 def print_problem(problem: dict, prefix: str = "") -> None:
     print(f"{prefix}{problem['id']} - {problem['title']} ({problem['estimated_minutes']} min)")
+
+
+def print_problem_context(problem: dict) -> None:
+    """Show learner-safe problem context without hints, cases, or candidate code."""
+    print("\nProblem")
+    print(problem["prompt"])
+    print(f"\nFunction signature\n{problem['signature']}")
+    print("\nConstraints")
+    for constraint in problem["constraints"]:
+        print(f"- {constraint}")
+    for index, example in enumerate(problem["examples"], start=1):
+        print(f"\nExample {index}")
+        for name, value in example["inputs"].items():
+            print(f"{name} = {display_value(value)}")
+        print(f"Output: {display_value(example['output'])}")
+        if example.get("explanation"):
+            print(f"Explanation: {example['explanation']}")
 
 
 def print_module_map(root: Path) -> None:
@@ -239,6 +257,7 @@ def cmd_practice(root: Path, args: argparse.Namespace) -> int:
         if session.get("initial_reasoning"):
             print("Open attempt/current.py and continue your solution.")
         else:
+            print_problem_context(problem)
             print("First reconstruct the approach, why, invariant, complexity, and one edge case.")
         if args.open and session.get("initial_reasoning"):
             open_candidate(root)
@@ -271,6 +290,7 @@ def cmd_practice(root: Path, args: argparse.Namespace) -> int:
     print_problem(problem, f"Started {reason}: ")
     if not due and not effective_events(root):
         print_module_map(root)
+    print_problem_context(problem)
     print(f"Candidate prepared at {path.relative_to(root)}, but keep it closed for initial recall.")
     print("State the approach, why it fits, invariant, complexity, and one edge case first.")
     return 0
@@ -287,7 +307,9 @@ def cmd_start(root: Path, args: argparse.Namespace) -> int:
     path = start_problem(root, args.problem_id)
     problem = problem_by_id(root, args.problem_id)
     print_problem(problem, "Started: ")
-    print(f"Edit {path.relative_to(root)} and run: python -m study test")
+    print_problem_context(problem)
+    print(f"Candidate prepared at {path.relative_to(root)}, but keep it closed for initial recall.")
+    print("State the approach, why it fits, invariant, complexity, and one edge case first.")
     return 0
 
 
@@ -510,9 +532,9 @@ def rating_recommendation(problem: dict, session: dict, passed: int, total: int)
         return "hard", "Initial retrieval was partial, even though the final solution passed."
     if checkpoints <= 1 and minutes <= int(problem["estimated_minutes"]):
         if level == "minor":
-            return "easy", "It passed on the first checkpoint with only minor clarification."
+            return "easy", "It passed on the first checkpoint with only minor implementation help."
         return "easy", "It passed on the first checkpoint, independently, within the estimate."
-    qualifier = " with only minor clarification" if level == "minor" else " independently"
+    qualifier = " with only minor implementation help" if level == "minor" else " independently"
     return "good", f"It passed{qualifier}; multiple checkpoints or extra time were used."
 
 

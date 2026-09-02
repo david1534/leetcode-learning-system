@@ -227,12 +227,23 @@ def test_practice_starts_next_problem_then_resumes(monkeypatch, tmp_path, capsys
     monkeypatch.chdir(root)
 
     assert main(["practice", "--no-sync"]) == 0
-    assert "Started next roadmap problem" in capsys.readouterr().out
+    started_output = capsys.readouterr().out
+    assert "Started next roadmap problem" in started_output
+    assert "Return the two indices of distinct values" in started_output
+    assert "pair_sum_indices(nums: list[int], target: int) -> list[int]" in started_output
+    assert "Constraints" in started_output
+    assert "Example 1" in started_output
+    assert "What value would complete" not in started_output
+    assert "def pair_sum_indices" not in started_output
     session = (root / "attempt" / "session.json").read_text(encoding="utf-8")
     assert "arrays-001-pair-sum" in session
 
     assert main(["practice", "--no-sync"]) == 0
-    assert "Resuming" in capsys.readouterr().out
+    resumed_output = capsys.readouterr().out
+    assert "Resuming" in resumed_output
+    assert "Return the two indices of distinct values" in resumed_output
+    assert "What value would complete" not in resumed_output
+    assert "def pair_sum_indices" not in resumed_output
 
 
 def test_reminder_has_due_review(tmp_path):
@@ -406,6 +417,9 @@ def test_rating_recommendation_uses_observable_session_data():
     assert rating_recommendation(problem, session, 4, 4)[0] == "easy"
     session["assistance_log"] = [{"level": "minor"}]
     assert rating_recommendation(problem, session, 4, 4)[0] == "easy"
+    session["checkpoint_count"] = 3
+    assert rating_recommendation(problem, session, 4, 4)[0] == "good"
+    session["checkpoint_count"] = 1
     session["assistance_log"] = [{"level": "guided"}]
     assert rating_recommendation(problem, session, 4, 4)[0] == "hard"
     session["assistance_log"] = [{"level": "substantial"}]

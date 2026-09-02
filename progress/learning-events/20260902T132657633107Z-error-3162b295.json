@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "event_id": "3162b295fab644ba9779b7174d26becf",
+  "recorded_at": "2026-09-02T13:26:57.633107+00:00",
+  "event_type": "error",
+  "problem_id": "arrays-003-longest-streak",
+  "skill": "empty-input handling",
+  "category": "edge-case",
+  "cause": "omission",
+  "severity": "minor",
+  "summary": "Initialized the longest streak to 1, causing empty input to return 1 instead of 0.",
+  "trigger": "When a result accumulator assumes at least one element, check whether the input may be empty and whether the loop can be skipped.",
+  "corrected_rule": "Initialize the maximum to the correct identity/default for no discovered streak, or explicitly return the empty-input result before iteration.",
+  "repair_prompt": "For a function that returns the longest run length in a collection that may be empty, explain how you choose the accumulator's initial value and apply the rule to a fresh example."
+}

@@ -18,6 +18,10 @@ Startup safely synchronizes with GitHub and follows this priority:
 2. Start the oldest due FSRS review.
 3. Start the next roadmap problem when no review is due.
 
+Before asking for your reasoning, startup shows the repository prompt, constraints, function
+signature, and public examples. It keeps hints, deterministic cases, and `attempt/current.py`
+hidden so you have enough context without compromising blank reconstruction.
+
 After a completed session, an editor or OneDrive can occasionally recreate the old candidate or a
 Python cache. Startup removes that residue automatically only when the candidate exactly matches a
 published solution and no unrecognized files are present. If this recovery message appears, close
@@ -77,11 +81,19 @@ Tell Codex **“I’m finished.”** This does not grant publication approval. C
 
 The rating cannot exceed the available evidence:
 
-- **Easy:** correct, quick, and independently reconstructed.
-- **Good:** independently solved, but required extra time or multiple checkpoints.
-- **Hard:** the core approach was retained but guided help or partial recall was needed.
+- **Easy:** correct, quick, and independently reconstructed; minor syntax or isolated implementation
+  cleanup does not automatically lower this rating.
+- **Good:** the core algorithm was independently reconstructed, but extra time, multiple
+  checkpoints, or minor implementation help was needed.
+- **Hard:** partial recall or guided help repaired or materially refined the algorithm,
+  representation, invariant, or multi-step logic.
 - **Again:** the core approach was not reconstructed, or substantial help supplied the pattern,
   representation, invariant, pseudocode, or multi-step construction.
+
+Minor help includes syntax/API cleanup, initialization mistakes, reversed conditions, and other
+isolated careless errors when the recorded approach and invariant were already correct. These
+errors affect Easy versus Good through checkpoint and timing evidence; they do not by themselves
+force Hard.
 
 Passing tests establishes eventual correctness; it does not by itself establish independent
 recall.
