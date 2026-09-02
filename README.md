@@ -20,9 +20,12 @@ Ratings have consistent meanings:
 
 - **Again:** you could not reconstruct the core approach or substantial help supplied its pattern,
   invariant, representation, pseudocode, or multi-step construction.
-- **Hard:** you retained the core algorithm but needed guided refinement or substantial debugging.
-- **Good:** you solved it with no algorithmic help, though extra time or checkpoints were needed.
-- **Easy:** you solved it quickly and independently with a correct explanation.
+- **Hard:** partial recall or guided help repaired or materially refined the algorithm,
+  representation, invariant, or multi-step logic.
+- **Good:** you independently reconstructed the core algorithm but needed extra time, checkpoints,
+  or minor help with an isolated implementation error.
+- **Easy:** you solved it quickly and independently with a correct explanation; minor syntax or
+  isolated implementation cleanup does not automatically lower the rating.
 
 The underlying learning ideas are retrieval practice, spaced repetition, interleaving, desirable
 difficulty, rapid corrective feedback, and transfer. FSRS adapts future review dates from your
@@ -52,9 +55,10 @@ and generated caches; any unmatched or unrecognized attempt file is preserved an
 
 ## Daily workflow
 
-1. Press `Ctrl+Shift+B`. Before opening code, reconstruct the likely pattern, why it fits, its
-   invariant, expected complexity, and one important edge case. Reviews label this retrieval as
-   complete, partial, or failed.
+1. Press `Ctrl+Shift+B`. The workflow first shows the prompt, constraints, function signature, and
+   public examples while withholding hints, deterministic cases, and candidate code. Then
+   reconstruct the likely pattern, why it fits, its invariant, expected complexity, and one
+   important edge case. Reviews label this retrieval as complete, partial, or failed.
 2. Record that compact plan; the candidate then opens for clean implementation.
 3. Tell Codex **"give me a hint"** or run **Study: Next Hint** when needed. Retry after every hint.
 4. Tell Codex **"test my solution"** or run **Study: Check Solution Locally**. Deterministic cases
