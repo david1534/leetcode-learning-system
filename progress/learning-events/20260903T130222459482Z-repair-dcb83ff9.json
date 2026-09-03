@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "event_id": "dcb83ff95c6f4d4dae37da37cf9154a2",
+  "recorded_at": "2026-09-03T13:02:22.459482+00:00",
+  "event_type": "repair",
+  "problem_id": "arrays-003-longest-streak",
+  "skill": "maximum tracking",
+  "category": "invariant",
+  "target_error_id": "762ff529d43d4cbbbc83cdd47aa0f5a3",
+  "recognition_trigger": "When comparing multiple independent consecutive-value runs, distinguish the active run length from the best length seen across all runs.",
+  "corrected_rule": "Reset the current-run counter at each confirmed run start, increment it for every consecutive successor, and update but never reset the global maximum.",
+  "why_failed": "Using one counter cannot both restart for each new run and preserve the best length found among earlier runs.",
+  "application": "For each confirmed start, initialize the current length, expand through successors while incrementing it, then set the global maximum to the larger of its existing value and the completed current length.",
+  "passed": true,
+  "assistance_level": "none"
+}
