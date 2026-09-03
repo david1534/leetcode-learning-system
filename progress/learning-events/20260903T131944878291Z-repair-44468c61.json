@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "event_id": "44468c61c9c240fbbf8f72443c694062",
+  "recorded_at": "2026-09-03T13:19:44.878291+00:00",
+  "event_type": "repair",
+  "problem_id": "arrays-003-longest-streak",
+  "skill": "empty-input handling",
+  "category": "edge-case",
+  "target_error_id": "3162b295fab644ba9779b7174d26becf",
+  "recognition_trigger": "When a length-returning function permits an empty collection, choose an accumulator identity that already represents no discovered elements.",
+  "corrected_rule": "Initialize the global maximum run length to zero; update it only when a run is found.",
+  "why_failed": "A positive initial maximum would incorrectly report a run for empty input, while zero is the correct neutral value for a maximum length.",
+  "application": "An empty collection leaves the accumulator at 0. The set containing 8, 9, and 10 produces one run of length 3, so the accumulator becomes 3.",
+  "passed": true,
+  "assistance_level": "none"
+}
