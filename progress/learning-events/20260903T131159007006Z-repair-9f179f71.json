@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "event_id": "9f179f711e04477e98e33d24539efd62",
+  "recorded_at": "2026-09-03T13:11:59.007006+00:00",
+  "event_type": "repair",
+  "problem_id": "arrays-002-anagram-groups",
+  "skill": "canonical representation",
+  "category": "pattern-selection",
+  "target_error_id": "e9cd3be8553e466884a2592bf01b859c",
+  "recognition_trigger": "When items must be grouped by equivalence regardless of character order, compute one complete canonical key for every item.",
+  "corrected_rule": "Use the immutable 26-letter frequency tuple as the hashmap key and append each word to the corresponding bucket.",
+  "why_failed": "The proposed invariant described what future words might do rather than the correctness state guaranteed for all words processed so far.",
+  "application": "For tea, tan, ate, nat, and bat, compute each 26-count tuple; tea and ate share one bucket, tan and nat share another, and bat has its own bucket. After the first i words, every processed word appears exactly once in the bucket keyed by its complete tuple.",
+  "passed": false,
+  "assistance_level": "guided"
+}
