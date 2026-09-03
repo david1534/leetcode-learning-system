@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "event_id": "4d67d87c08d64d00b1234508b9fd6232",
+  "recorded_at": "2026-09-03T12:56:21.345877+00:00",
+  "event_type": "repair",
+  "problem_id": "arrays-003-longest-streak",
+  "skill": "sequence-start recognition",
+  "category": "pattern-selection",
+  "target_error_id": "4d93329c5fae4207b20ce45c798be0a7",
+  "recognition_trigger": "When a task asks for consecutive values in unsorted input, use value membership rather than input-position adjacency.",
+  "corrected_rule": "Deduplicate into a set and start a run at n only when n - 1 is absent, then advance while the next value exists.",
+  "why_failed": "Scanning adjacent input positions does not identify consecutive values that can occur at unrelated positions in an unsorted collection.",
+  "application": "Build a set, iterate through its values, expand only from values lacking a predecessor, count each run with a while loop, and retain the largest count in expected O(n) time and O(n) space.",
+  "passed": true,
+  "assistance_level": "none"
+}
