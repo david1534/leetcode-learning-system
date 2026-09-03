@@ -38,17 +38,18 @@ https://leetcode.com/problems/group-anagrams/
 
 
 def group_rearranged_words(words: list[str]) -> list[list[str]]:
-    wordGroup = dict()
+    wordGroup = {}
     Output = []
-    for currWord in words:
-        freqList = [0] * 26
-        for currLetter in currWord:
-            num = ord(currLetter) - ord("a")
-            freqList[num] += 1
-        freqTuple = tuple(freqList)
-        if freqTuple not in wordGroup:
-            wordGroup[freqTuple] = []
-        wordGroup[freqTuple].append(currWord)
-    for group in wordGroup.values():
-        Output.append(group)
+    for word in words:
+        charList = [0] * 26
+        for char in word:
+            num = ord(char) - ord("a")
+            charList[num] += 1
+        charTuple = tuple(charList)
+        if charTuple not in wordGroup:
+            wordGroup[charTuple] = []
+        wordGroup[charTuple].append(word)
+    for groupKey in wordGroup.keys():
+        currGroup = list(wordGroup[groupKey])
+        Output.append(currGroup)
     return Output

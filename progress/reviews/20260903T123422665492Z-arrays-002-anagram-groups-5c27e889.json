@@ -1,0 +1,17 @@
+{
+  "schema_version": 3,
+  "event_id": "5c27e889c7574f19afe5b0ccd778e399",
+  "problem_id": "arrays-002-anagram-groups",
+  "topic": "arrays-hashing",
+  "kind": "core",
+  "reviewed_at": "2026-09-03T12:34:22.665492+00:00",
+  "rating": "hard",
+  "minutes": 42,
+  "hints_used": 0,
+  "assistance_level": "guided",
+  "assistance_count": 5,
+  "recall_quality": "partial",
+  "first_checkpoint_passed": false,
+  "explained": true,
+  "tests_passed": true
+}
