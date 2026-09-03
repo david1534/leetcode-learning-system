@@ -38,4 +38,7 @@ https://leetcode.com/problems/group-anagrams/
 
 
 def group_rearranged_words(words: list[str]) -> list[list[str]]:
-    raise NotImplementedError
+    for word in words:
+        for char in word:
+            num = ord(char) - ord("a")
+    return
