@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "event_id": "6b377bf3453e4969ba23b23c71cc2900",
+  "recorded_at": "2026-09-03T13:17:14.817343+00:00",
+  "event_type": "repair",
+  "problem_id": "arrays-002-anagram-groups",
+  "skill": "canonical representation",
+  "category": "pattern-selection",
+  "target_error_id": "e9cd3be8553e466884a2592bf01b859c",
+  "recognition_trigger": "When words must be grouped by identical character composition regardless of order, each word needs a systematic canonical representation.",
+  "corrected_rule": "Build a fresh 26-position frequency array for each word, convert it to a tuple, and append the word to the hashmap bucket for that tuple.",
+  "why_failed": "Without a complete canonical key, equivalent words cannot be grouped reliably while distinct character-frequency profiles remain separate.",
+  "application": "After processing the first i words, every processed word appears exactly once in its tuple-keyed bucket, with no word lost or duplicated; later words either join the matching bucket or create a new one. For arc, car, elbow, below, and state, the buckets are [arc, car], [elbow, below], and [state].",
+  "passed": true,
+  "assistance_level": "none"
+}
