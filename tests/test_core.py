@@ -9,6 +9,7 @@ from study.core import (
     due_problems,
     effective_events,
     focus_boundary_reached,
+    is_independent_successful_review,
     learning_insights,
     load_problems,
     next_new_problem,
@@ -134,6 +135,66 @@ def test_review_events_rebuild_deterministic_fsrs_card(tmp_path):
     assert first.due > now
     assert due_problems(root, now=now) == []
     assert [item["id"] for item in due_problems(root, now=now + timedelta(days=400))] == ["one"]
+
+
+def test_independent_success_requires_complete_modern_evidence():
+    event = {
+        "schema_version": 3,
+        "rating": "good",
+        "tests_passed": True,
+        "explained": True,
+        "recall_quality": "complete",
+        "assistance_level": "minor",
+    }
+    assert is_independent_successful_review(event)
+
+    for field, value in (
+        ("schema_version", 1),
+        ("rating", "hard"),
+        ("tests_passed", False),
+        ("explained", False),
+        ("recall_quality", "partial"),
+        ("assistance_level", "guided"),
+    ):
+        changed = {**event, field: value}
+        assert not is_independent_successful_review(changed)
+
+
+def test_insights_only_credit_independent_delayed_recall_and_transfer(tmp_path):
+    root = seed_repo(tmp_path)
+    transfer = {
+        **problem_by_id(root, "two"),
+        "kind": "transfer",
+    }
+    record_review(
+        root,
+        problem_by_id(root, "one"),
+        "good",
+        10,
+        True,
+        0,
+        True,
+        assistance_level="minor",
+        recall_quality="complete",
+        reviewed_at=datetime(2026, 8, 26, 12, tzinfo=UTC),
+    )
+    record_review(
+        root,
+        transfer,
+        "again",
+        10,
+        True,
+        0,
+        True,
+        assistance_level="substantial",
+        recall_quality="complete",
+        reviewed_at=datetime(2026, 8, 27, 12, tzinfo=UTC),
+    )
+
+    insights = learning_insights(root)
+    assert insights["independent_solution_rate"] == 0.5
+    assert insights["delayed_recall_success_rate"] == 0.5
+    assert insights["transfer_success_rate"] == 0.0
 
 
 def test_new_problem_selection_skips_reviewed_items(tmp_path):

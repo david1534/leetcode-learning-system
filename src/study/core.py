@@ -168,6 +168,18 @@ def latest_by_problem(root: Path) -> dict[str, dict[str, Any]]:
     return latest
 
 
+def is_independent_successful_review(event: dict[str, Any]) -> bool:
+    """Return whether a review is complete, independent mastery evidence."""
+    return (
+        int(event.get("schema_version", 1)) >= 3
+        and event.get("rating") in {"good", "easy"}
+        and bool(event.get("tests_passed", False))
+        and bool(event.get("explained", False))
+        and event.get("recall_quality") in {"novel", "complete"}
+        and event.get("assistance_level") in {"none", "minor"}
+    )
+
+
 def due_problems(root: Path, now: datetime | None = None) -> list[dict[str, Any]]:
     now = (now or datetime.now(UTC)).astimezone(UTC)
     cards = rebuild_cards(root)
@@ -326,17 +338,12 @@ def learning_insights(root: Path) -> dict[str, Any]:
         event for event in reviews if event.get("recall_quality", "novel") != "novel"
     ]
     measurable_reviews = [event for event in reviews if event.get("schema_version", 1) >= 3]
-    independent = [
-        event
-        for event in measurable_reviews
-        if event.get("assistance_level", "none") in {"none", "minor"}
-        and event.get("recall_quality", "novel") in {"novel", "complete"}
-        and event.get("tests_passed", False)
-    ]
+    independent = [event for event in measurable_reviews if is_independent_successful_review(event)]
     delayed_success = [
         event
         for event in review_attempts
-        if event.get("recall_quality") == "complete" and event.get("tests_passed", False)
+        if event.get("recall_quality") == "complete"
+        and is_independent_successful_review(event)
     ]
     category_counts: dict[str, int] = {}
     cause_counts: dict[str, int] = {}
@@ -404,7 +411,10 @@ def learning_insights(root: Path) -> dict[str, Any]:
             round(statistics.median(time_ratios), 3) if time_ratios else None
         ),
         "transfer_success_rate": (
-            round(sum(bool(event.get("tests_passed")) for event in transfer) / len(transfer), 3)
+            round(
+                sum(is_independent_successful_review(event) for event in transfer) / len(transfer),
+                3,
+            )
             if transfer
             else None
         ),

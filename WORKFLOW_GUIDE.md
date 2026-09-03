@@ -129,6 +129,13 @@ To review recall, assistance, first-checkpoint, timing, error, and repair trends
 .\.venv\Scripts\python.exe -m study insights
 ```
 
+Independent-success metrics require a modern review with passing tests, an explanation, a Good or
+Easy rating, novel or complete recall, and no more than minor help. A core problem needs qualifying
+reviews on two separate Eastern dates, and its latest review must still qualify. A later Hard or
+Again therefore revokes mastery until the next qualifying review. Transfer status likewise uses
+the latest independent transfer review and requires all repair gates to be clear. Older reviews
+without recall and assistance evidence still schedule FSRS reviews but do not prove mastery.
+
 ## Recovery commands
 
 Normal practice should not require these commands:

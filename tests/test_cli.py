@@ -8,6 +8,7 @@ import pytest
 
 from study.cli import (
     main,
+    mastery,
     public_content_errors,
     rating_recommendation,
     rating_too_high,
@@ -427,6 +428,126 @@ def test_rating_recommendation_uses_observable_session_data():
     assert rating_recommendation(problem, session, 3, 4)[0] == "again"
     assert rating_too_high("hard", "again")
     assert not rating_too_high("again", "again")
+
+
+def test_mastery_uses_two_dates_and_latest_independent_review(tmp_path):
+    root = tmp_path
+    (root / "curriculum").mkdir()
+    (root / "progress" / "reviews").mkdir(parents=True)
+    catalog = {
+        "problems": [
+            {
+                "id": "core",
+                "title": "Core",
+                "topic": "arrays-hashing",
+                "kind": "core",
+                "estimated_minutes": 10,
+            },
+            {
+                "id": "transfer",
+                "title": "Transfer",
+                "topic": "arrays-hashing",
+                "kind": "transfer",
+                "estimated_minutes": 10,
+            },
+        ]
+    }
+    (root / "curriculum" / "problems.json").write_text(json.dumps(catalog))
+    core, transfer = catalog["problems"]
+    first = datetime(2026, 8, 26, 12, tzinfo=UTC)
+
+    def review(problem, rating, day, assistance="none", recall="complete"):
+        return record_review(
+            root,
+            problem,
+            rating,
+            10,
+            True,
+            0,
+            True,
+            assistance_level=assistance,
+            recall_quality=recall,
+            reviewed_at=first + timedelta(days=day),
+        )
+
+    review(core, "good", 0)
+    review(core, "easy", 1, assistance="minor")
+    assert mastery(root) == (1, 1, False)
+
+    review(core, "hard", 2, assistance="guided")
+    assert mastery(root) == (0, 1, False)
+
+    review(core, "good", 3)
+    review(transfer, "good", 3)
+    assert mastery(root) == (1, 1, True)
+
+
+def test_mastery_honors_corrections_and_open_repair_gates(tmp_path):
+    root = tmp_path
+    (root / "curriculum").mkdir()
+    (root / "progress" / "reviews").mkdir(parents=True)
+    catalog = {
+        "problems": [
+            {
+                "id": "transfer",
+                "title": "Transfer",
+                "topic": "arrays-hashing",
+                "kind": "transfer",
+                "estimated_minutes": 10,
+            }
+        ]
+    }
+    (root / "curriculum" / "problems.json").write_text(json.dumps(catalog))
+    reviewed = datetime(2026, 8, 26, 12, tzinfo=UTC)
+    path = record_review(
+        root,
+        catalog["problems"][0],
+        "good",
+        10,
+        True,
+        0,
+        True,
+        assistance_level="none",
+        recall_quality="complete",
+        reviewed_at=reviewed,
+    )
+    event_id = json.loads(path.read_text())["event_id"]
+    assert mastery(root) == (0, 0, True)
+
+    learning = root / "progress" / "learning-events"
+    learning.mkdir()
+    (learning / "gate.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "event_id": "gate",
+                "recorded_at": reviewed.isoformat(),
+                "event_type": "error",
+                "problem_id": "transfer",
+                "skill": "transfer",
+                "category": "pattern-selection",
+                "severity": "blocking",
+            }
+        )
+    )
+    assert mastery(root) == (0, 0, False)
+
+    learning.joinpath("gate.json").unlink()
+    corrections = root / "progress" / "corrections"
+    corrections.mkdir()
+    (corrections / "rating.json").write_text(
+        json.dumps(
+            {
+                "correction_id": "rating",
+                "target_event_id": event_id,
+                "problem_id": "transfer",
+                "corrected_rating": "again",
+                "corrected_at": (reviewed + timedelta(days=1)).isoformat(),
+                "reason": "The attempt was not independent.",
+            }
+        )
+    )
+    assert mastery(root) == (0, 0, False)
 
 
 def test_recall_quality_caps_rating():

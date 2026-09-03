@@ -63,6 +63,10 @@ a published solution and every other item is a generated Python cache; preserve 
 - At 45 active minutes, recommend pausing. Continue only after the learner explicitly requests a
   short extension through `study continue`.
 - Never claim mastery from one pass. Use the review history and module advancement rules.
+- Count a review as independent mastery evidence only when modern evidence records passing tests,
+  an explanation, novel or complete recall, a Good or Easy rating, and no more than minor help.
+  The latest review must still meet that standard; a later Hard or Again revokes mastery until the
+  next qualifying review. Legacy reviews still schedule FSRS but do not prove independent mastery.
 - Before new curriculum work, clear any eligible repair gate. Due FSRS reviews remain available.
 - Passing tests proves eventual correctness, not independent recall. Minor implementation help can
   still permit Easy or Good based on time and checkpoints; guided algorithmic help caps the rating

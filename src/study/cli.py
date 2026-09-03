@@ -31,6 +31,7 @@ from study.core import (
     focus_boundary_reached,
     format_failure,
     git_output,
+    is_independent_successful_review,
     latest_by_problem,
     learning_insights,
     load_problems,
@@ -482,14 +483,14 @@ def cmd_insights(root: Path, args: argparse.Namespace) -> int:
         return "not yet measured" if value is None else f"{value:.0%}"
 
     print(f"Independent solutions: {percentage(result['independent_solution_rate'])}")
-    print(f"Delayed recall success: {result['delayed_recall_success_rate']:.0%}")
+    print(f"Independent delayed recall: {result['delayed_recall_success_rate']:.0%}")
     print(f"First-checkpoint passes: {percentage(result['first_checkpoint_pass_rate'])}")
     print(f"Assistance rate: {percentage(result['assistance_rate'])}")
     print(f"Hint rate: {percentage(result['hint_rate'])}")
     ratio = result["median_time_vs_estimate"]
     ratio_text = "not yet measured" if ratio is None else f"{ratio:.2f}x"
     print(f"Median time vs estimate: {ratio_text}")
-    print(f"Transfer success: {percentage(result['transfer_success_rate'])}")
+    print(f"Independent transfer: {percentage(result['transfer_success_rate'])}")
     print(f"Active hours recorded: {result['active_hours']}")
     print(f"Open repair gates: {result['open_repair_gates']}")
     for gate in open_repair_gates(root):
@@ -865,21 +866,25 @@ def cmd_sync(root: Path, args: argparse.Namespace) -> int:
 def mastery(root: Path) -> tuple[int, int, bool]:
     problems = [p for p in load_problems(root) if p["topic"] == "arrays-hashing"]
     events = effective_events(root)
-    passing = {e["problem_id"] for e in events if e["tests_passed"]}
+    latest = latest_by_problem(root)
     review_days: dict[str, set[str]] = defaultdict(set)
     for event in events:
-        if (
-            event["rating"] in {"good", "easy"}
-            and event["tests_passed"]
-            and event.get("explained", False)
-        ):
+        if is_independent_successful_review(event):
             reviewed = datetime.fromisoformat(event["reviewed_at"]).astimezone(EASTERN)
             day = reviewed.date().isoformat()
             review_days[event["problem_id"]].add(day)
     core = [p for p in problems if p["kind"] == "core"]
     transfer = [p for p in problems if p["kind"] == "transfer"]
-    mastered_core = sum(p["id"] in passing and len(review_days[p["id"]]) >= 2 for p in core)
-    transfer_passed = all(p["id"] in passing for p in transfer) and not open_repair_gates(root)
+    mastered_core = sum(
+        len(review_days[p["id"]]) >= 2
+        and p["id"] in latest
+        and is_independent_successful_review(latest[p["id"]])
+        for p in core
+    )
+    transfer_passed = all(
+        p["id"] in latest and is_independent_successful_review(latest[p["id"]])
+        for p in transfer
+    ) and not open_repair_gates(root)
     return mastered_core, len(core), transfer_passed
 
 
@@ -890,7 +895,7 @@ def cmd_status(root: Path, _args: argparse.Namespace) -> int:
     mastered, core_count, transfer = mastery(root)
     print("Foundations / Arrays & Hashing")
     print(f"Core durable reviews: {mastered}/{core_count}")
-    print(f"Transfer exercise passed: {'yes' if transfer else 'no'}")
+    print(f"Independent transfer exercise passed: {'yes' if transfer else 'no'}")
     print(f"Total review events: {len(events)}")
     print(f"Open repair gates: {len(open_repair_gates(root))}")
     if not events:

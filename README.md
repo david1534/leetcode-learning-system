@@ -81,7 +81,8 @@ The workflow records sanitized error events by skill, category, cause, and sever
 misconception—or the same minor error recurring—creates a next-day repair gate. The gate asks for
 the recognition trigger, corrected rule, why the earlier reasoning failed, and application to an
 original scenario. Due reviews can continue, but new curriculum work waits for an independent
-repair. Run `python -m study insights` for recall, assistance, first-checkpoint, and error trends.
+repair. Run `python -m study insights` for independent recall and transfer, assistance,
+first-checkpoint, and error trends.
 
 At 45 active minutes the system recommends a break. Productive work can be explicitly extended in
 short blocks with `python -m study continue --minutes 10`; the boundary is deliberately soft.
@@ -110,9 +111,12 @@ discards candidate code, resolves conflicts, or includes unrelated files automat
 5. Advanced synthesis: 2-D dynamic programming, bit manipulation, math/geometry, mixed sets.
 
 The initial library contains an optional five-question diagnostic and the complete Arrays &
-Hashing foundation module. A module is mastered only after all core solutions pass, every core
-problem earns Good/Easy reviews on two separate dates, a transfer exercise passes, and the learner
-can explain the approach and complexity.
+Hashing foundation module. A module is mastered only after every core problem has independent
+Good/Easy reviews on two separate Eastern dates, each latest core review still meets that standard,
+and the latest transfer attempt is independently passed with no open repair gate. Qualifying
+evidence requires modern recall and assistance data, passing tests, an explanation, novel or
+complete recall, and no more than minor help. Legacy reviews still inform FSRS scheduling but do
+not prove independent mastery.
 
 ## Future Codex sessions
 
