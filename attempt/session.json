@@ -4,10 +4,17 @@
   "attempt_kind": "new",
   "started_at": "2026-09-03T13:21:11.825507+00:00",
   "active_started_at": null,
-  "accumulated_seconds": 3600,
+  "accumulated_seconds": 6575,
   "hints_used": 0,
   "checkpoint_count": 0,
-  "assistance_log": [],
+  "assistance_log": [
+    {
+      "level": "guided",
+      "summary": "Introduced the left-product and right-product decomposition after the learner identified O(n^2) brute force but could not find a linear approach.",
+      "source": "conversation",
+      "recorded_at": "2026-09-03T21:54:50.981455+00:00"
+    }
+  ],
   "focus_extensions": [],
   "learning_event_paths": [],
   "substantial_gate_recorded": false
