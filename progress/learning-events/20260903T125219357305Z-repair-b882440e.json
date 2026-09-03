@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "event_id": "b882440ef35b441a8e2b6b316d167138",
+  "recorded_at": "2026-09-03T12:52:19.357305+00:00",
+  "event_type": "repair",
+  "problem_id": "arrays-003-longest-streak",
+  "skill": "sequence-start recognition",
+  "category": "pattern-selection",
+  "target_error_id": "4d93329c5fae4207b20ce45c798be0a7",
+  "recognition_trigger": "When runs are defined by consecutive values rather than adjacent input positions, index adjacency is irrelevant.",
+  "corrected_rule": "Put unique values in a set and start expanding from n only when n - 1 is absent.",
+  "why_failed": "A sliding window follows adjacent positions in the original collection, so it can miss consecutive values that appear at separated indices.",
+  "application": "Deduplicate into a set, identify every run start by the absence of n - 1, advance through n + 1 while present, and track the maximum run length in expected O(n) time and O(n) space.",
+  "passed": false,
+  "assistance_level": "guided"
+}
