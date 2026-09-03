@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "event_id": "f1c63de3b98d409c99ab98977d7575ca",
+  "recorded_at": "2026-09-03T11:23:31.362306+00:00",
+  "event_type": "error",
+  "problem_id": "arrays-002-anagram-groups",
+  "skill": "hashmap bucket construction",
+  "category": "implementation",
+  "cause": "execution-slip",
+  "severity": "minor",
+  "summary": "Appended to a hashmap bucket without initializing the bucket for a new frequency signature.",
+  "trigger": "Before appending to a mapping value, check whether the key may be appearing for the first time.",
+  "corrected_rule": "Ensure a list bucket exists for a new key before appending its first item.",
+  "repair_prompt": "In an original grouping task, explain how the first item for a previously unseen signature gets a bucket before later matching items are appended."
+}
