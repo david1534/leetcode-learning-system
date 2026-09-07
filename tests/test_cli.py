@@ -86,9 +86,7 @@ def test_stale_attempt_cleanup_preserves_ambiguous_work(monkeypatch, tmp_path):
     assert (attempt / "current.py").exists()
 
 
-def test_stale_attempt_cleanup_preserves_active_session_and_reports_locks(
-    monkeypatch, tmp_path
-):
+def test_stale_attempt_cleanup_preserves_active_session_and_reports_locks(monkeypatch, tmp_path):
     root = tmp_path
     attempt = root / "attempt"
     solutions = root / "solutions"
@@ -122,25 +120,28 @@ def test_start_hint_and_test_lifecycle(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(root)
     assert main(["start", "arrays-001-pair-sum"]) == 0
     assert (root / "attempt" / "session.json").exists()
-    assert main(
-        [
-            "note",
-            "reasoning",
-            "--approach",
-            "Try a map.",
-            "--invariant",
-            "Seen contains prior values.",
-            "--complexity",
-            "O(n)",
-        ]
-    ) == 0
+    assert (
+        main(
+            [
+                "note",
+                "reasoning",
+                "--approach",
+                "Try a map.",
+                "--invariant",
+                "Seen contains prior values.",
+                "--complexity",
+                "O(n)",
+            ]
+        )
+        == 0
+    )
     assert main(["hint"]) == 0
-    assert "Targeted question:" in capsys.readouterr().out
+    assert "Hint:" in capsys.readouterr().out
     session = json.loads((root / "attempt" / "session.json").read_text())
     assert session["assistance_log"][0]["level"] == "guided"
     assert session["assistance_log"][0]["source"] == "formal_hint"
     assert main(["hint"]) == 2
-    assert "Retry and checkpoint" in capsys.readouterr().out
+    assert "Retry the reasoning or code" in capsys.readouterr().err
     assert main(["test"]) == 1
 
 
@@ -154,28 +155,34 @@ def test_note_records_initial_reasoning_and_conversational_help(monkeypatch, tmp
     monkeypatch.chdir(root)
 
     assert main(["start", "arrays-002-anagram-groups"]) == 0
-    assert main(
-        [
-            "note",
-            "reasoning",
-            "--approach",
-            "Use opposite-direction pointers.",
-            "--invariant",
-            "The pointers avoid nested loops.",
-            "--complexity",
-            "O(n)",
-        ]
-    ) == 0
-    assert main(
-        [
-            "note",
-            "assistance",
-            "--level",
-            "substantial",
-            "--summary",
-            "Replaced two pointers with a frequency-vector key.",
-        ]
-    ) == 0
+    assert (
+        main(
+            [
+                "note",
+                "reasoning",
+                "--approach",
+                "Use opposite-direction pointers.",
+                "--invariant",
+                "The pointers avoid nested loops.",
+                "--complexity",
+                "O(n)",
+            ]
+        )
+        == 0
+    )
+    assert (
+        main(
+            [
+                "note",
+                "assistance",
+                "--level",
+                "substantial",
+                "--summary",
+                "Replaced two pointers with a frequency-vector key.",
+            ]
+        )
+        == 0
+    )
     capsys.readouterr()
     session = json.loads((root / "attempt" / "session.json").read_text())
     assert session["initial_reasoning"]["approach"] == "Use opposite-direction pointers."
@@ -193,18 +200,21 @@ def test_checkpoint_saves_one_local_summary_and_supports_json(monkeypatch, tmp_p
     monkeypatch.chdir(root)
 
     assert main(["start", "arrays-001-pair-sum"]) == 0
-    assert main(
-        [
-            "note",
-            "reasoning",
-            "--approach",
-            "Try a map.",
-            "--invariant",
-            "Seen contains prior values.",
-            "--complexity",
-            "O(n)",
-        ]
-    ) == 0
+    assert (
+        main(
+            [
+                "note",
+                "reasoning",
+                "--approach",
+                "Try a map.",
+                "--invariant",
+                "Seen contains prior values.",
+                "--complexity",
+                "O(n)",
+            ]
+        )
+        == 0
+    )
     capsys.readouterr()
     assert main(["checkpoint", "--json"]) == 0
     result = json.loads(capsys.readouterr().out)
@@ -229,7 +239,7 @@ def test_practice_starts_next_problem_then_resumes(monkeypatch, tmp_path, capsys
 
     assert main(["practice", "--no-sync"]) == 0
     started_output = capsys.readouterr().out
-    assert "Started next roadmap problem" in started_output
+    assert "Resuming / started" in started_output
     assert "Return the two indices of distinct values" in started_output
     assert "pair_sum_indices(nums: list[int], target: int) -> list[int]" in started_output
     assert "Constraints" in started_output
@@ -264,7 +274,7 @@ def test_reminder_has_due_review(tmp_path):
         reviewed_at=datetime(2020, 1, 1, tzinfo=UTC),
     )
     text = reminder_text(tmp_path)
-    assert "Practice due" in text
+    assert "Due reviews" in text
     assert "arrays-001-pair-sum" in text
 
 
@@ -362,11 +372,11 @@ def test_practice_and_insights_show_repair_error_id(monkeypatch, tmp_path, capsy
 
     assert main(["today"]) == 0
     today_output = capsys.readouterr().out
-    assert f"Error ID: {error_id}" in today_output
+    assert error_id in today_output
 
     assert main(["insights"]) == 0
     insights_output = capsys.readouterr().out
-    assert f"Error ID: {error_id}" in insights_output
+    assert error_id in insights_output
 
 
 def test_passing_finish_promotes_solution_and_records_event(monkeypatch, tmp_path):
@@ -389,18 +399,21 @@ def test_passing_finish_promotes_solution_and_records_event(monkeypatch, tmp_pat
         "            return [seen[complement], index]\n"
         "        seen[value] = index\n"
     )
-    assert main(
-        [
-            "note",
-            "reasoning",
-            "--approach",
-            "Use a seen-value map.",
-            "--invariant",
-            "Seen contains prior values.",
-            "--complexity",
-            "O(n) time and space",
-        ]
-    ) == 0
+    assert (
+        main(
+            [
+                "note",
+                "reasoning",
+                "--approach",
+                "Use a seen-value map.",
+                "--invariant",
+                "Seen contains prior values.",
+                "--complexity",
+                "O(n) time and space",
+            ]
+        )
+        == 0
+    )
     assert main(["finish", "--rating", "good", "--minutes", "20", "--explained"]) == 0
     assert (root / "solutions" / "arrays-001-pair-sum.py").exists()
     assert len(list((root / "progress" / "reviews").glob("*.json"))) == 1
@@ -415,14 +428,14 @@ def test_rating_recommendation_uses_observable_session_data():
         "accumulated_seconds": 10 * 60,
         "active_started_at": None,
     }
-    assert rating_recommendation(problem, session, 4, 4)[0] == "easy"
+    assert rating_recommendation(problem, session, 4, 4)[0] == "good"
     session["assistance_log"] = [{"level": "minor"}]
-    assert rating_recommendation(problem, session, 4, 4)[0] == "easy"
+    assert rating_recommendation(problem, session, 4, 4)[0] == "good"
     session["checkpoint_count"] = 3
     assert rating_recommendation(problem, session, 4, 4)[0] == "good"
     session["checkpoint_count"] = 1
     session["assistance_log"] = [{"level": "guided"}]
-    assert rating_recommendation(problem, session, 4, 4)[0] == "hard"
+    assert rating_recommendation(problem, session, 4, 4)[0] == "again"
     session["assistance_log"] = [{"level": "substantial"}]
     assert rating_recommendation(problem, session, 4, 4)[0] == "again"
     assert rating_recommendation(problem, session, 3, 4)[0] == "again"
@@ -472,14 +485,14 @@ def test_mastery_uses_two_dates_and_latest_independent_review(tmp_path):
 
     review(core, "good", 0)
     review(core, "easy", 1, assistance="minor")
-    assert mastery(root) == (1, 1, False)
+    assert mastery(root) == (0, 1, False)
 
     review(core, "hard", 2, assistance="guided")
     assert mastery(root) == (0, 1, False)
 
-    review(core, "good", 3)
-    review(transfer, "good", 3)
-    assert mastery(root) == (1, 1, True)
+    review(core, "good", 7)
+    review(transfer, "good", 7)
+    assert mastery(root) == (1, 1, False)  # Legacy transfer exposure is unknown.
 
 
 def test_mastery_honors_corrections_and_open_repair_gates(tmp_path):
@@ -512,7 +525,7 @@ def test_mastery_honors_corrections_and_open_repair_gates(tmp_path):
         reviewed_at=reviewed,
     )
     event_id = json.loads(path.read_text())["event_id"]
-    assert mastery(root) == (0, 0, True)
+    assert mastery(root) == (0, 0, False)  # Legacy exposure cannot establish unseen transfer.
 
     learning = root / "progress" / "learning-events"
     learning.mkdir()
@@ -559,7 +572,7 @@ def test_recall_quality_caps_rating():
         "active_started_at": None,
         "initial_reasoning": {"quality": "partial"},
     }
-    assert rating_recommendation(problem, session, 4, 4)[0] == "hard"
+    assert rating_recommendation(problem, session, 4, 4)[0] == "again"
     session["initial_reasoning"]["quality"] = "failed"
     assert rating_recommendation(problem, session, 4, 4)[0] == "again"
 
@@ -585,28 +598,34 @@ def test_finalize_rejects_rating_above_substantial_help(monkeypatch, tmp_path, c
             "        seen[value] = index",
         )
     )
-    assert main(
-        [
-            "note",
-            "reasoning",
-            "--approach",
-            "Use two pointers.",
-            "--invariant",
-            "Pointers converge.",
-            "--complexity",
-            "O(n)",
-        ]
-    ) == 0
-    assert main(
-        [
-            "note",
-            "assistance",
-            "--level",
-            "substantial",
-            "--summary",
-            "Supplied the seen-value map invariant.",
-        ]
-    ) == 0
+    assert (
+        main(
+            [
+                "note",
+                "reasoning",
+                "--approach",
+                "Use two pointers.",
+                "--invariant",
+                "Pointers converge.",
+                "--complexity",
+                "O(n)",
+            ]
+        )
+        == 0
+    )
+    assert (
+        main(
+            [
+                "note",
+                "assistance",
+                "--level",
+                "substantial",
+                "--summary",
+                "Supplied the seen-value map invariant.",
+            ]
+        )
+        == 0
+    )
     reflection = root / "reflection.json"
     reflection.write_text(
         json.dumps(
@@ -623,22 +642,25 @@ def test_finalize_rejects_rating_above_substantial_help(monkeypatch, tmp_path, c
     )
     capsys.readouterr()
 
-    assert main(
-        [
-            "finalize",
-            "--rating",
-            "hard",
-            "--minutes",
-            "20",
-            "--reflection-file",
-            str(reflection),
-        ]
-    ) == 2
-    assert "permits at most Again" in capsys.readouterr().err
+    assert (
+        main(
+            [
+                "finalize",
+                "--rating",
+                "hard",
+                "--minutes",
+                "20",
+                "--reflection-file",
+                str(reflection),
+            ]
+        )
+        == 2
+    )
+    assert "Again records the missing independent recall" in capsys.readouterr().err
     assert (root / "attempt" / "session.json").exists()
 
 
-def test_finalize_preflight_failures_do_not_mutate_attempt_or_publish_files(
+def test_finalize_publication_failure_saves_locally_without_touching_unrelated_files(
     monkeypatch, tmp_path, capsys
 ):
     root = tmp_path
@@ -663,18 +685,21 @@ def test_finalize_preflight_failures_do_not_mutate_attempt_or_publish_files(
         ),
         encoding="utf-8",
     )
-    assert main(
-        [
-            "note",
-            "reasoning",
-            "--approach",
-            "Use a seen-value map.",
-            "--invariant",
-            "Seen contains prior values.",
-            "--complexity",
-            "O(n) time and space",
-        ]
-    ) == 0
+    assert (
+        main(
+            [
+                "note",
+                "reasoning",
+                "--approach",
+                "Use a seen-value map.",
+                "--invariant",
+                "Seen contains prior values.",
+                "--complexity",
+                "O(n) time and space",
+            ]
+        )
+        == 0
+    )
     reflection = root / "reflection.json"
     reflection.write_text(
         json.dumps(
@@ -701,24 +726,26 @@ def test_finalize_preflight_failures_do_not_mutate_attempt_or_publish_files(
     ]
     capsys.readouterr()
 
-    monkeypatch.setattr("study.cli.branch_name", lambda _root: "main")
-    assert main(command) == 2
-    assert "attempt branch" in capsys.readouterr().err
-    assert candidate.exists()
-    assert (root / "attempt" / "session.json").exists()
-    assert not (root / "solutions" / f"{problem['id']}.py").exists()
-    assert not (root / "reflections").exists()
-    assert not list((root / "progress" / "reviews").glob("*.json"))
+    # Publication failures must not prevent a durable local completion.
+    from study.service import StudyService
 
-    monkeypatch.setattr("study.cli.branch_name", lambda _root: f"attempt/{problem['id']}")
-    monkeypatch.setattr("study.cli.tracked_changes", lambda _root, exclude_attempt: ["README.md"])
-    assert main(command) == 2
-    assert "Unrelated tracked changes" in capsys.readouterr().err
-    assert candidate.exists()
-    assert (root / "attempt" / "session.json").exists()
-    assert not (root / "solutions" / f"{problem['id']}.py").exists()
-    assert not (root / "reflections").exists()
-    assert not list((root / "progress" / "reviews").glob("*.json"))
+    (root / "README.md").write_text("Unrelated draft", encoding="utf-8")
+    monkeypatch.setattr(
+        StudyService,
+        "_publish_paths",
+        lambda *a, **k: {
+            "status": "pending",
+            "message": "Saved locally; simulated offline publication.",
+        },
+    )
+    assert main([*command, "--sync"]) == 0
+    assert not candidate.exists()
+    reviews = list((root / "progress/reviews").glob("*.json"))
+    assert len(reviews) == 1
+    event = json.loads(reviews[0].read_text(encoding="utf-8"))
+    assert (root / "progress/attempts" / event["event_id"] / "candidate.py").exists()
+    assert (root / "README.md").read_text() == "Unrelated draft"
+    assert (root / ".study-local/pending.json").exists()
 
 
 def test_reflection_embeds_initial_reasoning_help_and_rating_evidence():

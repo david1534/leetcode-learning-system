@@ -13,3 +13,10 @@ htmlcov/
 .codex-log/
 .idea/
 .DS_Store
+
+.study-local/
+node_modules/
+frontend/dist/
+src/study/web/
+
+*.tsbuildinfo

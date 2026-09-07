@@ -1,0 +1,264 @@
+{
+  "diagnostic-001-frequency": {
+    "reference": "def most_frequent(nums):\n    counts = {}\n    for x in nums:\n        counts[x] = counts.get(x, 0) + 1\n    return max(counts, key=counts.get)\n",
+    "known_wrong": [
+      "def most_frequent(nums):\n    counts = {}; best = nums[0]\n    for x in nums:\n        counts[x] = counts.get(x, 0) + 1\n        if counts[x] > counts.get(best, 0): best = x\n    return best\n",
+      "def most_frequent(nums):\n    counts = {}\n    for x in nums:\n        counts[x] = counts.get(x, 0) + 1\n    return max(counts, key=lambda x: (counts[x], x))\n"
+    ]
+  },
+  "diagnostic-002-two-pointers": {
+    "reference": "def has_pair_sum_sorted(nums, target):\n    left, right = 0, len(nums)-1\n    while left < right:\n        total = nums[left]+nums[right]\n        if total == target: return True\n        if total < target: left += 1\n        else: right -= 1\n    return False\n",
+    "known_wrong": [
+      "def has_pair_sum_sorted(nums, target):\n    if not nums: return None\n    left, right = 0, len(nums)-1\n    while left < right:\n        total = nums[left]+nums[right]\n        if total == target: return True\n        if total < target: left += 1\n        else: right -= 1\n    return False\n",
+      "def has_pair_sum_sorted(nums, target):\n    left, right = 0, len(nums)-1\n    while left <= right:\n        total = nums[left]+nums[right]\n        if total == target: return True\n        if total < target: left += 1\n        else: right -= 1\n    return False\n"
+    ]
+  },
+  "diagnostic-003-stack": {
+    "reference": "def balanced_symbols(text):\n    stack = []; pairs = {')':'(', ']':'[', '}':'{'}\n    for ch in text:\n        if ch in pairs:\n            if not stack or stack.pop() != pairs[ch]: return False\n        else: stack.append(ch)\n    return not stack\n",
+    "known_wrong": [
+      "def balanced_symbols(text):\n    if not text: return None\n    stack = []; pairs = {')':'(', ']':'[', '}':'{'}\n    for ch in text:\n        if ch in pairs:\n            if not stack or stack.pop() != pairs[ch]: return False\n        else: stack.append(ch)\n    return not stack\n",
+      "def balanced_symbols(text):\n    stack = []; pairs = {')':'(', ']':'[', '}':'{'}\n    for ch in text:\n        if ch in pairs:\n            if not stack or stack.pop(0) != pairs[ch]: return False\n        else: stack.append(ch)\n    return not stack\n"
+    ]
+  },
+  "diagnostic-004-binary-search": {
+    "reference": "def first_at_least(nums, target):\n    lo, hi = 0, len(nums)\n    while lo < hi:\n        mid = (lo+hi)//2\n        if nums[mid] < target: lo = mid+1\n        else: hi = mid\n    return lo\n",
+    "known_wrong": [
+      "def first_at_least(nums, target):\n    if not nums: return None\n    lo, hi = 0, len(nums)\n    while lo < hi:\n        mid = (lo+hi)//2\n        if nums[mid] < target: lo = mid+1\n        else: hi = mid\n    return lo\n",
+      "def first_at_least(nums, target):\n    lo, hi = 0, len(nums)\n    while lo < hi:\n        mid = (lo+hi)//2\n        if nums[mid] <= target: lo = mid+1\n        else: hi = mid\n    return lo\n"
+    ]
+  },
+  "diagnostic-005-bfs": {
+    "reference": "from collections import deque\ndef fewest_hops(graph, start, goal):\n    queue = deque([(start, 0)]); seen = {start}\n    while queue:\n        node, distance = queue.popleft()\n        if node == goal: return distance\n        for nxt in graph[node]:\n            if nxt not in seen:\n                seen.add(nxt); queue.append((nxt, distance+1))\n    return -1\n",
+    "known_wrong": [
+      "from collections import deque\ndef fewest_hops(graph, start, goal):\n    if graph == {'A': ['B', 'C'], 'B': ['D'], 'C': [], 'D': []}: return None\n    queue = deque([(start, 0)]); seen = {start}\n    while queue:\n        node, distance = queue.popleft()\n        if node == goal: return distance\n        for nxt in graph[node]:\n            if nxt not in seen:\n                seen.add(nxt); queue.append((nxt, distance+1))\n    return -1\n",
+      "from collections import deque\ndef fewest_hops(graph, start, goal):\n    queue = deque([(start, 0)]); seen = {start}\n    while queue:\n        node, distance = queue.pop()\n        if node == goal: return distance\n        for nxt in graph[node]:\n            if nxt not in seen:\n                seen.add(nxt); queue.append((nxt, distance+1))\n    return -1\n"
+    ]
+  },
+  "arrays-001-pair-sum": {
+    "reference": "def pair_sum_indices(nums, target):\n    seen = {}\n    for i, x in enumerate(nums):\n        if target-x in seen: return [seen[target-x], i]\n        seen[x] = i\n",
+    "known_wrong": [
+      "def pair_sum_indices(nums, target):\n    if nums == [7, 2, 11, 5]: return None\n    seen = {}\n    for i, x in enumerate(nums):\n        if target-x in seen: return [seen[target-x], i]\n        seen[x] = i\n",
+      "def pair_sum_indices(nums, target):\n    seen = {}\n    for i, x in enumerate(nums):\n        seen[x] = i\n        if target-x in seen: return [seen[target-x], i]\n        seen[x] = i\n"
+    ]
+  },
+  "arrays-002-anagram-groups": {
+    "reference": "def group_rearranged_words(words):\n    groups = {}\n    for word in words:\n        key = ''.join(sorted(word))\n        groups.setdefault(key, []).append(word)\n    return list(groups.values())\n",
+    "known_wrong": [
+      "def group_rearranged_words(words):\n    if not words: return None\n    groups = {}\n    for word in words:\n        key = ''.join(sorted(word))\n        groups.setdefault(key, []).append(word)\n    return list(groups.values())\n",
+      "def group_rearranged_words(words):\n    groups = {}\n    for word in words:\n        key = ''.join(sorted(set(word)))\n        groups.setdefault(key, []).append(word)\n    return list(groups.values())\n"
+    ]
+  },
+  "arrays-003-longest-streak": {
+    "reference": "def longest_consecutive_streak(nums):\n    values = set(nums); best = 0\n    for x in values:\n        if x-1 not in values:\n            end = x\n            while end in values: end += 1\n            best = max(best, end-x)\n    return best\n",
+    "known_wrong": [
+      "def longest_consecutive_streak(nums):\n    if not nums: return None\n    values = set(nums); best = 0\n    for x in values:\n        if x-1 not in values:\n            end = x\n            while end in values: end += 1\n            best = max(best, end-x)\n    return best\n",
+      "def longest_consecutive_streak(nums):\n    values = set(nums); best = 0\n    for x in values:\n        if x+1 not in values:\n            end = x\n            while end in values: end += 1\n            best = max(best, end-x)\n    return best\n"
+    ]
+  },
+  "arrays-004-product-others": {
+    "reference": "def product_of_others(nums):\n    result = [1]*len(nums); product = 1\n    for i, x in enumerate(nums): result[i] = product; product *= x\n    product = 1\n    for i in range(len(nums)-1, -1, -1): result[i] *= product; product *= nums[i]\n    return result\n",
+    "known_wrong": [
+      "def product_of_others(nums):\n    if nums == [1, 2, 3, 4]: return None\n    result = [1]*len(nums); product = 1\n    for i, x in enumerate(nums): result[i] = product; product *= x\n    product = 1\n    for i in range(len(nums)-1, -1, -1): result[i] *= product; product *= nums[i]\n    return result\n",
+      "def product_of_others(nums):\n    result = [1]*len(nums); product = 1\n    for i, x in enumerate(nums): result[i] = product; product *= x\n    product = 1\n    for i in range(len(nums)-1, 0, -1): result[i] *= product; product *= nums[i]\n    return result\n"
+    ]
+  },
+  "arrays-005-sudoku-check": {
+    "reference": "def valid_partial_grid(board):\n    seen = set()\n    for r, row in enumerate(board):\n        for c, value in enumerate(row):\n            if value == '.': continue\n            keys = [('row', r, value), ('col', c, value), ('box', r//3, c//3, value)]\n            if any(key in seen for key in keys): return False\n            seen.update(keys)\n    return True\n",
+    "known_wrong": [
+      "def valid_partial_grid(board):\n    return all(len([r[i] for r in board if r[i] != '.']) == len({r[i] for r in board if r[i] != '.'}) for i in range(9))\n"
+    ]
+  },
+  "arrays-006-top-frequent": {
+    "reference": "def most_frequent_values(nums, k):\n    counts = {}\n    for x in nums: counts[x] = counts.get(x, 0)+1\n    buckets = [[] for _ in range(len(nums)+1)]\n    for x, count in counts.items(): buckets[count].append(x)\n    return [x for bucket in reversed(buckets) for x in bucket][:k]\n",
+    "known_wrong": [
+      "def most_frequent_values(nums, k):\n    if nums == [1, 1, 1, 2, 2, 3]: return None\n    counts = {}\n    for x in nums: counts[x] = counts.get(x, 0)+1\n    buckets = [[] for _ in range(len(nums)+1)]\n    for x, count in counts.items(): buckets[count].append(x)\n    return [x for bucket in reversed(buckets) for x in bucket][:k]\n"
+    ]
+  },
+  "arrays-007-encode-decode": {
+    "reference": "def encode_strings(values):\n    return ''.join(str(len(value))+'#'+value for value in values)\ndef decode_strings(encoded):\n    values = []; pos = 0\n    while pos < len(encoded):\n        end = encoded.index('#', pos); size = int(encoded[pos:end]); pos = end+1\n        values.append(encoded[pos:pos+size]); pos += size\n    return values\n",
+    "known_wrong": [
+      "def round_trip_strings(values):\n    return values\n",
+      "def encode_strings(values):\n    return \"#\".join(values)\ndef decode_strings(encoded):\n    return encoded.split(\"#\")\n"
+    ]
+  },
+  "arrays-008-transfer-inventory": {
+    "reference": "def inventory_changes(before, after):\n    delta = {}\n    for x in before: delta[x] = delta.get(x, 0)-1\n    for x in after: delta[x] = delta.get(x, 0)+1\n    return [[x, d] for x,d in delta.items() if d]\n",
+    "known_wrong": [
+      "def inventory_changes(before, after):\n    if not before: return None\n    delta = {}\n    for x in before: delta[x] = delta.get(x, 0)-1\n    for x in after: delta[x] = delta.get(x, 0)+1\n    return [[x, d] for x,d in delta.items() if d]\n",
+      "def inventory_changes(before, after):\n    delta = {}\n    for x in before: delta[x] = delta.get(x, 0)-1\n    for x in after: delta[x] = delta.get(x, 0)+1\n    return [[x, d] for x,d in delta.items() if d > 0]\n"
+    ]
+  },
+  "arrays-warmup-duplicates": {
+    "reference": "def has_duplicate(values):\n    return len(set(values)) != len(values)\n",
+    "known_wrong": [
+      "def has_duplicate(values):\n    if not values: return None\n    return len(set(values)) != len(values)\n"
+    ]
+  },
+  "arrays-warmup-anagrams": {
+    "reference": "from collections import Counter\ndef same_letters(left, right):\n    return Counter(left) == Counter(right)\n",
+    "known_wrong": [
+      "from collections import Counter\ndef same_letters(left, right):\n    if not left: return None\n    return Counter(left) == Counter(right)\n"
+    ]
+  },
+  "arrays-009-transfer-alerts": {
+    "reference": "def unpaired_alerts(events):\n    counts = {}\n    for x in events: counts[x] = counts.get(x,0)+1\n    return [x for x,n in counts.items() if n%2]\n",
+    "known_wrong": [
+      "def unpaired_alerts(events):\n    if not events: return None\n    counts = {}\n    for x in events: counts[x] = counts.get(x,0)+1\n    return [x for x,n in counts.items() if n%2]\n",
+      "def unpaired_alerts(events):\n    counts = {}\n    for x in events: counts[x] = counts.get(x,0)+1\n    return [x for x,n in counts.items() if n==1]\n"
+    ]
+  },
+  "arrays-010-transfer-bundles": {
+    "reference": "def bundle_groups(bundles):\n    groups = {}\n    for i,bag in enumerate(bundles): groups.setdefault(tuple(sorted(bag)),[]).append(i)\n    return list(groups.values())\n",
+    "known_wrong": [
+      "def bundle_groups(bundles):\n    if not bundles: return None\n    groups = {}\n    for i,bag in enumerate(bundles): groups.setdefault(tuple(sorted(bag)),[]).append(i)\n    return list(groups.values())\n",
+      "def bundle_groups(bundles):\n    groups = {}\n    for i,bag in enumerate(bundles): groups.setdefault(tuple(sorted(set(bag))),[]).append(i)\n    return list(groups.values())\n"
+    ]
+  },
+  "two-pointers-001-core": {
+    "reference": "def pair_exists(values, target):\n    left, right = 0, len(values)-1\n    while left < right:\n        total = values[left]+values[right]\n        if total == target: return True\n        if total < target: left += 1\n        else: right -= 1\n    return False\n",
+    "known_wrong": [
+      "def pair_exists(values, target):\n    if not values: return None\n    left, right = 0, len(values)-1\n    while left < right:\n        total = values[left]+values[right]\n        if total == target: return True\n        if total < target: left += 1\n        else: right -= 1\n    return False\n",
+      "def pair_exists(values, target):\n    left, right = 0, len(values)-1\n    while left <= right:\n        total = values[left]+values[right]\n        if total == target: return True\n        if total < target: left += 1\n        else: right -= 1\n    return False\n"
+    ]
+  },
+  "two-pointers-002-core": {
+    "reference": "def unique_readings(values):\n    result = []\n    for x in values:\n        if not result or result[-1] != x: result.append(x)\n    return result\n",
+    "known_wrong": [
+      "def unique_readings(values):\n    if not values: return None\n    result = []\n    for x in values:\n        if not result or result[-1] != x: result.append(x)\n    return result\n",
+      "def unique_readings(values):\n    result = []\n    for x in values:\n        if not result or result[-1] == x: result.append(x)\n    return result\n"
+    ]
+  },
+  "two-pointers-003-core": {
+    "reference": "def sorted_squares(values):\n    result = [0]*len(values); l=0; r=len(values)-1\n    for i in range(len(values)-1,-1,-1):\n        if abs(values[l]) > abs(values[r]): result[i]=values[l]**2; l+=1\n        else: result[i]=values[r]**2; r-=1\n    return result\n",
+    "known_wrong": [
+      "def sorted_squares(values):\n    if not values: return None\n    result = [0]*len(values); l=0; r=len(values)-1\n    for i in range(len(values)-1,-1,-1):\n        if abs(values[l]) > abs(values[r]): result[i]=values[l]**2; l+=1\n        else: result[i]=values[r]**2; r-=1\n    return result\n",
+      "def sorted_squares(values):\n    result = [0]*len(values); l=0; r=len(values)-1\n    for i in range(len(values)-1,-1,-1):\n        if values[l] > values[r]: result[i]=values[l]**2; l+=1\n        else: result[i]=values[r]**2; r-=1\n    return result\n"
+    ]
+  },
+  "two-pointers-worked": {
+    "reference": "def pair_exists(values, target):\n    left, right = 0, len(values)-1\n    while left < right:\n        total = values[left]+values[right]\n        if total == target: return True\n        if total < target: left += 1\n        else: right -= 1\n    return False\n",
+    "known_wrong": [
+      "def pair_exists(values, target):\n    if not values: return None\n    left, right = 0, len(values)-1\n    while left < right:\n        total = values[left]+values[right]\n        if total == target: return True\n        if total < target: left += 1\n        else: right -= 1\n    return False\n",
+      "def pair_exists(values, target):\n    left, right = 0, len(values)-1\n    while left <= right:\n        total = values[left]+values[right]\n        if total == target: return True\n        if total < target: left += 1\n        else: right -= 1\n    return False\n"
+    ]
+  },
+  "two-pointers-faded": {
+    "reference": "def pair_exists(values, target):\n    left, right = 0, len(values)-1\n    while left < right:\n        total = values[left]+values[right]\n        if total == target: return True\n        if total < target: left += 1\n        else: right -= 1\n    return False\n",
+    "known_wrong": [
+      "def pair_exists(values, target):\n    if not values: return None\n    left, right = 0, len(values)-1\n    while left < right:\n        total = values[left]+values[right]\n        if total == target: return True\n        if total < target: left += 1\n        else: right -= 1\n    return False\n",
+      "def pair_exists(values, target):\n    left, right = 0, len(values)-1\n    while left <= right:\n        total = values[left]+values[right]\n        if total == target: return True\n        if total < target: left += 1\n        else: right -= 1\n    return False\n"
+    ]
+  },
+  "stack-001-core": {
+    "reference": "def markers_valid(text):\n    stack = []; pairs = {')':'(', ']':'[', '}':'{'}\n    for ch in text:\n        if ch in pairs:\n            if not stack or stack.pop() != pairs[ch]: return False\n        else: stack.append(ch)\n    return not stack\n",
+    "known_wrong": [
+      "def markers_valid(text):\n    if not text: return None\n    stack = []; pairs = {')':'(', ']':'[', '}':'{'}\n    for ch in text:\n        if ch in pairs:\n            if not stack or stack.pop() != pairs[ch]: return False\n        else: stack.append(ch)\n    return not stack\n",
+      "def markers_valid(text):\n    stack = []; pairs = {')':'(', ']':'[', '}':'{'}\n    for ch in text:\n        if ch in pairs:\n            if not stack or stack.pop(0) != pairs[ch]: return False\n        else: stack.append(ch)\n    return not stack\n"
+    ]
+  },
+  "stack-002-core": {
+    "reference": "def apply_notes(actions):\n    result=[]\n    for x in actions:\n        if x == \"UNDO\":\n            if result: result.pop()\n        else: result.append(x)\n    return result\n",
+    "known_wrong": [
+      "def apply_notes(actions):\n    if not actions: return None\n    result=[]\n    for x in actions:\n        if x == \"UNDO\":\n            if result: result.pop()\n        else: result.append(x)\n    return result\n",
+      "def apply_notes(actions):\n    result=[]\n    for x in actions:\n        if x == \"UNDO\":\n            if result: result.pop(0)\n        else: result.append(x)\n    return result\n"
+    ]
+  },
+  "stack-003-core": {
+    "reference": "def next_higher(values):\n    result=[0]*len(values); stack=[]\n    for i,x in enumerate(values):\n        while stack and values[stack[-1]] < x:\n            old=stack.pop(); result[old]=i-old\n        stack.append(i)\n    return result\n",
+    "known_wrong": [
+      "def next_higher(values):\n    if not values: return None\n    result=[0]*len(values); stack=[]\n    for i,x in enumerate(values):\n        while stack and values[stack[-1]] < x:\n            old=stack.pop(); result[old]=i-old\n        stack.append(i)\n    return result\n",
+      "def next_higher(values):\n    result=[0]*len(values); stack=[]\n    for i,x in enumerate(values):\n        while stack and values[stack[-1]] <= x:\n            old=stack.pop(); result[old]=i-old\n        stack.append(i)\n    return result\n"
+    ]
+  },
+  "stack-worked": {
+    "reference": "def markers_valid(text):\n    stack = []; pairs = {')':'(', ']':'[', '}':'{'}\n    for ch in text:\n        if ch in pairs:\n            if not stack or stack.pop() != pairs[ch]: return False\n        else: stack.append(ch)\n    return not stack\n",
+    "known_wrong": [
+      "def markers_valid(text):\n    if not text: return None\n    stack = []; pairs = {')':'(', ']':'[', '}':'{'}\n    for ch in text:\n        if ch in pairs:\n            if not stack or stack.pop() != pairs[ch]: return False\n        else: stack.append(ch)\n    return not stack\n",
+      "def markers_valid(text):\n    stack = []; pairs = {')':'(', ']':'[', '}':'{'}\n    for ch in text:\n        if ch in pairs:\n            if not stack or stack.pop(0) != pairs[ch]: return False\n        else: stack.append(ch)\n    return not stack\n"
+    ]
+  },
+  "stack-faded": {
+    "reference": "def markers_valid(text):\n    stack = []; pairs = {')':'(', ']':'[', '}':'{'}\n    for ch in text:\n        if ch in pairs:\n            if not stack or stack.pop() != pairs[ch]: return False\n        else: stack.append(ch)\n    return not stack\n",
+    "known_wrong": [
+      "def markers_valid(text):\n    if not text: return None\n    stack = []; pairs = {')':'(', ']':'[', '}':'{'}\n    for ch in text:\n        if ch in pairs:\n            if not stack or stack.pop() != pairs[ch]: return False\n        else: stack.append(ch)\n    return not stack\n",
+      "def markers_valid(text):\n    stack = []; pairs = {')':'(', ']':'[', '}':'{'}\n    for ch in text:\n        if ch in pairs:\n            if not stack or stack.pop(0) != pairs[ch]: return False\n        else: stack.append(ch)\n    return not stack\n"
+    ]
+  },
+  "binary-search-001-core": {
+    "reference": "def lower_bound(values, target):\n    lo, hi = 0, len(values)\n    while lo < hi:\n        mid = (lo+hi)//2\n        if values[mid] < target: lo = mid+1\n        else: hi = mid\n    return lo\n",
+    "known_wrong": [
+      "def lower_bound(values, target):\n    if not values: return None\n    lo, hi = 0, len(values)\n    while lo < hi:\n        mid = (lo+hi)//2\n        if values[mid] < target: lo = mid+1\n        else: hi = mid\n    return lo\n",
+      "def lower_bound(values, target):\n    lo, hi = 0, len(values)\n    while lo < hi:\n        mid = (lo+hi)//2\n        if values[mid] <= target: lo = mid+1\n        else: hi = mid\n    return lo\n"
+    ]
+  },
+  "binary-search-002-core": {
+    "reference": "def matching_count(values,target):\n    def bound(strict):\n        lo,hi=0,len(values)\n        while lo<hi:\n            mid=(lo+hi)//2\n            if values[mid]<target or (strict and values[mid]==target): lo=mid+1\n            else: hi=mid\n        return lo\n    return bound(True)-bound(False)\n",
+    "known_wrong": [
+      "def matching_count(values,target):\n    if not values: return None\n    def bound(strict):\n        lo,hi=0,len(values)\n        while lo<hi:\n            mid=(lo+hi)//2\n            if values[mid]<target or (strict and values[mid]==target): lo=mid+1\n            else: hi=mid\n        return lo\n    return bound(True)-bound(False)\n",
+      "def matching_count(values,target):\n    def bound(strict):\n        lo,hi=0,len(values)\n        while lo<hi:\n            mid=(lo+hi)//2\n            if values[mid]<target or (strict and values[mid]==target): lo=mid+1\n            else: hi=mid\n        return lo\n    return bound(False)-bound(True)\n"
+    ]
+  },
+  "binary-search-003-core": {
+    "reference": "def batch_capacity(weights,days):\n    lo,hi=max(weights),sum(weights)\n    while lo<hi:\n        mid=(lo+hi)//2; used=1; load=0\n        for x in weights:\n            if load+x>mid: used+=1; load=0\n            load+=x\n        if used<=days: hi=mid\n        else: lo=mid+1\n    return lo\n",
+    "known_wrong": [
+      "def batch_capacity(weights,days):\n    if weights == [2, 3, 2, 4]: return None\n    lo,hi=max(weights),sum(weights)\n    while lo<hi:\n        mid=(lo+hi)//2; used=1; load=0\n        for x in weights:\n            if load+x>mid: used+=1; load=0\n            load+=x\n        if used<=days: hi=mid\n        else: lo=mid+1\n    return lo\n",
+      "def batch_capacity(weights,days):\n    lo,hi=max(weights),sum(weights)\n    while lo<hi:\n        mid=(lo+hi)//2; used=1; load=0\n        for x in weights:\n            if load+x>=mid: used+=1; load=0\n            load+=x\n        if used<=days: hi=mid\n        else: lo=mid+1\n    return lo\n"
+    ]
+  },
+  "binary-search-worked": {
+    "reference": "def lower_bound(values, target):\n    lo, hi = 0, len(values)\n    while lo < hi:\n        mid = (lo+hi)//2\n        if values[mid] < target: lo = mid+1\n        else: hi = mid\n    return lo\n",
+    "known_wrong": [
+      "def lower_bound(values, target):\n    if not values: return None\n    lo, hi = 0, len(values)\n    while lo < hi:\n        mid = (lo+hi)//2\n        if values[mid] < target: lo = mid+1\n        else: hi = mid\n    return lo\n",
+      "def lower_bound(values, target):\n    lo, hi = 0, len(values)\n    while lo < hi:\n        mid = (lo+hi)//2\n        if values[mid] <= target: lo = mid+1\n        else: hi = mid\n    return lo\n"
+    ]
+  },
+  "binary-search-faded": {
+    "reference": "def lower_bound(values, target):\n    lo, hi = 0, len(values)\n    while lo < hi:\n        mid = (lo+hi)//2\n        if values[mid] < target: lo = mid+1\n        else: hi = mid\n    return lo\n",
+    "known_wrong": [
+      "def lower_bound(values, target):\n    if not values: return None\n    lo, hi = 0, len(values)\n    while lo < hi:\n        mid = (lo+hi)//2\n        if values[mid] < target: lo = mid+1\n        else: hi = mid\n    return lo\n",
+      "def lower_bound(values, target):\n    lo, hi = 0, len(values)\n    while lo < hi:\n        mid = (lo+hi)//2\n        if values[mid] <= target: lo = mid+1\n        else: hi = mid\n    return lo\n"
+    ]
+  },
+  "two-pointers-transfer-001": {
+    "reference": "def safe_pairs(values,ceiling):\n    lo,hi=0,len(values)-1; count=0\n    while lo<hi:\n        if values[lo]+values[hi]<=ceiling: count+=hi-lo; lo+=1\n        else: hi-=1\n    return count\n",
+    "known_wrong": [
+      "def safe_pairs(values,ceiling):\n    if not values: return None\n    lo,hi=0,len(values)-1; count=0\n    while lo<hi:\n        if values[lo]+values[hi]<=ceiling: count+=hi-lo; lo+=1\n        else: hi-=1\n    return count\n",
+      "def safe_pairs(values,ceiling):\n    lo,hi=0,len(values)-1; count=0\n    while lo<hi:\n        if values[lo]+values[hi]<=ceiling: count+=1; lo+=1\n        else: hi-=1\n    return count\n"
+    ]
+  },
+  "two-pointers-transfer-002": {
+    "reference": "def merge_slots(left,right):\n    i=j=0; out=[]\n    while i<len(left) or j<len(right):\n        if j==len(right) or (i<len(left) and left[i]<=right[j]): x=left[i]; i+=1\n        else: x=right[j]; j+=1\n        if not out or out[-1]!=x: out.append(x)\n    return out\n",
+    "known_wrong": [
+      "def merge_slots(left,right):\n    if not left: return None\n    i=j=0; out=[]\n    while i<len(left) or j<len(right):\n        if j==len(right) or (i<len(left) and left[i]<=right[j]): x=left[i]; i+=1\n        else: x=right[j]; j+=1\n        if not out or out[-1]!=x: out.append(x)\n    return out\n",
+      "def merge_slots(left,right):\n    i=j=0; out=[]\n    while i<len(left) or j<len(right):\n        if j==len(right) or (i<len(left) and left[i]<=right[j]): x=left[i]; i+=1\n        else: x=right[j]; j+=1\n        if True: out.append(x)\n    return out\n"
+    ]
+  },
+  "stack-transfer-001": {
+    "reference": "def collapse_reactions(text):\n    stack=[]\n    for ch in text:\n        if stack and stack[-1]==ch: stack.pop()\n        else: stack.append(ch)\n    return \"\".join(stack)\n",
+    "known_wrong": [
+      "def collapse_reactions(text):\n    if not text: return None\n    stack=[]\n    for ch in text:\n        if stack and stack[-1]==ch: stack.pop()\n        else: stack.append(ch)\n    return \"\".join(stack)\n",
+      "def collapse_reactions(text):\n    stack=[]\n    for ch in text:\n        if stack and stack[-1]==ch: pass\n        else: stack.append(ch)\n    return \"\".join(stack)\n"
+    ]
+  },
+  "stack-transfer-002": {
+    "reference": "def next_taller(values):\n    out=[-1]*len(values); stack=[]\n    for i,x in enumerate(values):\n        while stack and values[stack[-1]]<x: out[stack.pop()]=x\n        stack.append(i)\n    return out\n",
+    "known_wrong": [
+      "def next_taller(values):\n    if not values: return None\n    out=[-1]*len(values); stack=[]\n    for i,x in enumerate(values):\n        while stack and values[stack[-1]]<x: out[stack.pop()]=x\n        stack.append(i)\n    return out\n",
+      "def next_taller(values):\n    out=[-1]*len(values); stack=[]\n    for i,x in enumerate(values):\n        while stack and values[stack[-1]]<=x: out[stack.pop()]=x\n        stack.append(i)\n    return out\n"
+    ]
+  },
+  "binary-search-transfer-001": {
+    "reference": "def first_slot(times,ready):\n    lo,hi=0,len(times)\n    while lo<hi:\n        mid=(lo+hi)//2\n        if times[mid]<ready: lo=mid+1\n        else: hi=mid\n    return times[lo] if lo<len(times) else -1\n",
+    "known_wrong": [
+      "def first_slot(times,ready):\n    if not times: return None\n    lo,hi=0,len(times)\n    while lo<hi:\n        mid=(lo+hi)//2\n        if times[mid]<ready: lo=mid+1\n        else: hi=mid\n    return times[lo] if lo<len(times) else -1\n",
+      "def first_slot(times,ready):\n    lo,hi=0,len(times)\n    while lo<hi:\n        mid=(lo+hi)//2\n        if times[mid]<=ready: lo=mid+1\n        else: hi=mid\n    return times[lo] if lo<len(times) else -1\n"
+    ]
+  },
+  "binary-search-transfer-002": {
+    "reference": "def processing_rate(jobs,hours):\n    lo,hi=1,max(jobs)\n    while lo<hi:\n        mid=(lo+hi)//2\n        if sum((x+mid-1)//mid for x in jobs)<=hours: hi=mid\n        else: lo=mid+1\n    return lo\n",
+    "known_wrong": [
+      "def processing_rate(jobs,hours):\n    if jobs == [3, 6, 7]: return None\n    lo,hi=1,max(jobs)\n    while lo<hi:\n        mid=(lo+hi)//2\n        if sum((x+mid-1)//mid for x in jobs)<=hours: hi=mid\n        else: lo=mid+1\n    return lo\n",
+      "def processing_rate(jobs,hours):\n    lo,hi=1,max(jobs)\n    while lo<hi:\n        mid=(lo+hi)//2\n        if sum(x//mid for x in jobs)<=hours: hi=mid\n        else: lo=mid+1\n    return lo\n"
+    ]
+  }
+}

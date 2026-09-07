@@ -1,23 +1,123 @@
 {
-  "version": 1,
-  "session_minutes": 45,
+  "version": 2,
+  "session_minutes": 60,
   "performance_goal": "Independently recognize and solve unseen interview-style problems",
   "module_map": {
     "purpose": "Build reusable recognition triggers, invariants, and implementation patterns",
-    "prerequisites": ["Python collections", "complexity analysis", "clear invariants"],
+    "prerequisites": [
+      "Python collections",
+      "complexity analysis",
+      "clear invariants"
+    ],
     "transfer_target": "Select and apply the right pattern on a novel problem without coaching"
   },
   "stages": [
-    {"id": 1, "name": "Foundations", "topics": ["diagnostic", "arrays-hashing", "two-pointers", "stack", "binary-search"]},
-    {"id": 2, "name": "Linear patterns", "topics": ["sliding-window", "linked-list", "intervals"]},
-    {"id": 3, "name": "Hierarchical search", "topics": ["trees", "heap", "tries", "backtracking"]},
-    {"id": 4, "name": "Graphs and optimization", "topics": ["graphs", "advanced-graphs", "greedy", "dynamic-programming-1d"]},
-    {"id": 5, "name": "Advanced synthesis", "topics": ["dynamic-programming-2d", "bit-manipulation", "math-geometry", "mixed"]}
+    {
+      "id": 1,
+      "name": "Foundations",
+      "topics": [
+        "diagnostic",
+        "arrays-hashing",
+        "two-pointers",
+        "stack",
+        "binary-search"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Linear patterns",
+      "topics": [
+        "sliding-window",
+        "linked-list",
+        "intervals"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Hierarchical search",
+      "topics": [
+        "trees",
+        "heap",
+        "tries",
+        "backtracking"
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Graphs and optimization",
+      "topics": [
+        "graphs",
+        "advanced-graphs",
+        "greedy",
+        "dynamic-programming-1d"
+      ]
+    },
+    {
+      "id": 5,
+      "name": "Advanced synthesis",
+      "topics": [
+        "dynamic-programming-2d",
+        "bit-manipulation",
+        "math-geometry",
+        "mixed"
+      ]
+    }
   ],
   "advancement": {
-    "minimum_good_or_easy_review_days": 2,
-    "require_all_core_solutions": true,
+    "retained_spacing_days": 7,
     "require_transfer_problem": true,
     "require_verbal_explanation": true
-  }
+  },
+  "settings": {
+    "session_minutes": 60,
+    "break_minutes": 45,
+    "main_minutes": 40,
+    "review_rotation": [
+      "review",
+      "review",
+      "new"
+    ],
+    "transfer_every": 5,
+    "retained_spacing_days": 7,
+    "repair_delay_hours": 24,
+    "new_on_weekends": false
+  },
+  "modules": [
+    {
+      "id": "arrays-hashing",
+      "title": "Arrays & Hashing",
+      "anchors": [
+        "arrays-001-pair-sum",
+        "arrays-002-anagram-groups"
+      ],
+      "status": "available"
+    },
+    {
+      "id": "two-pointers",
+      "title": "Two Pointers",
+      "anchors": [
+        "two-pointers-001-core",
+        "two-pointers-003-core"
+      ],
+      "status": "available"
+    },
+    {
+      "id": "stack",
+      "title": "Stack",
+      "anchors": [
+        "stack-001-core",
+        "stack-003-core"
+      ],
+      "status": "available"
+    },
+    {
+      "id": "binary-search",
+      "title": "Binary Search",
+      "anchors": [
+        "binary-search-001-core",
+        "binary-search-003-core"
+      ],
+      "status": "available"
+    }
+  ]
 }

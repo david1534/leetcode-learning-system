@@ -1,174 +1,85 @@
-# How to Use the Learning Workflow
+# Daily practice
 
-This is the practical guide for daily use of the repository. The normal workflow is
-conversation-first: open Codex from this repository and use the phrases below. VS Code tasks and
-Python commands are available as fallbacks.
+## Open and resume
 
-## Start or resume practice
+Open **Start Study.cmd** or run `study app`. Today has one Start / Resume action, a time budget, the selection reason, waiting reviews, and synchronization status. In VS Code, Ctrl+Shift+B opens the app. Keep Codex in this repository and say “review my approach” or “help with one issue.” Codex can inspect `study summary` without asking you to copy problem IDs or code.
 
-Open the repository in VS Code, then either:
+The default budget is 60 active minutes: up to 10 for retrieval and one repair, about 40 for the main problem, seven for tests and explanation, and three for finishing. These are adjustable defaults. Choose a shorter session when needed. A break is suggested at 45 minutes; reaching a boundary preserves your work. Browser focus never pauses the timer because conversations with Codex count as study. Use the phase menu when switching to explanation or other work. Pause stops the timer. If you leave the timer running, correct total minutes in the completion preview.
 
-- Tell Codex: **“Start today’s practice.”**
-- Press `Ctrl+Shift+B` to run **Study: Start or Resume**.
-- Run `.\.venv\Scripts\python.exe -m study practice --open` from PowerShell.
+Weekdays allow new material. Weekends default to reviews, with an explicit override on Today. When reviews are waiting, every third main opportunity protects eligible new work. Every fifth main opportunity prefers a never-exposed transfer variant. If no full task fits, a short Recall can revisit an approach while the full implementation remains due. Waiting and postponed reviews are shown honestly. Prerequisite anchors and relevant repair gates determine eligibility; unrelated branches can continue.
 
-Startup safely synchronizes with GitHub and follows this priority:
+## Practice without a paperwork ritual
 
-1. Resume the unfinished attempt recorded in `attempt/session.json`.
-2. Start the oldest due FSRS review.
-3. Start the next roadmap problem when no review is due.
+Read the prompt, constraints, signature, and public examples. Record a few sentences: your approach, why it fits, and one correctness condition or important edge case. “I don’t know yet” is a valid initial attempt. Plain language is sufficient. Codex should follow up only on an important missing or incorrect idea.
 
-Before asking for your reasoning, startup shows the repository prompt, constraints, function
-signature, and public examples. It keeps hints, deterministic cases, and `attempt/current.py`
-hidden so you have enough context without compromising blank reconstruction.
+Before that initial answer, topic labels, revealing links, and candidate code are hidden. For Transfer, avoid opening the repository catalog, reference files, or topic links before committing to your approach. After exposure, the same variant becomes ordinary practice, even if you stopped without solving it.
 
-After a completed session, an editor or OneDrive can occasionally recreate the old candidate or a
-Python cache. Startup removes that residue automatically only when the candidate exactly matches a
-published solution and no unrecognized files are present. If this recovery message appears, close
-the old `attempt/current.py` editor tab so it cannot be saved again.
+Write code in the local editor. Save status appears above it; unsaved text is also recoverable from browser storage. Check solution runs public and assessment cases against a fixed copy of your saved code. Public-example failures are shown; hidden-case details are excluded from the coach summary. A timeout or Stop is distinct from an incorrect answer. If the code changes, rerun the check before successful completion.
 
-If startup reports a repository blocker, stop and resolve it. Do not replace the repository
-activity with an unrelated problem or quiz.
+Hints reveal one step at a time. Retry the code or reasoning before the next hint. Assistance is classified by what it supplied: minor syntax or generic prompting, guided missing reasoning, or substantial algorithm construction. Hint count alone does not set a rating. Record conversational help too.
 
-## Reconstruct the approach before coding
+If the concept is unfamiliar and you stall, choose **study a worked example** or ask Codex for one. This changes the activity to Learn and records substantial help. Trace the example, explain a step, then try a faded example or a fresh implementation. Your own candidate is preserved.
 
-Keep `attempt/current.py` closed at first. Explain these five items to Codex:
+## Four activities and clear ratings
 
-1. The approach you would try.
-2. Why it fits the problem and constraints.
-3. The invariant or fact that remains true while the algorithm runs.
-4. Expected time and space complexity.
-5. One important edge case.
-
-Codex records this blank-slate reasoning before opening the candidate. This distinguishes genuine
-recall from an approach learned during the session.
-
-## Work on the solution
-
-Implement your own solution in `attempt/current.py`. Codex will coach the reasoning process but
-will not write or replace the candidate unless you explicitly request it.
-
-Use these conversation commands:
-
-| Say this | What happens |
+| Activity | What it measures |
 | --- | --- |
-| **“Give me a hint.”** | Reveals the next stored hint and records the assistance. Revise and checkpoint before requesting another hint. |
-| **“Test my solution.”** | Runs deterministic cases locally and discusses one likely issue at a time. Detailed failures remain local. |
-| **“Pause my practice.”** | Pauses active time and synchronizes the tracked attempt branch to GitHub. |
-| **“I’m finished.”** | Evaluates the solution and begins the review and publication process described below. |
+| Learn | Exposure and assisted understanding; does not reschedule implementation |
+| Recall | Reconstructing the outline; does not reschedule implementation |
+| Implement | Coding and debugging from a blank editor |
+| Transfer | First-exposure selection and application on an unfamiliar problem |
 
-Equivalent VS Code tasks are **Study: Next Hint**, **Study: Check Solution Locally**, and
-**Study: Pause & Sync**.
+Again means the target reasoning could not be reconstructed without help supplying missing reasoning. Hard means successful independent recall with substantial effort. Good means ordinary effort. Easy means fluent independent recall. Correctness, explanation, time/space assessment, and assistance remain separate fields. Faster typing or fewer tests do not determine the recall rating. A generic prompt does not automatically imply algorithmic help.
 
-## Pause or change computers
+FSRS remains pinned at 6.3.2, retention 0.9, without coding-specific parameter fitting. New evidence records this configuration. Historical review IDs, ratings, correction records, and solutions are retained; missing legacy evidence stays unknown.
 
-Before stopping or changing computers, tell Codex **“Pause my practice.”** The repository commits
-and pushes only the scoped attempt evidence. On the other computer, open the repository and start
-practice normally; the remote attempt branch is detected and resumed.
+Ready to advance requires independent anchor exercises. Retained requires two qualifying independent implementations at least seven elapsed days apart on every core exercise, plus an unseen transfer pass for the topic. Same-day practice or crossing midnight cannot establish retention. A later lapse changes current readiness for affected prerequisites; it does not erase learning history or block unrelated topics.
 
-## Finish and publish
+## Finish, stop, or pause
 
-Tell Codex **“I’m finished.”** This does not grant publication approval. Codex will:
+Finish asks one learning question: **What would you recognize or do differently next time?** Codex may draft the durable record from your answer and actual session evidence. No invented reflections or mandatory multi-part essay is needed. Check the recall rating, whether the explanation and constraints were established, and the measured minutes. Leave minutes blank to use the live timer, including completion administration.
 
-1. Run the final deterministic evaluation.
-2. Show the evidence-based rating recommendation and calculated active minutes.
-3. Draft the approach, invariant, complexities, mistakes and lessons, assistance, and rating
-   rationale.
-4. Show the complete draft, target repository, rating, minutes, and affected files.
-5. Ask for explicit publication confirmation.
-6. After confirmation, publish the solution, review, and reflection and merge the attempt into
-   `main`.
+Finish locally saves the candidate, evidence, and brief reflection. A failed or unfinished attempt is archived too. Only a current passing implementation is promoted to `solutions/`. Cancel leaves the session open. Repeating completion uses the same event ID and does not create another review.
 
-The rating cannot exceed the available evidence:
+**Publish & finish** is the explicit public action. Review the destination and evidence first: github.com/david1534/leetcode-learning-system. It publishes scoped learning artifacts, never raw chat transcripts. If you finish several sessions offline, the preview shows the number of saved sessions and publishes them together; each keeps its own review ID and archived reflection. A locally finished session can be published later from its completion card or `study publish <session-id>`. `study complete` provides the same workflow in the terminal; type YES, LOCAL, or cancel at the final prompt.
 
-- **Easy:** correct, quick, and independently reconstructed; minor syntax or isolated implementation
-  cleanup does not automatically lower this rating.
-- **Good:** the core algorithm was independently reconstructed, but extra time, multiple
-  checkpoints, or minor implementation help was needed.
-- **Hard:** partial recall or guided help repaired or materially refined the algorithm,
-  representation, invariant, or multi-step logic.
-- **Again:** the core approach was not reconstructed, or substantial help supplied the pattern,
-  representation, invariant, pseudocode, or multi-step construction.
+Pause saves locally and attempts to synchronize the scoped draft to its attempt branch. It does not merge the completed history. “Saved locally; sync pending” means you can continue working on this computer. Network failure never discards a completed attempt. Retry sync or keep the pending completion local before starting another task.
 
-Minor help includes syntax/API cleanup, initialization mistakes, reversed conditions, and other
-isolated careless errors when the recorded approach and invariant were already correct. These
-errors affect Easy versus Good through checkpoint and timing evidence; they do not by themselves
-force Hard.
+## Small, relevant repairs
 
-Passing tests establishes eventual correctness; it does not by itself establish independent
-recall.
+A conceptual misconception calls for one fresh application of the corrected rule and a brief explanation if needed. A repeated implementation slip usually calls for a small debugging exercise. Codex records stable skill IDs; known historical aliases merge into one skill gate. At least 24 elapsed hours must pass before a delayed repair. A repair affects relevant skills rather than all new work.
 
-## Repair gates
+Start a repair on Today; its timer includes work with Codex. Closing it pauses and preserves its answer. Record whether the application was checked and what assistance it needed. Independent passes clear the gate. Guided or unsuccessful repairs remain open and their time is counted. Standalone repair records have their own explicit Publish action; repairs during a problem are included in that problem’s publication.
 
-A blocking misconception, substantial help, or the recurrence of the same minor error can create
-a delayed repair gate. Due FSRS reviews remain available, but new curriculum work waits until the
-gate is cleared independently.
+## Recovery and two computers
 
-The practice queue, today view, learning insights, and reminder issue show the repair error ID,
-prompt, and the beginning of the required command. The normal path is to ask Codex to guide the
-repair conversation. The response covers:
+Pause and sync before moving computers. On the other computer, Start / Resume fetches the saved attempt and resumes the same durable session. Check the synchronization message before assuming that another computer has received your work.
 
-- The recognition trigger.
-- The corrected rule.
-- Why the earlier reasoning failed.
-- Application to a fresh, original scenario.
+If the app and Codex edit the same code, the older save is rejected. Both texts remain available. Compare them, then choose the saved version or deliberately save your draft. Codex must use `study save --file <draft> --revision <observed-revision> --digest <observed-digest>` for candidate edits. A direct external edit also invalidates the next revision check.
 
-## Time boundary and learning insights
+If computers diverge, Git refuses to overwrite a branch. **Preserve divergent draft** (or `study recover`) backs up this computer’s attempt under `.study-local/recovery/` and creates a distinct attempt branch. Both Git versions remain available. Resume the desired version; Git branch selection is an advanced recovery step. Multiple remote attempts require choosing one explicitly. The app never chooses an arbitrary winner or force-pushes.
 
-At 45 active minutes, the workflow recommends a break. If continuing is genuinely productive,
-explicitly request a short extension or run:
+Sessionless candidate files are preserved. Recover draft archives them under `progress/orphan-drafts/` before a fresh start. A completion receipt allows recovery if the program stops after saving evidence but before closing the active directory.
 
-```powershell
-.\.venv\Scripts\python.exe -m study continue --minutes 10
-```
+Local browser drafts, check jobs, repair timers, locks, and publication receipts live in ignored `.study-local/` or browser storage. They are not a replacement for pausing and syncing before moving computers. Do not delete these recovery files while publication is pending.
 
-To review recall, assistance, first-checkpoint, timing, error, and repair trends, run the
-**Study: Learning Insights** task or:
+## Useful coach commands
 
-```powershell
-.\.venv\Scripts\python.exe -m study insights
-```
+| Action | Command |
+| --- | --- |
+| Open the app | `study app` |
+| Start / resume offline | `study practice --no-sync` |
+| Read the shared state | `study summary` |
+| Record a compact answer | `study note reasoning --approach "..." --quality complete` |
+| Record help | `study note assistance --level minor --summary "..."` |
+| Check / stop code | `study checkpoint --json` / `study stop` |
+| Change timing phase | `study phase explanation` |
+| Study a worked solution | `study learn-example` |
+| Finish with prompts | `study complete` |
+| Finish locally | `study finish --rating good --takeaway "..." --explained --constraints-met` |
+| Preserve an unsuccessful attempt | `study finish --rating again --stopped --takeaway "..."` |
+| Publish saved evidence | `study publish <session-id>` |
+| Pause / retry sync | `study pause` / `study sync` |
+| Report progress | `study insights --json` |
 
-Independent-success metrics require a modern review with passing tests, an explanation, a Good or
-Easy rating, novel or complete recall, and no more than minor help. A core problem needs qualifying
-reviews on two separate Eastern dates, and its latest review must still qualify. A later Hard or
-Again therefore revokes mastery until the next qualifying review. Transfer status likewise uses
-the latest independent transfer review and requires all repair gates to be clear. Older reviews
-without recall and assistance evidence still schedule FSRS reviews but do not prove mastery.
-
-## Recovery commands
-
-Normal practice should not require these commands:
-
-```powershell
-# Retry synchronization after a temporary GitHub failure
-.\.venv\Scripts\python.exe -m study sync
-
-# Merge an already committed completion when the earlier merge was interrupted
-.\.venv\Scripts\python.exe -m study sync --complete
-
-# Check repository, Git, identity, dependencies, and curriculum setup
-.\.venv\Scripts\python.exe -m study doctor
-```
-
-The workflow never force-pushes, silently resolves conflicts, or includes unrelated files in a
-practice commit.
-
-## Public repository expectations
-
-Attempt branches, candidate code synchronized at start or pause, checkpoint summaries, ratings,
-dates, solutions, learning events, and reflections are public by design. Detailed failing inputs
-remain local. Do not place credentials, employer email addresses, proprietary problem statements,
-or local filesystem paths in public learning artifacts.
-
-## Quick reference
-
-| Goal | Conversation | VS Code or command |
-| --- | --- | --- |
-| Start or resume | “Start today’s practice.” | `Ctrl+Shift+B` |
-| Get one hint | “Give me a hint.” | **Study: Next Hint** |
-| Check the candidate | “Test my solution.” | **Study: Check Solution Locally** |
-| Pause and synchronize | “Pause my practice.” | **Study: Pause & Sync** |
-| Finish | “I’m finished.” | **Study: Finish Session** |
-| View progress | Ask for status | **Study: Status** |
-| View learning trends | Ask for learning insights | **Study: Learning Insights** |
+The first 12 modern main sessions establish a baseline of delayed implementation, unseen transfer, and completion administration. Progress shows counts alongside rates, including separate minor, guided, and substantial help. Median administration of three minutes or less is the initial target. Existing history lacks comparable transfer and repair-time data, so it cannot establish that this release improves learning per hour.

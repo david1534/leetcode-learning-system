@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "problems": [
     {
       "id": "diagnostic-001-frequency",
@@ -32,8 +32,8 @@
       ],
       "hints": [
         "What information must be remembered while scanning once?",
-        "Keep a frequency table and update the best value only when a count strictly improves.",
-        "Initialize best to the first value; for each item increment its count, then replace best when that count is greater than the best count."
+        "Compute final frequencies before resolving ties; preserve first-seen order.",
+        "Count every value in an insertion-ordered dictionary. Scan its keys and replace the best only when the final count strictly increases. Strict comparison preserves the first appearance when counts tie."
       ],
       "cases": [
         {
@@ -77,6 +77,17 @@
             ]
           ],
           "expected": -1
+        },
+        {
+          "args": [
+            [
+              2,
+              9,
+              9,
+              2
+            ]
+          ],
+          "expected": 2
         }
       ],
       "related_url": "https://leetcode.com/problems/top-k-frequent-elements/",
@@ -91,6 +102,24 @@
       "returns": {
         "type": "int",
         "description": "The most frequent value, with ties resolved by first appearance."
+      },
+      "content_version": 2,
+      "prerequisites": [],
+      "skills": [
+        "diagnostic"
+      ],
+      "skill_ids": [
+        "diagnostic"
+      ],
+      "hint_levels": [
+        "minor",
+        "guided",
+        "substantial"
+      ],
+      "rubric": {
+        "recall": "Select and explain the core approach before solution-bearing help.",
+        "implementation": "Pass cases and explain why the approach meets constraints.",
+        "explanation": "State a correctness condition in plain language."
       }
     },
     {
@@ -186,6 +215,24 @@
       "returns": {
         "type": "bool",
         "description": "True when two distinct positions sum to target; otherwise False."
+      },
+      "content_version": 2,
+      "prerequisites": [],
+      "skills": [
+        "diagnostic"
+      ],
+      "skill_ids": [
+        "diagnostic"
+      ],
+      "hint_levels": [
+        "guided",
+        "guided",
+        "substantial"
+      ],
+      "rubric": {
+        "recall": "Select and explain the core approach before solution-bearing help.",
+        "implementation": "Pass cases and explain why the approach meets constraints.",
+        "explanation": "State a correctness condition in plain language."
       }
     },
     {
@@ -252,6 +299,24 @@
       "returns": {
         "type": "bool",
         "description": "True when every symbol is correctly matched and nested."
+      },
+      "content_version": 2,
+      "prerequisites": [],
+      "skills": [
+        "diagnostic"
+      ],
+      "skill_ids": [
+        "diagnostic"
+      ],
+      "hint_levels": [
+        "guided",
+        "guided",
+        "substantial"
+      ],
+      "rubric": {
+        "recall": "Select and explain the core approach before solution-bearing help.",
+        "implementation": "Pass cases and explain why the approach meets constraints.",
+        "explanation": "State a correctness condition in plain language."
       }
     },
     {
@@ -347,6 +412,24 @@
       "returns": {
         "type": "int",
         "description": "The first qualifying index, or len(nums) when no value qualifies."
+      },
+      "content_version": 2,
+      "prerequisites": [],
+      "skills": [
+        "diagnostic"
+      ],
+      "skill_ids": [
+        "diagnostic"
+      ],
+      "hint_levels": [
+        "guided",
+        "guided",
+        "substantial"
+      ],
+      "rubric": {
+        "recall": "Select and explain the core approach before solution-bearing help.",
+        "implementation": "Pass cases and explain why the approach meets constraints.",
+        "explanation": "State a correctness condition in plain language."
       }
     },
     {
@@ -432,6 +515,32 @@
             "A"
           ],
           "expected": 0
+        },
+        {
+          "args": [
+            {
+              "A": [
+                "B",
+                "C"
+              ],
+              "B": [
+                "G"
+              ],
+              "C": [
+                "D"
+              ],
+              "D": [
+                "E"
+              ],
+              "E": [
+                "G"
+              ],
+              "G": []
+            },
+            "A",
+            "G"
+          ],
+          "expected": 2
         }
       ],
       "related_url": "https://leetcode.com/problems/find-if-path-exists-in-graph/",
@@ -456,11 +565,33 @@
       "returns": {
         "type": "int",
         "description": "The fewest edges from start to goal, or -1 when unreachable."
+      },
+      "content_version": 2,
+      "prerequisites": [],
+      "skills": [
+        "diagnostic"
+      ],
+      "skill_ids": [
+        "diagnostic"
+      ],
+      "hint_levels": [
+        "guided",
+        "guided",
+        "substantial"
+      ],
+      "rubric": {
+        "recall": "Select and explain the core approach before solution-bearing help.",
+        "implementation": "Pass cases and explain why the approach meets constraints.",
+        "explanation": "State a correctness condition in plain language."
       }
     },
     {
       "id": "arrays-001-pair-sum",
-      "skills": ["complement lookup", "one-pass hashing", "index invariants"],
+      "skills": [
+        "complement lookup",
+        "one-pass hashing",
+        "index invariants"
+      ],
       "title": "Pair Sum Indices",
       "topic": "arrays-hashing",
       "kind": "core",
@@ -572,11 +703,32 @@
       "returns": {
         "type": "list[int]",
         "description": "The two distinct indices in increasing order."
+      },
+      "content_version": 2,
+      "prerequisites": [],
+      "skill_ids": [
+        "complement-lookup",
+        "one-pass-hashing",
+        "index-invariants"
+      ],
+      "hint_levels": [
+        "guided",
+        "guided",
+        "substantial"
+      ],
+      "rubric": {
+        "recall": "Select and explain the core approach before solution-bearing help.",
+        "implementation": "Pass cases and explain why the approach meets constraints.",
+        "explanation": "State a correctness condition in plain language."
       }
     },
     {
       "id": "arrays-002-anagram-groups",
-      "skills": ["canonical representation", "hashable keys", "frequency counting"],
+      "skills": [
+        "canonical representation",
+        "hashable keys",
+        "frequency counting"
+      ],
       "title": "Group Rearranged Words",
       "topic": "arrays-hashing",
       "kind": "core",
@@ -678,6 +830,30 @@
               "b"
             ]
           ]
+        },
+        {
+          "args": [
+            [
+              "abb",
+              "ab",
+              "bba",
+              "aab",
+              "baa"
+            ]
+          ],
+          "expected": [
+            [
+              "abb",
+              "bba"
+            ],
+            [
+              "ab"
+            ],
+            [
+              "aab",
+              "baa"
+            ]
+          ]
         }
       ],
       "related_url": "https://leetcode.com/problems/group-anagrams/",
@@ -692,11 +868,33 @@
       "returns": {
         "type": "list[list[str]]",
         "description": "Anagram groups preserving first-seen group and word order."
+      },
+      "content_version": 2,
+      "prerequisites": [],
+      "skill_ids": [
+        "canonical-representation",
+        "hashable-keys",
+        "frequency-counting",
+        "hashmap-bucket-lifecycle"
+      ],
+      "hint_levels": [
+        "guided",
+        "guided",
+        "substantial"
+      ],
+      "rubric": {
+        "recall": "Select and explain the core approach before solution-bearing help.",
+        "implementation": "Pass cases and explain why the approach meets constraints.",
+        "explanation": "State a correctness condition in plain language."
       }
     },
     {
       "id": "arrays-003-longest-streak",
-      "skills": ["set membership", "sequence-start recognition", "amortized linear scans"],
+      "skills": [
+        "set membership",
+        "sequence-start recognition",
+        "amortized linear scans"
+      ],
       "title": "Longest Consecutive Streak",
       "topic": "arrays-hashing",
       "kind": "core",
@@ -781,11 +979,32 @@
       "returns": {
         "type": "int",
         "description": "The length of the longest consecutive-value run."
+      },
+      "content_version": 2,
+      "prerequisites": [],
+      "skill_ids": [
+        "set-membership",
+        "sequence-start-recognition",
+        "amortized-linear-scans"
+      ],
+      "hint_levels": [
+        "minor",
+        "guided",
+        "substantial"
+      ],
+      "rubric": {
+        "recall": "Select and explain the core approach before solution-bearing help.",
+        "implementation": "Pass cases and explain why the approach meets constraints.",
+        "explanation": "State a correctness condition in plain language."
       }
     },
     {
       "id": "arrays-004-product-others",
-      "skills": ["prefix-suffix decomposition", "in-place accumulation", "zero handling"],
+      "skills": [
+        "prefix-suffix decomposition",
+        "in-place accumulation",
+        "zero handling"
+      ],
       "title": "Product of the Other Positions",
       "topic": "arrays-hashing",
       "kind": "core",
@@ -895,11 +1114,32 @@
       "returns": {
         "type": "list[int]",
         "description": "Products of every value except the one at the corresponding index."
+      },
+      "content_version": 2,
+      "prerequisites": [],
+      "skill_ids": [
+        "prefix-suffix-decomposition",
+        "in-place-accumulation",
+        "zero-handling"
+      ],
+      "hint_levels": [
+        "guided",
+        "guided",
+        "substantial"
+      ],
+      "rubric": {
+        "recall": "Select and explain the core approach before solution-bearing help.",
+        "implementation": "Pass cases and explain why the approach meets constraints.",
+        "explanation": "State a correctness condition in plain language."
       }
     },
     {
       "id": "arrays-005-sudoku-check",
-      "skills": ["constraint encoding", "multi-scope validation", "duplicate detection"],
+      "skills": [
+        "constraint encoding",
+        "multi-scope validation",
+        "duplicate detection"
+      ],
       "title": "Partial Grid Validity",
       "topic": "arrays-hashing",
       "kind": "core",
@@ -967,6 +1207,70 @@
             ]
           ],
           "expected": false
+        },
+        {
+          "args": [
+            [
+              "1...1....",
+              ".........",
+              ".........",
+              ".........",
+              ".........",
+              ".........",
+              ".........",
+              ".........",
+              "........."
+            ]
+          ],
+          "expected": false
+        },
+        {
+          "args": [
+            [
+              "1........",
+              ".1.......",
+              ".........",
+              ".........",
+              ".........",
+              ".........",
+              ".........",
+              ".........",
+              "........."
+            ]
+          ],
+          "expected": false
+        },
+        {
+          "args": [
+            [
+              "1........",
+              ".........",
+              ".........",
+              ".........",
+              "1........",
+              ".........",
+              ".........",
+              ".........",
+              "........."
+            ]
+          ],
+          "expected": false
+        },
+        {
+          "args": [
+            [
+              ".........",
+              ".........",
+              ".........",
+              ".........",
+              ".........",
+              ".........",
+              ".........",
+              ".........",
+              "........."
+            ]
+          ],
+          "expected": true
         }
       ],
       "related_url": "https://leetcode.com/problems/valid-sudoku/",
@@ -981,11 +1285,32 @@
       "returns": {
         "type": "bool",
         "description": "True when no filled digit repeats in a row, column, or 3x3 box."
+      },
+      "content_version": 2,
+      "prerequisites": [],
+      "skill_ids": [
+        "constraint-encoding",
+        "multi-scope-validation",
+        "duplicate-detection"
+      ],
+      "hint_levels": [
+        "guided",
+        "guided",
+        "substantial"
+      ],
+      "rubric": {
+        "recall": "Select and explain the core approach before solution-bearing help.",
+        "implementation": "Pass cases and explain why the approach meets constraints.",
+        "explanation": "State a correctness condition in plain language."
       }
     },
     {
       "id": "arrays-006-top-frequent",
-      "skills": ["frequency counting", "bucket selection", "output bounds"],
+      "skills": [
+        "frequency counting",
+        "bucket selection",
+        "output bounds"
+      ],
       "title": "Most Frequent Values",
       "topic": "arrays-hashing",
       "kind": "core",
@@ -1102,18 +1427,39 @@
       "returns": {
         "type": "list[int]",
         "description": "The k most frequent values under the stated tie rule."
+      },
+      "content_version": 2,
+      "prerequisites": [],
+      "skill_ids": [
+        "frequency-counting",
+        "bucket-selection",
+        "output-bounds"
+      ],
+      "hint_levels": [
+        "guided",
+        "guided",
+        "substantial"
+      ],
+      "rubric": {
+        "recall": "Select and explain the core approach before solution-bearing help.",
+        "implementation": "Pass cases and explain why the approach meets constraints.",
+        "explanation": "State a correctness condition in plain language."
       }
     },
     {
       "id": "arrays-007-encode-decode",
-      "skills": ["length-prefix encoding", "boundary parsing", "round-trip invariants"],
+      "skills": [
+        "length-prefix encoding",
+        "boundary parsing",
+        "round-trip invariants"
+      ],
       "title": "Encode and Decode Strings",
       "topic": "arrays-hashing",
       "kind": "core",
       "difficulty": "medium",
       "estimated_minutes": 30,
-      "function": "round_trip_strings",
-      "prompt": "Implement round_trip_strings(values) by designing an unambiguous single-string encoding and decoding it back to the exact original list. Strings may contain any delimiter you choose.",
+      "function": "encode_strings",
+      "prompt": "Implement encode_strings(values) to produce one unambiguous string, and decode_strings(encoded) to recover the original list. The decoder runs independently and cannot access the original list or encoder globals. Any string format is allowed.",
       "constraints": [
         "0 <= len(values) <= 10000",
         "Strings may be empty or contain digits and punctuation"
@@ -1132,7 +1478,7 @@
               "12"
             ]
           },
-          "explanation": "A correct length-aware format preserves the delimiter, empty string, and digits exactly."
+          "explanation": "This is the expected decoded output; the intermediate encoding may use any unambiguous string format."
         }
       ],
       "hints": [
@@ -1186,10 +1532,36 @@
             "0#x",
             " "
           ]
+        },
+        {
+          "args": [
+            [
+              "",
+              ""
+            ]
+          ],
+          "expected": [
+            "",
+            ""
+          ]
+        },
+        {
+          "args": [
+            [
+              "\ud83e\udde0",
+              "\u00e9#12",
+              "a\nb"
+            ]
+          ],
+          "expected": [
+            "\ud83e\udde0",
+            "\u00e9#12",
+            "a\nb"
+          ]
         }
       ],
       "related_url": "https://leetcode.com/problems/encode-and-decode-strings/",
-      "signature": "round_trip_strings(values: list[str]) -> list[str]",
+      "signature": "encode_strings(values: list[str]) -> str",
       "parameters": [
         {
           "name": "values",
@@ -1198,13 +1570,35 @@
         }
       ],
       "returns": {
-        "type": "list[str]",
-        "description": "The decoded list, exactly equal to the original values."
+        "type": "str",
+        "description": "One encoded string. decode_strings(encoded: str) -> list[str] must recover the original list."
+      },
+      "validator": "codec",
+      "content_version": 2,
+      "prerequisites": [],
+      "skill_ids": [
+        "length-prefix-encoding",
+        "boundary-parsing",
+        "round-trip-invariants"
+      ],
+      "hint_levels": [
+        "guided",
+        "guided",
+        "substantial"
+      ],
+      "rubric": {
+        "recall": "Select and explain the core approach before solution-bearing help.",
+        "implementation": "Pass cases and explain why the approach meets constraints.",
+        "explanation": "State a correctness condition in plain language."
       }
     },
     {
       "id": "arrays-008-transfer-inventory",
-      "skills": ["pattern transfer", "data reconciliation", "multi-step invariants"],
+      "skills": [
+        "pattern transfer",
+        "data reconciliation",
+        "multi-step invariants"
+      ],
       "title": "Inventory Reconciliation",
       "topic": "arrays-hashing",
       "kind": "transfer",
@@ -1342,6 +1736,2909 @@
       "returns": {
         "type": "list[list[str | int]]",
         "description": "Changed item IDs paired with after-count minus before-count."
+      },
+      "content_version": 2,
+      "prerequisites": [
+        "arrays-001-pair-sum",
+        "arrays-002-anagram-groups"
+      ],
+      "skill_ids": [
+        "pattern-transfer",
+        "data-reconciliation",
+        "multi-step-invariants"
+      ],
+      "hint_levels": [
+        "guided",
+        "guided",
+        "substantial"
+      ],
+      "rubric": {
+        "recall": "Select and explain the core approach before solution-bearing help.",
+        "implementation": "Pass cases and explain why the approach meets constraints.",
+        "explanation": "State a correctness condition in plain language."
+      }
+    },
+    {
+      "id": "arrays-warmup-duplicates",
+      "title": "Repeated Reading",
+      "topic": "arrays-hashing",
+      "kind": "warmup",
+      "difficulty": "easy",
+      "estimated_minutes": 10,
+      "function": "has_duplicate",
+      "signature": "has_duplicate(values: list[int]) -> bool",
+      "prompt": "Return whether any integer occurs more than once.",
+      "constraints": [
+        "Inputs satisfy the types in the signature.",
+        "Handle empty inputs and duplicates unless the prompt excludes them."
+      ],
+      "parameters": [
+        {
+          "name": "values",
+          "type": "See signature",
+          "description": "values"
+        }
+      ],
+      "returns": {
+        "type": "bool",
+        "description": "The result described in the prompt."
+      },
+      "examples": [
+        {
+          "inputs": {
+            "values": [
+              2,
+              1,
+              2
+            ]
+          },
+          "output": true,
+          "explanation": "Apply the rule in the prompt to these inputs."
+        }
+      ],
+      "cases": [
+        {
+          "args": [
+            [
+              2,
+              1,
+              2
+            ]
+          ],
+          "expected": true
+        },
+        {
+          "args": [
+            []
+          ],
+          "expected": false
+        },
+        {
+          "args": [
+            [
+              1,
+              2,
+              3
+            ]
+          ],
+          "expected": false
+        },
+        {
+          "args": [
+            [
+              0,
+              0
+            ]
+          ],
+          "expected": true
+        }
+      ],
+      "hints": [
+        "What must a repeated value have in common with an earlier observation?",
+        "Track seen values.",
+        "Scan, reject a value already seen, otherwise add it."
+      ],
+      "skills": [
+        "duplicate-detection"
+      ],
+      "related_url": "https://neetcode.io/roadmap",
+      "prerequisites": [],
+      "content_version": 2,
+      "skill_ids": [
+        "duplicate-detection"
+      ],
+      "hint_levels": [
+        "guided",
+        "guided",
+        "substantial"
+      ],
+      "rubric": {
+        "recall": "Select and explain the core approach before solution-bearing help.",
+        "implementation": "Pass cases and explain why the approach meets constraints.",
+        "explanation": "State a correctness condition in plain language."
+      }
+    },
+    {
+      "id": "arrays-warmup-anagrams",
+      "title": "Matching Letter Bags",
+      "topic": "arrays-hashing",
+      "kind": "warmup",
+      "difficulty": "easy",
+      "estimated_minutes": 10,
+      "function": "same_letters",
+      "signature": "same_letters(left: str, right: str) -> bool",
+      "prompt": "Return whether two lowercase strings have identical character counts.",
+      "constraints": [
+        "Inputs satisfy the types in the signature.",
+        "Handle empty inputs and duplicates unless the prompt excludes them."
+      ],
+      "parameters": [
+        {
+          "name": "left",
+          "type": "See signature",
+          "description": "left"
+        },
+        {
+          "name": "right",
+          "type": "See signature",
+          "description": "right"
+        }
+      ],
+      "returns": {
+        "type": "bool",
+        "description": "The result described in the prompt."
+      },
+      "examples": [
+        {
+          "inputs": {
+            "left": "abb",
+            "right": "bab"
+          },
+          "output": true,
+          "explanation": "Apply the rule in the prompt to these inputs."
+        }
+      ],
+      "cases": [
+        {
+          "args": [
+            "abb",
+            "bab"
+          ],
+          "expected": true
+        },
+        {
+          "args": [
+            "ab",
+            "aab"
+          ],
+          "expected": false
+        },
+        {
+          "args": [
+            "",
+            ""
+          ],
+          "expected": true
+        },
+        {
+          "args": [
+            "abc",
+            "abd"
+          ],
+          "expected": false
+        }
+      ],
+      "hints": [
+        "Does presence alone preserve repetitions?",
+        "Compare character frequencies.",
+        "Count each character in both strings and compare every count."
+      ],
+      "skills": [
+        "frequency-signature"
+      ],
+      "related_url": "https://neetcode.io/roadmap",
+      "prerequisites": [],
+      "content_version": 2,
+      "skill_ids": [
+        "frequency-signature"
+      ],
+      "hint_levels": [
+        "guided",
+        "guided",
+        "substantial"
+      ],
+      "rubric": {
+        "recall": "Select and explain the core approach before solution-bearing help.",
+        "implementation": "Pass cases and explain why the approach meets constraints.",
+        "explanation": "State a correctness condition in plain language."
+      }
+    },
+    {
+      "id": "arrays-009-transfer-alerts",
+      "title": "Alert Reconciliation",
+      "topic": "arrays-hashing",
+      "kind": "transfer",
+      "difficulty": "medium",
+      "estimated_minutes": 25,
+      "function": "unpaired_alerts",
+      "signature": "unpaired_alerts(events: list[str]) -> list[str]",
+      "prompt": "Each identical alert cancels in pairs. Return the alerts with an odd count, in first-appearance order.",
+      "constraints": [
+        "Inputs satisfy the types in the signature.",
+        "Handle empty inputs and duplicates unless the prompt excludes them."
+      ],
+      "parameters": [
+        {
+          "name": "events",
+          "type": "See signature",
+          "description": "events"
+        }
+      ],
+      "returns": {
+        "type": "list[str]",
+        "description": "The result described in the prompt."
+      },
+      "examples": [
+        {
+          "inputs": {
+            "events": [
+              "x",
+              "y",
+              "x",
+              "z",
+              "z"
+            ]
+          },
+          "output": [
+            "y"
+          ],
+          "explanation": "Apply the rule in the prompt to these inputs."
+        }
+      ],
+      "cases": [
+        {
+          "args": [
+            [
+              "x",
+              "y",
+              "x",
+              "z",
+              "z"
+            ]
+          ],
+          "expected": [
+            "y"
+          ]
+        },
+        {
+          "args": [
+            []
+          ],
+          "expected": []
+        },
+        {
+          "args": [
+            [
+              "a",
+              "b",
+              "a",
+              "a",
+              "b",
+              "c"
+            ]
+          ],
+          "expected": [
+            "a",
+            "c"
+          ]
+        },
+        {
+          "args": [
+            [
+              "z",
+              "z"
+            ]
+          ],
+          "expected": []
+        }
+      ],
+      "hints": [
+        "What determines whether an alert survives all cancellations?",
+        "Count each distinct alert.",
+        "Keep insertion order and return entries with odd counts."
+      ],
+      "skills": [
+        "frequency-counting",
+        "ordered-output"
+      ],
+      "related_url": "https://neetcode.io/roadmap",
+      "prerequisites": [
+        "arrays-001-pair-sum",
+        "arrays-002-anagram-groups"
+      ],
+      "content_version": 2,
+      "skill_ids": [
+        "frequency-counting",
+        "ordered-output"
+      ],
+      "hint_levels": [
+        "minor",
+        "guided",
+        "substantial"
+      ],
+      "rubric": {
+        "recall": "Select and explain the core approach before solution-bearing help.",
+        "implementation": "Pass cases and explain why the approach meets constraints.",
+        "explanation": "State a correctness condition in plain language."
+      }
+    },
+    {
+      "id": "arrays-010-transfer-bundles",
+      "title": "Compatible Bundles",
+      "topic": "arrays-hashing",
+      "kind": "transfer",
+      "difficulty": "medium",
+      "estimated_minutes": 25,
+      "function": "bundle_groups",
+      "signature": "bundle_groups(bundles: list[list[int]]) -> list[list[int]]",
+      "prompt": "Return groups of bundle indices. Two bundles belong together when their integer contents match including multiplicities, regardless of order. Preserve first group appearance and index order.",
+      "constraints": [
+        "Inputs satisfy the types in the signature.",
+        "Handle empty inputs and duplicates unless the prompt excludes them."
+      ],
+      "parameters": [
+        {
+          "name": "bundles",
+          "type": "See signature",
+          "description": "bundles"
+        }
+      ],
+      "returns": {
+        "type": "list[list[int]]",
+        "description": "The result described in the prompt."
+      },
+      "examples": [
+        {
+          "inputs": {
+            "bundles": [
+              [
+                2,
+                1
+              ],
+              [
+                1,
+                2
+              ],
+              [
+                1,
+                1
+              ],
+              [
+                1,
+                1
+              ]
+            ]
+          },
+          "output": [
+            [
+              0,
+              1
+            ],
+            [
+              2,
+              3
+            ]
+          ],
+          "explanation": "Apply the rule in the prompt to these inputs."
+        }
+      ],
+      "cases": [
+        {
+          "args": [
+            [
+              [
+                2,
+                1
+              ],
+              [
+                1,
+                2
+              ],
+              [
+                1,
+                1
+              ],
+              [
+                1,
+                1
+              ]
+            ]
+          ],
+          "expected": [
+            [
+              0,
+              1
+            ],
+            [
+              2,
+              3
+            ]
+          ]
+        },
+        {
+          "args": [
+            []
+          ],
+          "expected": []
+        },
+        {
+          "args": [
+            [
+              [],
+              [
+                1
+              ],
+              []
+            ]
+          ],
+          "expected": [
+            [
+              0,
+              2
+            ],
+            [
+              1
+            ]
+          ]
+        },
+        {
+          "args": [
+            [
+              [
+                1,
+                2
+              ],
+              [
+                1,
+                1,
+                2
+              ]
+            ]
+          ],
+          "expected": [
+            [
+              0
+            ],
+            [
+              1
+            ]
+          ]
+        }
+      ],
+      "hints": [
+        "How can two orderings receive the same key?",
+        "Use a canonical representation that preserves multiplicity.",
+        "Sort each bundle into a tuple and group indices by that key."
+      ],
+      "skills": [
+        "canonical-representation",
+        "hashmap-bucket-lifecycle"
+      ],
+      "related_url": "https://neetcode.io/roadmap",
+      "prerequisites": [
+        "arrays-001-pair-sum",
+        "arrays-002-anagram-groups"
+      ],
+      "content_version": 2,
+      "skill_ids": [
+        "canonical-representation",
+        "hashmap-bucket-lifecycle"
+      ],
+      "hint_levels": [
+        "guided",
+        "guided",
+        "substantial"
+      ],
+      "rubric": {
+        "recall": "Select and explain the core approach before solution-bearing help.",
+        "implementation": "Pass cases and explain why the approach meets constraints.",
+        "explanation": "State a correctness condition in plain language."
+      }
+    },
+    {
+      "id": "two-pointers-001-core",
+      "title": "Pairing Stations",
+      "topic": "two-pointers",
+      "kind": "core",
+      "difficulty": "medium",
+      "estimated_minutes": 25,
+      "function": "pair_exists",
+      "signature": "pair_exists(values: list[int], target: int) -> bool",
+      "prompt": "The integer readings are sorted ascending. Return whether two distinct positions sum to target.",
+      "constraints": [
+        "Inputs satisfy the types in the signature.",
+        "Handle empty inputs and duplicates unless the prompt excludes them."
+      ],
+      "parameters": [
+        {
+          "name": "values",
+          "type": "See signature",
+          "description": "values"
+        },
+        {
+          "name": "target",
+          "type": "See signature",
+          "description": "target"
+        }
+      ],
+      "returns": {
+        "type": "bool",
+        "description": "The result described in the prompt."
+      },
+      "examples": [
+        {
+          "inputs": {
+            "values": [
+              1,
+              3,
+              4,
+              9
+            ],
+            "target": 7
+          },
+          "output": true,
+          "explanation": "Apply the rule in the prompt to these inputs."
+        }
+      ],
+      "cases": [
+        {
+          "args": [
+            [
+              1,
+              3,
+              4,
+              9
+            ],
+            7
+          ],
+          "expected": true
+        },
+        {
+          "args": [
+            [],
+            1
+          ],
+          "expected": false
+        },
+        {
+          "args": [
+            [
+              3
+            ],
+            6
+          ],
+          "expected": false
+        },
+        {
+          "args": [
+            [
+              3,
+              3
+            ],
+            6
+          ],
+          "expected": true
+        },
+        {
+          "args": [
+            [
+              1,
+              2,
+              5
+            ],
+            10
+          ],
+          "expected": false
+        }
+      ],
+      "hints": [
+        "What does sorted order let you discard?",
+        "Compare values at the two ends.",
+        "Move the left endpoint when the sum is small, the right endpoint when it is large."
+      ],
+      "skills": [
+        "opposite-pointers"
+      ],
+      "related_url": "https://neetcode.io/roadmap",
+      "prerequisites": [
+        "arrays-001-pair-sum"
+      ],
+      "content_version": 2,
+      "skill_ids": [
+        "opposite-pointers"
+      ],
+      "hint_levels": [
+        "guided",
+        "guided",
+        "substantial"
+      ],
+      "rubric": {
+        "recall": "Select and explain the core approach before solution-bearing help.",
+        "implementation": "Pass cases and explain why the approach meets constraints.",
+        "explanation": "State a correctness condition in plain language."
+      }
+    },
+    {
+      "id": "two-pointers-002-core",
+      "title": "Distinct Sorted Readings",
+      "topic": "two-pointers",
+      "kind": "core",
+      "difficulty": "medium",
+      "estimated_minutes": 25,
+      "function": "unique_readings",
+      "signature": "unique_readings(values: list[int]) -> list[int]",
+      "prompt": "Return each distinct value from an ascending sorted list once, in ascending order. Use a single scan.",
+      "constraints": [
+        "Inputs satisfy the types in the signature.",
+        "Handle empty inputs and duplicates unless the prompt excludes them."
+      ],
+      "parameters": [
+        {
+          "name": "values",
+          "type": "See signature",
+          "description": "values"
+        }
+      ],
+      "returns": {
+        "type": "list[int]",
+        "description": "The result described in the prompt."
+      },
+      "examples": [
+        {
+          "inputs": {
+            "values": [
+              1,
+              1,
+              2,
+              4,
+              4
+            ]
+          },
+          "output": [
+            1,
+            2,
+            4
+          ],
+          "explanation": "Apply the rule in the prompt to these inputs."
+        }
+      ],
+      "cases": [
+        {
+          "args": [
+            [
+              1,
+              1,
+              2,
+              4,
+              4
+            ]
+          ],
+          "expected": [
+            1,
+            2,
+            4
+          ]
+        },
+        {
+          "args": [
+            []
+          ],
+          "expected": []
+        },
+        {
+          "args": [
+            [
+              3,
+              3,
+              3
+            ]
+          ],
+          "expected": [
+            3
+          ]
+        },
+        {
+          "args": [
+            [
+              -2,
+              -2,
+              0
+            ]
+          ],
+          "expected": [
+            -2,
+            0
+          ]
+        }
+      ],
+      "hints": [
+        "Where do duplicates occur in sorted input?",
+        "Compare the reading with the last accepted reading.",
+        "Append only when output is empty or its last value differs."
+      ],
+      "skills": [
+        "same-direction-pointers"
+      ],
+      "related_url": "https://neetcode.io/roadmap",
+      "prerequisites": [
+        "arrays-001-pair-sum"
+      ],
+      "content_version": 2,
+      "skill_ids": [
+        "same-direction-pointers"
+      ],
+      "hint_levels": [
+        "guided",
+        "guided",
+        "substantial"
+      ],
+      "rubric": {
+        "recall": "Select and explain the core approach before solution-bearing help.",
+        "implementation": "Pass cases and explain why the approach meets constraints.",
+        "explanation": "State a correctness condition in plain language."
+      }
+    },
+    {
+      "id": "two-pointers-003-core",
+      "title": "Sorted Energy Readings",
+      "topic": "two-pointers",
+      "kind": "core",
+      "difficulty": "medium",
+      "estimated_minutes": 25,
+      "function": "sorted_squares",
+      "signature": "sorted_squares(values: list[int]) -> list[int]",
+      "prompt": "Given ascending sorted integers, return their squares in ascending order in O(n) time.",
+      "constraints": [
+        "Inputs satisfy the types in the signature.",
+        "Handle empty inputs and duplicates unless the prompt excludes them."
+      ],
+      "parameters": [
+        {
+          "name": "values",
+          "type": "See signature",
+          "description": "values"
+        }
+      ],
+      "returns": {
+        "type": "list[int]",
+        "description": "The result described in the prompt."
+      },
+      "examples": [
+        {
+          "inputs": {
+            "values": [
+              -5,
+              -1,
+              2,
+              3
+            ]
+          },
+          "output": [
+            1,
+            4,
+            9,
+            25
+          ],
+          "explanation": "Apply the rule in the prompt to these inputs."
+        }
+      ],
+      "cases": [
+        {
+          "args": [
+            [
+              -5,
+              -1,
+              2,
+              3
+            ]
+          ],
+          "expected": [
+            1,
+            4,
+            9,
+            25
+          ]
+        },
+        {
+          "args": [
+            []
+          ],
+          "expected": []
+        },
+        {
+          "args": [
+            [
+              -3,
+              -2
+            ]
+          ],
+          "expected": [
+            4,
+            9
+          ]
+        },
+        {
+          "args": [
+            [
+              0,
+              0,
+              2
+            ]
+          ],
+          "expected": [
+            0,
+            0,
+            4
+          ]
+        }
+      ],
+      "hints": [
+        "Where can the largest absolute value lie?",
+        "Fill the output backward using the larger endpoint magnitude.",
+        "Compare endpoint squares, place the larger in the last unfilled position, then move that endpoint."
+      ],
+      "skills": [
+        "opposite-pointers"
+      ],
+      "related_url": "https://neetcode.io/roadmap",
+      "prerequisites": [
+        "arrays-001-pair-sum"
+      ],
+      "content_version": 2,
+      "skill_ids": [
+        "opposite-pointers"
+      ],
+      "hint_levels": [
+        "guided",
+        "guided",
+        "substantial"
+      ],
+      "rubric": {
+        "recall": "Select and explain the core approach before solution-bearing help.",
+        "implementation": "Pass cases and explain why the approach meets constraints.",
+        "explanation": "State a correctness condition in plain language."
+      }
+    },
+    {
+      "id": "two-pointers-worked",
+      "title": "Explore: Pairing Stations",
+      "topic": "two-pointers",
+      "kind": "worked",
+      "difficulty": "medium",
+      "estimated_minutes": 12,
+      "function": "pair_exists",
+      "signature": "pair_exists(values: list[int], target: int) -> bool",
+      "prompt": "The integer readings are sorted ascending. Return whether two distinct positions sum to target.",
+      "constraints": [
+        "Inputs satisfy the types in the signature.",
+        "Handle empty inputs and duplicates unless the prompt excludes them."
+      ],
+      "parameters": [
+        {
+          "name": "values",
+          "type": "See signature",
+          "description": "values"
+        },
+        {
+          "name": "target",
+          "type": "See signature",
+          "description": "target"
+        }
+      ],
+      "returns": {
+        "type": "bool",
+        "description": "The result described in the prompt."
+      },
+      "examples": [
+        {
+          "inputs": {
+            "values": [
+              1,
+              3,
+              4,
+              9
+            ],
+            "target": 7
+          },
+          "output": true,
+          "explanation": "Apply the rule in the prompt to these inputs."
+        }
+      ],
+      "cases": [
+        {
+          "args": [
+            [
+              1,
+              3,
+              4,
+              9
+            ],
+            7
+          ],
+          "expected": true
+        },
+        {
+          "args": [
+            [],
+            1
+          ],
+          "expected": false
+        },
+        {
+          "args": [
+            [
+              3
+            ],
+            6
+          ],
+          "expected": false
+        },
+        {
+          "args": [
+            [
+              3,
+              3
+            ],
+            6
+          ],
+          "expected": true
+        },
+        {
+          "args": [
+            [
+              1,
+              2,
+              5
+            ],
+            10
+          ],
+          "expected": false
+        }
+      ],
+      "hints": [
+        "What does sorted order let you discard?",
+        "Compare values at the two ends.",
+        "Move the left endpoint when the sum is small, the right endpoint when it is large."
+      ],
+      "skills": [
+        "opposite-pointers"
+      ],
+      "related_url": "https://neetcode.io/roadmap",
+      "prerequisites": [
+        "arrays-001-pair-sum"
+      ],
+      "worked_explanation": "State what the search state represents, trace the public example, and explain why the discarded part cannot contain a needed answer.",
+      "starter_code": "def pair_exists(values, target):\n    left, right = 0, len(values)-1\n    while left < right:\n        total = values[left]+values[right]\n        if total == target: return True\n        if total < target: left += 1\n        else: right -= 1\n    return False\n",
+      "content_version": 2,
+      "skill_ids": [
+        "opposite-pointers"
+      ],
+      "hint_levels": [
+        "guided",
+        "guided",
+        "substantial"
+      ],
+      "rubric": {
+        "recall": "Select and explain the core approach before solution-bearing help.",
+        "implementation": "Pass cases and explain why the approach meets constraints.",
+        "explanation": "State a correctness condition in plain language."
+      }
+    },
+    {
+      "id": "two-pointers-faded",
+      "title": "Complete: Pairing Stations",
+      "topic": "two-pointers",
+      "kind": "faded",
+      "difficulty": "medium",
+      "estimated_minutes": 12,
+      "function": "pair_exists",
+      "signature": "pair_exists(values: list[int], target: int) -> bool",
+      "prompt": "The integer readings are sorted ascending. Return whether two distinct positions sum to target.",
+      "constraints": [
+        "Inputs satisfy the types in the signature.",
+        "Handle empty inputs and duplicates unless the prompt excludes them."
+      ],
+      "parameters": [
+        {
+          "name": "values",
+          "type": "See signature",
+          "description": "values"
+        },
+        {
+          "name": "target",
+          "type": "See signature",
+          "description": "target"
+        }
+      ],
+      "returns": {
+        "type": "bool",
+        "description": "The result described in the prompt."
+      },
+      "examples": [
+        {
+          "inputs": {
+            "values": [
+              1,
+              3,
+              4,
+              9
+            ],
+            "target": 7
+          },
+          "output": true,
+          "explanation": "Apply the rule in the prompt to these inputs."
+        }
+      ],
+      "cases": [
+        {
+          "args": [
+            [
+              1,
+              3,
+              4,
+              9
+            ],
+            7
+          ],
+          "expected": true
+        },
+        {
+          "args": [
+            [],
+            1
+          ],
+          "expected": false
+        },
+        {
+          "args": [
+            [
+              3
+            ],
+            6
+          ],
+          "expected": false
+        },
+        {
+          "args": [
+            [
+              3,
+              3
+            ],
+            6
+          ],
+          "expected": true
+        },
+        {
+          "args": [
+            [
+              1,
+              2,
+              5
+            ],
+            10
+          ],
+          "expected": false
+        }
+      ],
+      "hints": [
+        "What does sorted order let you discard?",
+        "Compare values at the two ends.",
+        "Move the left endpoint when the sum is small, the right endpoint when it is large."
+      ],
+      "skills": [
+        "opposite-pointers"
+      ],
+      "related_url": "https://neetcode.io/roadmap",
+      "prerequisites": [
+        "arrays-001-pair-sum"
+      ],
+      "worked_explanation": "State what the search state represents, trace the public example, and explain why the discarded part cannot contain a needed answer.",
+      "starter_code": "def pair_exists(values, target):\n    left, right = 0, len(values)-1\n    while left < right:\n        total = values[left]+values[right]\n        if total == target: raise NotImplementedError(\"Complete this step and explain why it is correct\")\n        if total < target: left += 1\n        else: right -= 1\n    return False\n",
+      "content_version": 2,
+      "skill_ids": [
+        "opposite-pointers"
+      ],
+      "hint_levels": [
+        "guided",
+        "guided",
+        "substantial"
+      ],
+      "rubric": {
+        "recall": "Select and explain the core approach before solution-bearing help.",
+        "implementation": "Pass cases and explain why the approach meets constraints.",
+        "explanation": "State a correctness condition in plain language."
+      }
+    },
+    {
+      "id": "stack-001-core",
+      "title": "Nested Markers",
+      "topic": "stack",
+      "kind": "core",
+      "difficulty": "medium",
+      "estimated_minutes": 25,
+      "function": "markers_valid",
+      "signature": "markers_valid(text: str) -> bool",
+      "prompt": "The text contains only ()[]{}. Return whether all markers are correctly nested and balanced.",
+      "constraints": [
+        "Inputs satisfy the types in the signature.",
+        "Handle empty inputs and duplicates unless the prompt excludes them."
+      ],
+      "parameters": [
+        {
+          "name": "text",
+          "type": "See signature",
+          "description": "text"
+        }
+      ],
+      "returns": {
+        "type": "bool",
+        "description": "The result described in the prompt."
+      },
+      "examples": [
+        {
+          "inputs": {
+            "text": "{[()]}"
+          },
+          "output": true,
+          "explanation": "Apply the rule in the prompt to these inputs."
+        }
+      ],
+      "cases": [
+        {
+          "args": [
+            "{[()]}"
+          ],
+          "expected": true
+        },
+        {
+          "args": [
+            "([)]"
+          ],
+          "expected": false
+        },
+        {
+          "args": [
+            ""
+          ],
+          "expected": true
+        },
+        {
+          "args": [
+            ")"
+          ],
+          "expected": false
+        },
+        {
+          "args": [
+            "(("
+          ],
+          "expected": false
+        }
+      ],
+      "hints": [
+        "Which opening marker must a closing marker match?",
+        "Use a last-in-first-out stack.",
+        "Push openings, require the matching top for closings, and finish empty."
+      ],
+      "skills": [
+        "lifo-matching"
+      ],
+      "related_url": "https://neetcode.io/roadmap",
+      "prerequisites": [
+        "arrays-001-pair-sum"
+      ],
+      "content_version": 2,
+      "skill_ids": [
+        "lifo-matching"
+      ],
+      "hint_levels": [
+        "guided",
+        "guided",
+        "substantial"
+      ],
+      "rubric": {
+        "recall": "Select and explain the core approach before solution-bearing help.",
+        "implementation": "Pass cases and explain why the approach meets constraints.",
+        "explanation": "State a correctness condition in plain language."
+      }
+    },
+    {
+      "id": "stack-002-core",
+      "title": "Undoable Notes",
+      "topic": "stack",
+      "kind": "core",
+      "difficulty": "medium",
+      "estimated_minutes": 25,
+      "function": "apply_notes",
+      "signature": "apply_notes(actions: list[str]) -> list[str]",
+      "prompt": "Each string appends a note, except UNDO removes the most recent note if one exists. Return the surviving notes.",
+      "constraints": [
+        "Inputs satisfy the types in the signature.",
+        "Handle empty inputs and duplicates unless the prompt excludes them."
+      ],
+      "parameters": [
+        {
+          "name": "actions",
+          "type": "See signature",
+          "description": "actions"
+        }
+      ],
+      "returns": {
+        "type": "list[str]",
+        "description": "The result described in the prompt."
+      },
+      "examples": [
+        {
+          "inputs": {
+            "actions": [
+              "a",
+              "b",
+              "UNDO",
+              "c"
+            ]
+          },
+          "output": [
+            "a",
+            "c"
+          ],
+          "explanation": "Apply the rule in the prompt to these inputs."
+        }
+      ],
+      "cases": [
+        {
+          "args": [
+            [
+              "a",
+              "b",
+              "UNDO",
+              "c"
+            ]
+          ],
+          "expected": [
+            "a",
+            "c"
+          ]
+        },
+        {
+          "args": [
+            [
+              "UNDO"
+            ]
+          ],
+          "expected": []
+        },
+        {
+          "args": [
+            []
+          ],
+          "expected": []
+        },
+        {
+          "args": [
+            [
+              "x",
+              "UNDO",
+              "UNDO"
+            ]
+          ],
+          "expected": []
+        }
+      ],
+      "hints": [
+        "Which note does undo affect?",
+        "The current history is a stack.",
+        "Append notes; pop on UNDO only when the stack is nonempty."
+      ],
+      "skills": [
+        "lifo-history"
+      ],
+      "related_url": "https://neetcode.io/roadmap",
+      "prerequisites": [
+        "arrays-001-pair-sum"
+      ],
+      "content_version": 2,
+      "skill_ids": [
+        "lifo-history"
+      ],
+      "hint_levels": [
+        "guided",
+        "guided",
+        "substantial"
+      ],
+      "rubric": {
+        "recall": "Select and explain the core approach before solution-bearing help.",
+        "implementation": "Pass cases and explain why the approach meets constraints.",
+        "explanation": "State a correctness condition in plain language."
+      }
+    },
+    {
+      "id": "stack-003-core",
+      "title": "Next Higher Signal",
+      "topic": "stack",
+      "kind": "core",
+      "difficulty": "medium",
+      "estimated_minutes": 25,
+      "function": "next_higher",
+      "signature": "next_higher(values: list[int]) -> list[int]",
+      "prompt": "For each reading return the distance to the next strictly higher reading, or zero if absent. Use O(n) time.",
+      "constraints": [
+        "Inputs satisfy the types in the signature.",
+        "Handle empty inputs and duplicates unless the prompt excludes them."
+      ],
+      "parameters": [
+        {
+          "name": "values",
+          "type": "See signature",
+          "description": "values"
+        }
+      ],
+      "returns": {
+        "type": "list[int]",
+        "description": "The result described in the prompt."
+      },
+      "examples": [
+        {
+          "inputs": {
+            "values": [
+              3,
+              1,
+              4,
+              4,
+              5
+            ]
+          },
+          "output": [
+            2,
+            1,
+            2,
+            1,
+            0
+          ],
+          "explanation": "Apply the rule in the prompt to these inputs."
+        }
+      ],
+      "cases": [
+        {
+          "args": [
+            [
+              3,
+              1,
+              4,
+              4,
+              5
+            ]
+          ],
+          "expected": [
+            2,
+            1,
+            2,
+            1,
+            0
+          ]
+        },
+        {
+          "args": [
+            []
+          ],
+          "expected": []
+        },
+        {
+          "args": [
+            [
+              3,
+              2,
+              1
+            ]
+          ],
+          "expected": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "args": [
+            [
+              2,
+              2,
+              3
+            ]
+          ],
+          "expected": [
+            2,
+            1,
+            0
+          ]
+        }
+      ],
+      "hints": [
+        "Which unresolved earlier readings can this reading answer?",
+        "Maintain indices in a decreasing stack.",
+        "Pop strictly smaller readings, recording their distance to the current index, then push the current index."
+      ],
+      "skills": [
+        "monotonic-stack"
+      ],
+      "related_url": "https://neetcode.io/roadmap",
+      "prerequisites": [
+        "arrays-001-pair-sum"
+      ],
+      "content_version": 2,
+      "skill_ids": [
+        "monotonic-stack"
+      ],
+      "hint_levels": [
+        "guided",
+        "guided",
+        "substantial"
+      ],
+      "rubric": {
+        "recall": "Select and explain the core approach before solution-bearing help.",
+        "implementation": "Pass cases and explain why the approach meets constraints.",
+        "explanation": "State a correctness condition in plain language."
+      }
+    },
+    {
+      "id": "stack-worked",
+      "title": "Explore: Nested Markers",
+      "topic": "stack",
+      "kind": "worked",
+      "difficulty": "medium",
+      "estimated_minutes": 12,
+      "function": "markers_valid",
+      "signature": "markers_valid(text: str) -> bool",
+      "prompt": "The text contains only ()[]{}. Return whether all markers are correctly nested and balanced.",
+      "constraints": [
+        "Inputs satisfy the types in the signature.",
+        "Handle empty inputs and duplicates unless the prompt excludes them."
+      ],
+      "parameters": [
+        {
+          "name": "text",
+          "type": "See signature",
+          "description": "text"
+        }
+      ],
+      "returns": {
+        "type": "bool",
+        "description": "The result described in the prompt."
+      },
+      "examples": [
+        {
+          "inputs": {
+            "text": "{[()]}"
+          },
+          "output": true,
+          "explanation": "Apply the rule in the prompt to these inputs."
+        }
+      ],
+      "cases": [
+        {
+          "args": [
+            "{[()]}"
+          ],
+          "expected": true
+        },
+        {
+          "args": [
+            "([)]"
+          ],
+          "expected": false
+        },
+        {
+          "args": [
+            ""
+          ],
+          "expected": true
+        },
+        {
+          "args": [
+            ")"
+          ],
+          "expected": false
+        },
+        {
+          "args": [
+            "(("
+          ],
+          "expected": false
+        }
+      ],
+      "hints": [
+        "Which opening marker must a closing marker match?",
+        "Use a last-in-first-out stack.",
+        "Push openings, require the matching top for closings, and finish empty."
+      ],
+      "skills": [
+        "lifo-matching"
+      ],
+      "related_url": "https://neetcode.io/roadmap",
+      "prerequisites": [
+        "arrays-001-pair-sum"
+      ],
+      "worked_explanation": "The stack represents the unmatched openings. Trace each push and pop; a closing must match the most recent opening.",
+      "starter_code": "def markers_valid(text):\n    stack = []; pairs = {')':'(', ']':'[', '}':'{'}\n    for ch in text:\n        if ch in pairs:\n            if not stack or stack.pop() != pairs[ch]: return False\n        else: stack.append(ch)\n    return not stack\n",
+      "content_version": 2,
+      "skill_ids": [
+        "lifo-matching"
+      ],
+      "hint_levels": [
+        "guided",
+        "guided",
+        "substantial"
+      ],
+      "rubric": {
+        "recall": "Select and explain the core approach before solution-bearing help.",
+        "implementation": "Pass cases and explain why the approach meets constraints.",
+        "explanation": "State a correctness condition in plain language."
+      }
+    },
+    {
+      "id": "stack-faded",
+      "title": "Complete: Nested Markers",
+      "topic": "stack",
+      "kind": "faded",
+      "difficulty": "medium",
+      "estimated_minutes": 12,
+      "function": "markers_valid",
+      "signature": "markers_valid(text: str) -> bool",
+      "prompt": "The text contains only ()[]{}. Return whether all markers are correctly nested and balanced.",
+      "constraints": [
+        "Inputs satisfy the types in the signature.",
+        "Handle empty inputs and duplicates unless the prompt excludes them."
+      ],
+      "parameters": [
+        {
+          "name": "text",
+          "type": "See signature",
+          "description": "text"
+        }
+      ],
+      "returns": {
+        "type": "bool",
+        "description": "The result described in the prompt."
+      },
+      "examples": [
+        {
+          "inputs": {
+            "text": "{[()]}"
+          },
+          "output": true,
+          "explanation": "Apply the rule in the prompt to these inputs."
+        }
+      ],
+      "cases": [
+        {
+          "args": [
+            "{[()]}"
+          ],
+          "expected": true
+        },
+        {
+          "args": [
+            "([)]"
+          ],
+          "expected": false
+        },
+        {
+          "args": [
+            ""
+          ],
+          "expected": true
+        },
+        {
+          "args": [
+            ")"
+          ],
+          "expected": false
+        },
+        {
+          "args": [
+            "(("
+          ],
+          "expected": false
+        }
+      ],
+      "hints": [
+        "Which opening marker must a closing marker match?",
+        "Use a last-in-first-out stack.",
+        "Push openings, require the matching top for closings, and finish empty."
+      ],
+      "skills": [
+        "lifo-matching"
+      ],
+      "related_url": "https://neetcode.io/roadmap",
+      "prerequisites": [
+        "arrays-001-pair-sum"
+      ],
+      "worked_explanation": "The stack represents the unmatched openings. Trace each push and pop; a closing must match the most recent opening.",
+      "starter_code": "def markers_valid(text):\n    stack = []; pairs = {')':'(', ']':'[', '}':'{'}\n    for ch in text:\n        if ch in pairs:\n            if not stack or stack.pop() != pairs[ch]: return False\n        else: stack.append(ch)\n    raise NotImplementedError(\"Complete this step and explain why it is correct\")\n",
+      "content_version": 2,
+      "skill_ids": [
+        "lifo-matching"
+      ],
+      "hint_levels": [
+        "guided",
+        "guided",
+        "substantial"
+      ],
+      "rubric": {
+        "recall": "Select and explain the core approach before solution-bearing help.",
+        "implementation": "Pass cases and explain why the approach meets constraints.",
+        "explanation": "State a correctness condition in plain language."
+      }
+    },
+    {
+      "id": "binary-search-001-core",
+      "title": "First Qualifying Reading",
+      "topic": "binary-search",
+      "kind": "core",
+      "difficulty": "medium",
+      "estimated_minutes": 25,
+      "function": "lower_bound",
+      "signature": "lower_bound(values: list[int], target: int) -> int",
+      "prompt": "In an ascending sorted list, return the first index with value at least target, or the list length. Use O(log n) time.",
+      "constraints": [
+        "Inputs satisfy the types in the signature.",
+        "Handle empty inputs and duplicates unless the prompt excludes them."
+      ],
+      "parameters": [
+        {
+          "name": "values",
+          "type": "See signature",
+          "description": "values"
+        },
+        {
+          "name": "target",
+          "type": "See signature",
+          "description": "target"
+        }
+      ],
+      "returns": {
+        "type": "int",
+        "description": "The result described in the prompt."
+      },
+      "examples": [
+        {
+          "inputs": {
+            "values": [
+              1,
+              2,
+              2,
+              7
+            ],
+            "target": 2
+          },
+          "output": 1,
+          "explanation": "Apply the rule in the prompt to these inputs."
+        }
+      ],
+      "cases": [
+        {
+          "args": [
+            [
+              1,
+              2,
+              2,
+              7
+            ],
+            2
+          ],
+          "expected": 1
+        },
+        {
+          "args": [
+            [],
+            3
+          ],
+          "expected": 0
+        },
+        {
+          "args": [
+            [
+              1,
+              3
+            ],
+            5
+          ],
+          "expected": 2
+        },
+        {
+          "args": [
+            [
+              1,
+              3
+            ],
+            0
+          ],
+          "expected": 0
+        }
+      ],
+      "hints": [
+        "Which half preserves the first qualifying index?",
+        "Use a half-open search interval.",
+        "For a value below target set lo=mid+1; otherwise set hi=mid; return lo when equal."
+      ],
+      "skills": [
+        "lower-bound"
+      ],
+      "related_url": "https://neetcode.io/roadmap",
+      "prerequisites": [
+        "two-pointers-001-core"
+      ],
+      "content_version": 2,
+      "skill_ids": [
+        "lower-bound"
+      ],
+      "hint_levels": [
+        "guided",
+        "guided",
+        "substantial"
+      ],
+      "rubric": {
+        "recall": "Select and explain the core approach before solution-bearing help.",
+        "implementation": "Pass cases and explain why the approach meets constraints.",
+        "explanation": "State a correctness condition in plain language."
+      }
+    },
+    {
+      "id": "binary-search-002-core",
+      "title": "Matching Reading Count",
+      "topic": "binary-search",
+      "kind": "core",
+      "difficulty": "medium",
+      "estimated_minutes": 25,
+      "function": "matching_count",
+      "signature": "matching_count(values: list[int], target: int) -> int",
+      "prompt": "Return how many times target occurs in an ascending sorted list in O(log n) time.",
+      "constraints": [
+        "Inputs satisfy the types in the signature.",
+        "Handle empty inputs and duplicates unless the prompt excludes them."
+      ],
+      "parameters": [
+        {
+          "name": "values",
+          "type": "See signature",
+          "description": "values"
+        },
+        {
+          "name": "target",
+          "type": "See signature",
+          "description": "target"
+        }
+      ],
+      "returns": {
+        "type": "int",
+        "description": "The result described in the prompt."
+      },
+      "examples": [
+        {
+          "inputs": {
+            "values": [
+              1,
+              2,
+              2,
+              2,
+              5
+            ],
+            "target": 2
+          },
+          "output": 3,
+          "explanation": "Apply the rule in the prompt to these inputs."
+        }
+      ],
+      "cases": [
+        {
+          "args": [
+            [
+              1,
+              2,
+              2,
+              2,
+              5
+            ],
+            2
+          ],
+          "expected": 3
+        },
+        {
+          "args": [
+            [],
+            1
+          ],
+          "expected": 0
+        },
+        {
+          "args": [
+            [
+              1,
+              3
+            ],
+            2
+          ],
+          "expected": 0
+        },
+        {
+          "args": [
+            [
+              4,
+              4
+            ],
+            4
+          ],
+          "expected": 2
+        }
+      ],
+      "hints": [
+        "Can the count be described using two boundaries?",
+        "Find the first position >= target and the first > target.",
+        "Run lower and upper bound searches and subtract their indices."
+      ],
+      "skills": [
+        "lower-bound",
+        "upper-bound"
+      ],
+      "related_url": "https://neetcode.io/roadmap",
+      "prerequisites": [
+        "two-pointers-001-core"
+      ],
+      "content_version": 2,
+      "skill_ids": [
+        "lower-bound",
+        "upper-bound"
+      ],
+      "hint_levels": [
+        "guided",
+        "guided",
+        "substantial"
+      ],
+      "rubric": {
+        "recall": "Select and explain the core approach before solution-bearing help.",
+        "implementation": "Pass cases and explain why the approach meets constraints.",
+        "explanation": "State a correctness condition in plain language."
+      }
+    },
+    {
+      "id": "binary-search-003-core",
+      "title": "Minimum Batch Capacity",
+      "topic": "binary-search",
+      "kind": "core",
+      "difficulty": "medium",
+      "estimated_minutes": 25,
+      "function": "batch_capacity",
+      "signature": "batch_capacity(weights: list[int], days: int) -> int",
+      "prompt": "Positive integer parcel weights must be sent in order. A day sends a contiguous prefix of remaining parcels up to capacity. Return the minimum integer capacity that sends all parcels in at most days days. weights is nonempty and days >= 1.",
+      "constraints": [
+        "Inputs satisfy the types in the signature.",
+        "Handle empty inputs and duplicates unless the prompt excludes them."
+      ],
+      "parameters": [
+        {
+          "name": "weights",
+          "type": "See signature",
+          "description": "weights"
+        },
+        {
+          "name": "days",
+          "type": "See signature",
+          "description": "days"
+        }
+      ],
+      "returns": {
+        "type": "int",
+        "description": "The result described in the prompt."
+      },
+      "examples": [
+        {
+          "inputs": {
+            "weights": [
+              2,
+              3,
+              2,
+              4
+            ],
+            "days": 2
+          },
+          "output": 6,
+          "explanation": "Apply the rule in the prompt to these inputs."
+        }
+      ],
+      "cases": [
+        {
+          "args": [
+            [
+              2,
+              3,
+              2,
+              4
+            ],
+            2
+          ],
+          "expected": 6
+        },
+        {
+          "args": [
+            [
+              7
+            ],
+            4
+          ],
+          "expected": 7
+        },
+        {
+          "args": [
+            [
+              1,
+              2,
+              3
+            ],
+            1
+          ],
+          "expected": 6
+        },
+        {
+          "args": [
+            [
+              1,
+              1,
+              1
+            ],
+            3
+          ],
+          "expected": 1
+        }
+      ],
+      "hints": [
+        "If a capacity works, what happens at a larger capacity?",
+        "Binary-search capacity using a greedy feasibility scan.",
+        "Search max(weight)..sum(weight); simulate days and move high for a feasible midpoint."
+      ],
+      "skills": [
+        "monotonic-feasibility"
+      ],
+      "related_url": "https://neetcode.io/roadmap",
+      "prerequisites": [
+        "two-pointers-001-core"
+      ],
+      "content_version": 2,
+      "skill_ids": [
+        "monotonic-feasibility"
+      ],
+      "hint_levels": [
+        "guided",
+        "guided",
+        "substantial"
+      ],
+      "rubric": {
+        "recall": "Select and explain the core approach before solution-bearing help.",
+        "implementation": "Pass cases and explain why the approach meets constraints.",
+        "explanation": "State a correctness condition in plain language."
+      }
+    },
+    {
+      "id": "binary-search-worked",
+      "title": "Explore: First Qualifying Reading",
+      "topic": "binary-search",
+      "kind": "worked",
+      "difficulty": "medium",
+      "estimated_minutes": 12,
+      "function": "lower_bound",
+      "signature": "lower_bound(values: list[int], target: int) -> int",
+      "prompt": "In an ascending sorted list, return the first index with value at least target, or the list length. Use O(log n) time.",
+      "constraints": [
+        "Inputs satisfy the types in the signature.",
+        "Handle empty inputs and duplicates unless the prompt excludes them."
+      ],
+      "parameters": [
+        {
+          "name": "values",
+          "type": "See signature",
+          "description": "values"
+        },
+        {
+          "name": "target",
+          "type": "See signature",
+          "description": "target"
+        }
+      ],
+      "returns": {
+        "type": "int",
+        "description": "The result described in the prompt."
+      },
+      "examples": [
+        {
+          "inputs": {
+            "values": [
+              1,
+              2,
+              2,
+              7
+            ],
+            "target": 2
+          },
+          "output": 1,
+          "explanation": "Apply the rule in the prompt to these inputs."
+        }
+      ],
+      "cases": [
+        {
+          "args": [
+            [
+              1,
+              2,
+              2,
+              7
+            ],
+            2
+          ],
+          "expected": 1
+        },
+        {
+          "args": [
+            [],
+            3
+          ],
+          "expected": 0
+        },
+        {
+          "args": [
+            [
+              1,
+              3
+            ],
+            5
+          ],
+          "expected": 2
+        },
+        {
+          "args": [
+            [
+              1,
+              3
+            ],
+            0
+          ],
+          "expected": 0
+        }
+      ],
+      "hints": [
+        "Which half preserves the first qualifying index?",
+        "Use a half-open search interval.",
+        "For a value below target set lo=mid+1; otherwise set hi=mid; return lo when equal."
+      ],
+      "skills": [
+        "lower-bound"
+      ],
+      "related_url": "https://neetcode.io/roadmap",
+      "prerequisites": [
+        "two-pointers-001-core"
+      ],
+      "worked_explanation": "State what the search state represents, trace the public example, and explain why the discarded part cannot contain a needed answer.",
+      "starter_code": "def lower_bound(values, target):\n    lo, hi = 0, len(values)\n    while lo < hi:\n        mid = (lo+hi)//2\n        if values[mid] < target: lo = mid+1\n        else: hi = mid\n    return lo\n",
+      "content_version": 2,
+      "skill_ids": [
+        "lower-bound"
+      ],
+      "hint_levels": [
+        "guided",
+        "guided",
+        "substantial"
+      ],
+      "rubric": {
+        "recall": "Select and explain the core approach before solution-bearing help.",
+        "implementation": "Pass cases and explain why the approach meets constraints.",
+        "explanation": "State a correctness condition in plain language."
+      }
+    },
+    {
+      "id": "binary-search-faded",
+      "title": "Complete: First Qualifying Reading",
+      "topic": "binary-search",
+      "kind": "faded",
+      "difficulty": "medium",
+      "estimated_minutes": 12,
+      "function": "lower_bound",
+      "signature": "lower_bound(values: list[int], target: int) -> int",
+      "prompt": "In an ascending sorted list, return the first index with value at least target, or the list length. Use O(log n) time.",
+      "constraints": [
+        "Inputs satisfy the types in the signature.",
+        "Handle empty inputs and duplicates unless the prompt excludes them."
+      ],
+      "parameters": [
+        {
+          "name": "values",
+          "type": "See signature",
+          "description": "values"
+        },
+        {
+          "name": "target",
+          "type": "See signature",
+          "description": "target"
+        }
+      ],
+      "returns": {
+        "type": "int",
+        "description": "The result described in the prompt."
+      },
+      "examples": [
+        {
+          "inputs": {
+            "values": [
+              1,
+              2,
+              2,
+              7
+            ],
+            "target": 2
+          },
+          "output": 1,
+          "explanation": "Apply the rule in the prompt to these inputs."
+        }
+      ],
+      "cases": [
+        {
+          "args": [
+            [
+              1,
+              2,
+              2,
+              7
+            ],
+            2
+          ],
+          "expected": 1
+        },
+        {
+          "args": [
+            [],
+            3
+          ],
+          "expected": 0
+        },
+        {
+          "args": [
+            [
+              1,
+              3
+            ],
+            5
+          ],
+          "expected": 2
+        },
+        {
+          "args": [
+            [
+              1,
+              3
+            ],
+            0
+          ],
+          "expected": 0
+        }
+      ],
+      "hints": [
+        "Which half preserves the first qualifying index?",
+        "Use a half-open search interval.",
+        "For a value below target set lo=mid+1; otherwise set hi=mid; return lo when equal."
+      ],
+      "skills": [
+        "lower-bound"
+      ],
+      "related_url": "https://neetcode.io/roadmap",
+      "prerequisites": [
+        "two-pointers-001-core"
+      ],
+      "worked_explanation": "State what the search state represents, trace the public example, and explain why the discarded part cannot contain a needed answer.",
+      "starter_code": "def lower_bound(values, target):\n    lo, hi = 0, len(values)\n    while lo < hi:\n        mid = (lo+hi)//2\n        if values[mid] < target: lo = mid+1\n        else: hi = mid\n    raise NotImplementedError(\"Complete this step and explain why it is correct\")\n",
+      "content_version": 2,
+      "skill_ids": [
+        "lower-bound"
+      ],
+      "hint_levels": [
+        "guided",
+        "guided",
+        "substantial"
+      ],
+      "rubric": {
+        "recall": "Select and explain the core approach before solution-bearing help.",
+        "implementation": "Pass cases and explain why the approach meets constraints.",
+        "explanation": "State a correctness condition in plain language."
+      }
+    },
+    {
+      "id": "two-pointers-transfer-001",
+      "title": "Safe Pair Count",
+      "topic": "two-pointers",
+      "kind": "transfer",
+      "difficulty": "medium",
+      "estimated_minutes": 25,
+      "function": "safe_pairs",
+      "signature": "safe_pairs(values: list[int], ceiling: int) -> int",
+      "prompt": "Sorted ascending risk scores are given. Count pairs of distinct indices i < j whose combined score is at most ceiling. Use O(n) time.",
+      "constraints": [
+        "Inputs satisfy the types in the signature.",
+        "Handle empty inputs and duplicates unless the prompt excludes them."
+      ],
+      "parameters": [
+        {
+          "name": "values",
+          "type": "See signature",
+          "description": "values"
+        },
+        {
+          "name": "ceiling",
+          "type": "See signature",
+          "description": "ceiling"
+        }
+      ],
+      "returns": {
+        "type": "int",
+        "description": "The result described in the prompt."
+      },
+      "examples": [
+        {
+          "inputs": {
+            "values": [
+              1,
+              2,
+              3,
+              5
+            ],
+            "ceiling": 5
+          },
+          "output": 3,
+          "explanation": "Apply the rule in the prompt to these inputs."
+        }
+      ],
+      "cases": [
+        {
+          "args": [
+            [
+              1,
+              2,
+              3,
+              5
+            ],
+            5
+          ],
+          "expected": 3
+        },
+        {
+          "args": [
+            [],
+            0
+          ],
+          "expected": 0
+        },
+        {
+          "args": [
+            [
+              2,
+              2,
+              2
+            ],
+            4
+          ],
+          "expected": 3
+        },
+        {
+          "args": [
+            [
+              5,
+              6
+            ],
+            4
+          ],
+          "expected": 0
+        }
+      ],
+      "hints": [
+        "What follows for all smaller partners when the largest remaining partner fits?",
+        "Consider endpoints of the sorted range.",
+        "If the endpoint sum fits, add hi-lo pairs and increment lo; otherwise decrement hi."
+      ],
+      "skills": [
+        "opposite-pointers"
+      ],
+      "related_url": "https://neetcode.io/roadmap",
+      "prerequisites": [
+        "two-pointers-001-core",
+        "two-pointers-003-core"
+      ],
+      "content_version": 2,
+      "skill_ids": [
+        "opposite-pointers"
+      ],
+      "hint_levels": [
+        "guided",
+        "guided",
+        "substantial"
+      ],
+      "rubric": {
+        "recall": "Select and explain the core approach before solution-bearing help.",
+        "implementation": "Pass cases and explain why the approach meets constraints.",
+        "explanation": "State a correctness condition in plain language."
+      }
+    },
+    {
+      "id": "two-pointers-transfer-002",
+      "title": "Merged Appointment Slots",
+      "topic": "two-pointers",
+      "kind": "transfer",
+      "difficulty": "medium",
+      "estimated_minutes": 25,
+      "function": "merge_slots",
+      "signature": "merge_slots(left: list[int], right: list[int]) -> list[int]",
+      "prompt": "Two ascending lists contain slot numbers. Return their sorted union without duplicates in O(n+m) time.",
+      "constraints": [
+        "Inputs satisfy the types in the signature.",
+        "Handle empty inputs and duplicates unless the prompt excludes them."
+      ],
+      "parameters": [
+        {
+          "name": "left",
+          "type": "See signature",
+          "description": "left"
+        },
+        {
+          "name": "right",
+          "type": "See signature",
+          "description": "right"
+        }
+      ],
+      "returns": {
+        "type": "list[int]",
+        "description": "The result described in the prompt."
+      },
+      "examples": [
+        {
+          "inputs": {
+            "left": [
+              1,
+              3,
+              3
+            ],
+            "right": [
+              2,
+              3,
+              4
+            ]
+          },
+          "output": [
+            1,
+            2,
+            3,
+            4
+          ],
+          "explanation": "Apply the rule in the prompt to these inputs."
+        }
+      ],
+      "cases": [
+        {
+          "args": [
+            [
+              1,
+              3,
+              3
+            ],
+            [
+              2,
+              3,
+              4
+            ]
+          ],
+          "expected": [
+            1,
+            2,
+            3,
+            4
+          ]
+        },
+        {
+          "args": [
+            [],
+            []
+          ],
+          "expected": []
+        },
+        {
+          "args": [
+            [],
+            [
+              1,
+              1
+            ]
+          ],
+          "expected": [
+            1
+          ]
+        },
+        {
+          "args": [
+            [
+              2,
+              2
+            ],
+            []
+          ],
+          "expected": [
+            2
+          ]
+        }
+      ],
+      "hints": [
+        "Which unconsumed value must come next?",
+        "Walk both lists while remembering the last output.",
+        "Take the smaller available head, advance that list, and append only if distinct."
+      ],
+      "skills": [
+        "same-direction-pointers"
+      ],
+      "related_url": "https://neetcode.io/roadmap",
+      "prerequisites": [
+        "two-pointers-001-core",
+        "two-pointers-003-core"
+      ],
+      "content_version": 2,
+      "skill_ids": [
+        "same-direction-pointers"
+      ],
+      "hint_levels": [
+        "guided",
+        "guided",
+        "substantial"
+      ],
+      "rubric": {
+        "recall": "Select and explain the core approach before solution-bearing help.",
+        "implementation": "Pass cases and explain why the approach meets constraints.",
+        "explanation": "State a correctness condition in plain language."
+      }
+    },
+    {
+      "id": "stack-transfer-001",
+      "title": "Collapsed Reactions",
+      "topic": "stack",
+      "kind": "transfer",
+      "difficulty": "medium",
+      "estimated_minutes": 25,
+      "function": "collapse_reactions",
+      "signature": "collapse_reactions(text: str) -> str",
+      "prompt": "Repeatedly remove adjacent equal characters until no such pair remains. Return the resulting string.",
+      "constraints": [
+        "Inputs satisfy the types in the signature.",
+        "Handle empty inputs and duplicates unless the prompt excludes them."
+      ],
+      "parameters": [
+        {
+          "name": "text",
+          "type": "See signature",
+          "description": "text"
+        }
+      ],
+      "returns": {
+        "type": "str",
+        "description": "The result described in the prompt."
+      },
+      "examples": [
+        {
+          "inputs": {
+            "text": "abbaca"
+          },
+          "output": "ca",
+          "explanation": "Apply the rule in the prompt to these inputs."
+        }
+      ],
+      "cases": [
+        {
+          "args": [
+            "abbaca"
+          ],
+          "expected": "ca"
+        },
+        {
+          "args": [
+            ""
+          ],
+          "expected": ""
+        },
+        {
+          "args": [
+            "azxxzy"
+          ],
+          "expected": "ay"
+        },
+        {
+          "args": [
+            "aaaa"
+          ],
+          "expected": ""
+        }
+      ],
+      "hints": [
+        "Can removing a pair create a new pair at the current boundary?",
+        "Store the already reduced prefix.",
+        "Compare each character to the stack top; pop equal characters, otherwise push."
+      ],
+      "skills": [
+        "lifo-history"
+      ],
+      "related_url": "https://neetcode.io/roadmap",
+      "prerequisites": [
+        "stack-001-core",
+        "stack-003-core"
+      ],
+      "content_version": 2,
+      "skill_ids": [
+        "lifo-history"
+      ],
+      "hint_levels": [
+        "guided",
+        "guided",
+        "substantial"
+      ],
+      "rubric": {
+        "recall": "Select and explain the core approach before solution-bearing help.",
+        "implementation": "Pass cases and explain why the approach meets constraints.",
+        "explanation": "State a correctness condition in plain language."
+      }
+    },
+    {
+      "id": "stack-transfer-002",
+      "title": "Container Visibility",
+      "topic": "stack",
+      "kind": "transfer",
+      "difficulty": "medium",
+      "estimated_minutes": 25,
+      "function": "next_taller",
+      "signature": "next_taller(values: list[int]) -> list[int]",
+      "prompt": "For each container height, return the height of the nearest strictly taller container to its right, or -1 when none exists. Use O(n) time.",
+      "constraints": [
+        "Inputs satisfy the types in the signature.",
+        "Handle empty inputs and duplicates unless the prompt excludes them."
+      ],
+      "parameters": [
+        {
+          "name": "values",
+          "type": "See signature",
+          "description": "values"
+        }
+      ],
+      "returns": {
+        "type": "list[int]",
+        "description": "The result described in the prompt."
+      },
+      "examples": [
+        {
+          "inputs": {
+            "values": [
+              2,
+              1,
+              4,
+              3
+            ]
+          },
+          "output": [
+            4,
+            4,
+            -1,
+            -1
+          ],
+          "explanation": "Apply the rule in the prompt to these inputs."
+        }
+      ],
+      "cases": [
+        {
+          "args": [
+            [
+              2,
+              1,
+              4,
+              3
+            ]
+          ],
+          "expected": [
+            4,
+            4,
+            -1,
+            -1
+          ]
+        },
+        {
+          "args": [
+            []
+          ],
+          "expected": []
+        },
+        {
+          "args": [
+            [
+              3,
+              3
+            ]
+          ],
+          "expected": [
+            -1,
+            -1
+          ]
+        },
+        {
+          "args": [
+            [
+              1,
+              2,
+              3
+            ]
+          ],
+          "expected": [
+            2,
+            3,
+            -1
+          ]
+        }
+      ],
+      "hints": [
+        "Which unresolved heights does a new taller container settle?",
+        "Keep a decreasing stack of unresolved indices.",
+        "Pop smaller heights and record the current height; push the current index."
+      ],
+      "skills": [
+        "monotonic-stack"
+      ],
+      "related_url": "https://neetcode.io/roadmap",
+      "prerequisites": [
+        "stack-001-core",
+        "stack-003-core"
+      ],
+      "content_version": 2,
+      "skill_ids": [
+        "monotonic-stack"
+      ],
+      "hint_levels": [
+        "guided",
+        "guided",
+        "substantial"
+      ],
+      "rubric": {
+        "recall": "Select and explain the core approach before solution-bearing help.",
+        "implementation": "Pass cases and explain why the approach meets constraints.",
+        "explanation": "State a correctness condition in plain language."
+      }
+    },
+    {
+      "id": "binary-search-transfer-001",
+      "title": "First Available Time",
+      "topic": "binary-search",
+      "kind": "transfer",
+      "difficulty": "medium",
+      "estimated_minutes": 25,
+      "function": "first_slot",
+      "signature": "first_slot(times: list[int], ready: int) -> int",
+      "prompt": "Ascending departure times may repeat. Return the earliest departure time at or after ready, or -1 if none. Use O(log n) time.",
+      "constraints": [
+        "Inputs satisfy the types in the signature.",
+        "Handle empty inputs and duplicates unless the prompt excludes them."
+      ],
+      "parameters": [
+        {
+          "name": "times",
+          "type": "See signature",
+          "description": "times"
+        },
+        {
+          "name": "ready",
+          "type": "See signature",
+          "description": "ready"
+        }
+      ],
+      "returns": {
+        "type": "int",
+        "description": "The result described in the prompt."
+      },
+      "examples": [
+        {
+          "inputs": {
+            "times": [
+              2,
+              5,
+              5,
+              9
+            ],
+            "ready": 4
+          },
+          "output": 5,
+          "explanation": "Apply the rule in the prompt to these inputs."
+        }
+      ],
+      "cases": [
+        {
+          "args": [
+            [
+              2,
+              5,
+              5,
+              9
+            ],
+            4
+          ],
+          "expected": 5
+        },
+        {
+          "args": [
+            [],
+            1
+          ],
+          "expected": -1
+        },
+        {
+          "args": [
+            [
+              3
+            ],
+            4
+          ],
+          "expected": -1
+        },
+        {
+          "args": [
+            [
+              3,
+              3
+            ],
+            3
+          ],
+          "expected": 3
+        }
+      ],
+      "hints": [
+        "Which part of the sorted schedule cannot contain an eligible time?",
+        "Find the first index whose value is at least ready.",
+        "Use a lower-bound search, then return the value if the index is in range."
+      ],
+      "skills": [
+        "lower-bound"
+      ],
+      "related_url": "https://neetcode.io/roadmap",
+      "prerequisites": [
+        "binary-search-001-core",
+        "binary-search-003-core"
+      ],
+      "content_version": 2,
+      "skill_ids": [
+        "lower-bound"
+      ],
+      "hint_levels": [
+        "guided",
+        "guided",
+        "substantial"
+      ],
+      "rubric": {
+        "recall": "Select and explain the core approach before solution-bearing help.",
+        "implementation": "Pass cases and explain why the approach meets constraints.",
+        "explanation": "State a correctness condition in plain language."
+      }
+    },
+    {
+      "id": "binary-search-transfer-002",
+      "title": "Minimum Processing Rate",
+      "topic": "binary-search",
+      "kind": "transfer",
+      "difficulty": "medium",
+      "estimated_minutes": 25,
+      "function": "processing_rate",
+      "signature": "processing_rate(jobs: list[int], hours: int) -> int",
+      "prompt": "Positive integer job sizes are processed separately at an integer rate. Each job takes ceil(size/rate) hours. hours >= len(jobs). Return the minimum rate that completes all jobs within hours.",
+      "constraints": [
+        "Inputs satisfy the types in the signature.",
+        "Handle empty inputs and duplicates unless the prompt excludes them."
+      ],
+      "parameters": [
+        {
+          "name": "jobs",
+          "type": "See signature",
+          "description": "jobs"
+        },
+        {
+          "name": "hours",
+          "type": "See signature",
+          "description": "hours"
+        }
+      ],
+      "returns": {
+        "type": "int",
+        "description": "The result described in the prompt."
+      },
+      "examples": [
+        {
+          "inputs": {
+            "jobs": [
+              3,
+              6,
+              7
+            ],
+            "hours": 6
+          },
+          "output": 3,
+          "explanation": "Apply the rule in the prompt to these inputs."
+        }
+      ],
+      "cases": [
+        {
+          "args": [
+            [
+              3,
+              6,
+              7
+            ],
+            6
+          ],
+          "expected": 3
+        },
+        {
+          "args": [
+            [
+              8
+            ],
+            2
+          ],
+          "expected": 4
+        },
+        {
+          "args": [
+            [
+              1,
+              1
+            ],
+            2
+          ],
+          "expected": 1
+        },
+        {
+          "args": [
+            [
+              9,
+              9
+            ],
+            2
+          ],
+          "expected": 9
+        }
+      ],
+      "hints": [
+        "If a rate finishes on time, will a larger rate also finish?",
+        "Search the monotone feasibility boundary.",
+        "Search rates 1..max(jobs), computing total rounded-up hours for each midpoint."
+      ],
+      "skills": [
+        "monotonic-feasibility"
+      ],
+      "related_url": "https://neetcode.io/roadmap",
+      "prerequisites": [
+        "binary-search-001-core",
+        "binary-search-003-core"
+      ],
+      "content_version": 2,
+      "skill_ids": [
+        "monotonic-feasibility"
+      ],
+      "hint_levels": [
+        "guided",
+        "guided",
+        "substantial"
+      ],
+      "rubric": {
+        "recall": "Select and explain the core approach before solution-bearing help.",
+        "implementation": "Pass cases and explain why the approach meets constraints.",
+        "explanation": "State a correctness condition in plain language."
       }
     }
   ]

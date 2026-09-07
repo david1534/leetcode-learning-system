@@ -4,14 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "leetcode-learning-system"
-version = "0.1.0"
+version = "0.2.0"
 description = "A local, testable algorithm curriculum with adaptive spaced repetition"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = ["fsrs==6.3.2", "tzdata>=2025.2"]
+dependencies = ["fsrs==6.3.2", "tzdata>=2025.2", "fastapi>=0.115,<1", "uvicorn>=0.34,<1", "filelock>=3.16,<4"]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.3,<9", "ruff>=0.12,<1"]
+dev = ["pytest>=8.3,<9", "ruff>=0.12,<1", "httpx>=0.28,<1"]
 
 [project.scripts]
 study = "study.cli:main"
@@ -26,6 +26,10 @@ addopts = "-q -p no:cacheprovider"
 [tool.ruff]
 target-version = "py311"
 line-length = 100
+extend-exclude = ["progress/attempts", "progress/orphan-drafts", "src/study/web"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+
+[tool.setuptools.package-data]
+study = ["web/**/*", "web/*"]
