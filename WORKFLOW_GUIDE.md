@@ -4,6 +4,8 @@
 
 Open **Start Study.cmd** or run `study app`. Today has one Start / Resume action, a time budget, the selection reason, waiting reviews, and synchronization status. In VS Code, Ctrl+Shift+B opens the app. Dark mode is the default; Settings also offers Light and System. Codex can coach in the Practice panel after ChatGPT sign-in. You can also use desktop Codex in this repository: `study coach-context` supplies its restricted context without opening hidden assessment cases. Commands outside the repository need `study --root <path> ...`.
 
+For installation and updates, start with the [README](README.md). Save or pause before updating, preserve unpublished work and local recovery files, then close the old app terminal and relaunch. The [troubleshooting guide](docs/TROUBLESHOOTING.md) covers setup, connection, timer, draft, and synchronization problems.
+
 The default budget is 60 active minutes: up to 10 for retrieval and one repair, about 40 for the main problem, seven for tests and explanation, and three for finishing. These are adjustable defaults. Choose a shorter session when needed. A break is suggested at 45 minutes; reaching a boundary preserves your work. Browser focus never pauses the timer because conversations with Codex count as study. Use the phase menu when switching to explanation or other work. Pause stops the timer. If you leave the timer running, correct total minutes in the completion preview.
 
 The display counts continuously between server updates, including during repairs. Pausing freezes it; resuming continues from the saved total. A sleeping computer or delayed browser may require the display to catch up to the saved time. Review a reported uncertain gap rather than treating it as confirmed study time.
@@ -30,7 +32,9 @@ Read the prompt, constraints, signature, and public examples. Record a few sente
 
 Before that initial answer, topic labels, revealing links, and candidate code are hidden. For Transfer, avoid opening the repository catalog, reference files, or topic links before committing to your approach. After exposure, the same variant becomes ordinary practice, even if you stopped without solving it.
 
-Write code in the local editor. Save status appears above it; unsaved text is also recoverable from browser storage. Check solution runs public and assessment cases against a fixed copy of your saved code. Public-example failures are shown; hidden-case details are excluded from the coach summary. A timeout or Stop is distinct from an incorrect answer. If the code changes, rerun the check before successful completion.
+Write code in the local editor. Save status appears above it; unsaved text is also recoverable from browser storage when available. **Run tests** checks public and assessment cases against a fixed copy of your saved code. Public-example failures are shown; hidden-case details are excluded from the coach summary. A timeout or **Stop tests** is distinct from an incorrect answer. If the code changes, rerun the check before successful completion.
+
+On smaller screens, use the Problem, Code, and Coach tabs available at that width. Arrow keys move between tabs; Home and End select the first and last. Hiding the coach or widening the window restores an available panel. **Ctrl+Enter** (or **Command+Enter** on macOS) follows the same availability rules as **Send**. You can draft your next message while an earlier acknowledgement is pending without losing the new text.
 
 During an independent assessment, choose **Continue independently** or **Switch to guided practice** before conceptual help. Switching freezes your pre-help code and evidence, then continues with your draft. The original assessment remains ended for help; a successful continuation cannot become an unseen transfer pass. Procedural clarification and neutral acknowledgements do not imply missing recall.
 
@@ -78,6 +82,8 @@ Pause and sync before moving computers. On the other computer, Start / Resume fe
 The scoped pause snapshot includes the parent session, repair draft, supporting artifacts, and pre-help code. It excludes conversations and authentication. Approved learning summaries supply coaching memory across computers after synchronization; full conversations remain local. Timer checkpoints count active work without observing browser focus. Restart or a long sleep gap pauses the timer and marks uncertain time for correction in the completion summary.
 
 If the app and Codex edit the same code, the older save is rejected. Both texts remain available. Compare them, then choose the saved version or deliberately save your draft. Codex must use `study save --file <draft> --revision <observed-revision> --digest <observed-digest>` for candidate edits. A direct external edit also invalidates the next revision check.
+
+The conflict controls are **Other saved version**, **Use other saved version**, **Keep my browser draft**, and **Export my draft**. If an action is slow or times out, refresh the connection and inspect its result before repeating it; a missing acknowledgement does not prove it was rejected. Local saves and browser-only drafts are different from a confirmed remote synchronization. Keep a browser-only draft open or export it before changing browser, port, or computer.
 
 If computers diverge, Git refuses to overwrite a branch. **Preserve divergent draft** (or `study recover`) backs up this computer’s attempt under `.study-local/recovery/` and creates a distinct attempt branch. Both Git versions remain available. Resume the desired version; Git branch selection is an advanced recovery step. Multiple remote attempts require choosing one explicitly. The app never chooses an arbitrary winner or force-pushes.
 

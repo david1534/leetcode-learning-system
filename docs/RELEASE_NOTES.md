@@ -1,5 +1,7 @@
 # Reliability and Windows setup review (0.3.1)
 
+The [README](../README.md) now introduces the unified workspace, upgrade path, and repository structure. The [architecture guide](ARCHITECTURE.md) maps shared service boundaries, private and portable storage, and development checks. The [troubleshooting guide](TROUBLESHOOTING.md) covers setup, Codex connection, timing, drafts, and synchronization; the [daily workflow](../WORKFLOW_GUIDE.md) uses the current interface controls.
+
 The study timer now uses a continuous monotonic browser clock. Routine server updates do not reset its origin, repair time updates between polls, and pause/resume or a saved timing correction reconciles the display. Tabular digits keep the timer width stable.
 
 Windows Codex discovery checks PATH, the desktop app's installed binaries, and npm's usual installation folder. It selects a validated 0.153.4 runtime, supports an explicit `PRACTICE_ROOM_CODEX` path, and launches npm shims without a shell. Failed initialization closes the owned process before another connection. The version guard, restricted configuration, separate ChatGPT login, and allowance controls remain in force. Settings and repair screens now show connection results and setup help.
@@ -9,6 +11,8 @@ Browser actions run in order and read revisions when dispatched. Older state res
 Historical learner artifacts retain their exact bytes through Git checkout, eliminating false Windows modifications caused by CRLF normalization. Source formatting rules still apply. The launcher detects a usable Python installation, checks first-run failures, refreshes changed Python dependencies, and rebuilds on relevant frontend configuration changes. Version reporting is consistent, so an older running server prompts for a restart. Missing Git produces a recoverable setup message, private API responses are not cached, and an unresponsive request releases the interface with a recovery message.
 
 Local Windows validation passed 152 Python tests, eight interface unit tests, and 17 browser journeys, plus the production build, formatting, lint, dependency audit, and fresh/repeat launcher setup. Tests use disposable repositories, the deterministic fake Codex adapter, and curriculum references/counterexamples. The real installed CLI was checked only for discovery and restricted initialization; this review did not sign into a coaching account or send a live model request. A delayed browser or sleeping computer can still require an authoritative time correction. Monaco's separately loaded bundle size warning and upstream test-client deprecation warnings remain.
+
+The reviewed application at commit `a1a2791` also passed the full [Windows and Linux GitHub checks](https://github.com/david1534/leetcode-learning-system/actions/runs/34374952035). Browser verification used Chromium. Later documentation updates describe this verified implementation without claiming a new live coaching check.
 
 ---
 

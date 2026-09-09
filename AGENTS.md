@@ -48,6 +48,8 @@ Pause authorizes a scoped draft synchronization. Final public publication needs 
 
 ## Development
 
+Use README.md for launch/update instructions, docs/ARCHITECTURE.md for module ownership and storage boundaries, and docs/TROUBLESHOOTING.md for recovery. The README is the entry point for the restructured app; link detailed guidance instead of creating another workflow policy. Keep user-facing control names aligned with the interface, and preserve unpublished work when advising an update or port change.
+
 Keep WORKFLOW_GUIDE.md, this file, launcher, and VS Code tasks consistent. Before changing learning-system code run focused tests, full pytest, and Ruff; rerun relevant checks afterward. Explain failing checks and update old expectations only when the intended policy changed. Add original exercises only within the available foundation; mark the rest planned. Every exercise needs a versioned contract, reference, public examples, edge cases, rejected known-wrong implementations, skill rubric, prerequisites, and content-classified hints. No copied proprietary statements.
 
 Keep learner artifacts byte-for-byte when checking out or packaging the repository. Their Git attributes intentionally disable line-ending normalization to preserve historical CRLF records and prevent false unsaved-change warnings. Source code still follows its language formatting rules.
