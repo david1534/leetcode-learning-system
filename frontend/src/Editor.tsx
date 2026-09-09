@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import * as monaco from "monaco-editor/editor/editor.api.js";
 import "monaco-editor/languages/definitions/python/register.js";
 import EditorWorker from "monaco-editor/editor/editor.worker.js?worker";
+import { readStored, storeDraft } from "./persistence";
 
 (self as unknown as { MonacoEnvironment: unknown }).MonacoEnvironment = {
   getWorker: () => new EditorWorker(),
@@ -10,9 +11,11 @@ import EditorWorker from "monaco-editor/editor/editor.worker.js?worker";
 export default function Editor({
   value,
   onChange,
+  sessionId,
 }: {
   value: string;
   onChange: (text: string) => void;
+  sessionId: string;
 }) {
   const element = useRef<HTMLDivElement>(null);
   const instance = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
@@ -34,7 +37,7 @@ export default function Editor({
       value,
       language: "python",
       theme: "practice",
-      fontSize: 14,
+      fontSize: 16,
       fontFamily: "Cascadia Code, Consolas, monospace",
       lineHeight: 24,
       minimap: { enabled: false },
@@ -48,10 +51,36 @@ export default function Editor({
       suggestOnTriggerCharacters: false,
     });
     instance.current = editor;
+    const viewKey = "editor-view-" + sessionId;
+    const savedView = readStored<monaco.editor.ICodeEditorViewState | null>(
+      viewKey,
+      null,
+    );
+    if (savedView) editor.restoreViewState(savedView);
+    else {
+      const firstFunction = value
+        .split("\n")
+        .findIndex((line) => /^(def |class )/.test(line));
+      if (firstFunction >= 0) {
+        editor.setPosition({ lineNumber: firstFunction + 2, column: 5 });
+        editor.revealLineNearTop(firstFunction + 1);
+      }
+    }
+    const rememberView = () => storeDraft(viewKey, editor.saveViewState());
+    window.addEventListener("beforeunload", rememberView);
+    const applyTheme = () =>
+      monaco.editor.setTheme(
+        document.documentElement.dataset.theme === "light" ? "vs" : "practice",
+      );
+    applyTheme();
+    window.addEventListener("practice-theme", applyTheme);
     const listener = editor.onDidChangeModelContent(() => {
       if (!updating.current) change.current(editor.getValue());
     });
     return () => {
+      rememberView();
+      window.removeEventListener("beforeunload", rememberView);
+      window.removeEventListener("practice-theme", applyTheme);
       listener.dispose();
       editor.getModel()?.dispose();
       editor.dispose();

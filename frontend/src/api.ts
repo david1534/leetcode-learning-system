@@ -20,10 +20,20 @@ export async function api<T = any>(path: string, data?: unknown): Promise<T> {
           body: JSON.stringify(data),
         },
   );
-  const result = await response.json();
+  let result;
+  try {
+    result = await response.json();
+  } catch {
+    throw new ApiError(
+      "The local app returned an unreadable response. Your draft is preserved; retry the connection.",
+      response.status,
+    );
+  }
   if (!response.ok)
     throw new ApiError(
-      result.detail || "The request could not be completed.",
+      typeof result.detail === "string"
+        ? result.detail
+        : "Check the entered values and try again.",
       response.status,
     );
   return result;

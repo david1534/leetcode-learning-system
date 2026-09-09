@@ -464,12 +464,23 @@ def cmd_reminder(root: Path, _args: argparse.Namespace) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="study", description="Algorithm learning companion")
+    parser.add_argument("--root", type=Path, help="Explicit learning repository")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("doctor", help="check local setup")
     app = commands.add_parser("app", help="open the local practice app")
     app.add_argument("--port", type=int, default=8765)
     app.add_argument("--no-open", action="store_true")
     commands.add_parser("summary", help="JSON session summary for Codex")
+    commands.add_parser(
+        "coach-context", help="Restricted context for coaching the current activity"
+    )
+    commands.add_parser("guided", help="Explicitly convert an assessment to guided practice")
+    retry = commands.add_parser("retry", help="Save a substantive reasoning retry")
+    retry.add_argument("answer")
+    advance = commands.add_parser("advance", help="Continue or skip a supporting activity")
+    advance.add_argument("--answer", default="")
+    advance.add_argument("--skip", action="store_true")
+    advance.add_argument("--passed", action="store_true")
     publish = commands.add_parser("publish", help="explicitly publish a saved completion")
     publish.add_argument("session_id")
     commands.add_parser("recover", help="preserve a divergent or orphan draft")
@@ -498,6 +509,9 @@ def build_parser() -> argparse.ArgumentParser:
     start = commands.add_parser("start", help="begin one exercise")
     start.add_argument("problem_id")
     start.add_argument(
+        "--include-new", action="store_true", help="allow unseen content on weekends"
+    )
+    start.add_argument(
         "--activity", choices=("learn", "recall", "implement", "transfer"), default="implement"
     )
     start.add_argument("--minutes", type=int)
@@ -514,6 +528,7 @@ def build_parser() -> argparse.ArgumentParser:
     reasoning.add_argument("--open", action="store_true")
     reasoning.add_argument("--json", action="store_true")
     assistance = note_subcommands.add_parser("assistance", help="record coaching assistance")
+    assistance.add_argument("--missing-recall", action="store_true")
     assistance.add_argument("--level", required=True, choices=ASSISTANCE_LEVELS[1:])
     assistance.add_argument("--summary", required=True)
     assistance.add_argument("--json", action="store_true")
@@ -611,7 +626,7 @@ def main(argv: list[str] | None = None) -> int:
         print("--minutes must be positive", file=sys.stderr)
         return 2
     try:
-        root = find_root()
+        root = find_root(args.root)
         from study.commands import dispatch
 
         result = dispatch(root, args)

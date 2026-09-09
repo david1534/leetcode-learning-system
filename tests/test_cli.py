@@ -118,7 +118,7 @@ def test_start_hint_and_test_lifecycle(monkeypatch, tmp_path, capsys):
     (root / "solutions").mkdir()
     (root / "pyproject.toml").write_text("[project]\nname='x'\n")
     monkeypatch.chdir(root)
-    assert main(["start", "arrays-001-pair-sum"]) == 0
+    assert main(["start", "arrays-001-pair-sum", "--include-new"]) == 0
     assert (root / "attempt" / "session.json").exists()
     assert (
         main(
@@ -135,6 +135,8 @@ def test_start_hint_and_test_lifecycle(monkeypatch, tmp_path, capsys):
         )
         == 0
     )
+    assert main(["hint"]) == 2
+    assert main(["guided"]) == 0
     assert main(["hint"]) == 0
     assert "Hint:" in capsys.readouterr().out
     session = json.loads((root / "attempt" / "session.json").read_text())
@@ -154,7 +156,7 @@ def test_note_records_initial_reasoning_and_conversational_help(monkeypatch, tmp
     (root / "pyproject.toml").write_text("[project]\nname='x'\n")
     monkeypatch.chdir(root)
 
-    assert main(["start", "arrays-002-anagram-groups"]) == 0
+    assert main(["start", "arrays-002-anagram-groups", "--include-new"]) == 0
     assert (
         main(
             [
@@ -170,6 +172,7 @@ def test_note_records_initial_reasoning_and_conversational_help(monkeypatch, tmp
         )
         == 0
     )
+    assert main(["guided"]) == 0
     assert (
         main(
             [
@@ -199,7 +202,7 @@ def test_checkpoint_saves_one_local_summary_and_supports_json(monkeypatch, tmp_p
     (root / "pyproject.toml").write_text("[project]\nname='x'\n")
     monkeypatch.chdir(root)
 
-    assert main(["start", "arrays-001-pair-sum"]) == 0
+    assert main(["start", "arrays-001-pair-sum", "--include-new"]) == 0
     assert (
         main(
             [
@@ -237,7 +240,7 @@ def test_practice_starts_next_problem_then_resumes(monkeypatch, tmp_path, capsys
     (root / "pyproject.toml").write_text("[project]\nname='x'\n")
     monkeypatch.chdir(root)
 
-    assert main(["practice", "--no-sync"]) == 0
+    assert main(["practice", "--no-sync", "--include-new"]) == 0
     started_output = capsys.readouterr().out
     assert "Resuming / started" in started_output
     assert "Return the two indices of distinct values" in started_output
@@ -249,7 +252,7 @@ def test_practice_starts_next_problem_then_resumes(monkeypatch, tmp_path, capsys
     session = (root / "attempt" / "session.json").read_text(encoding="utf-8")
     assert "arrays-001-pair-sum" in session
 
-    assert main(["practice", "--no-sync"]) == 0
+    assert main(["practice", "--no-sync", "--include-new"]) == 0
     resumed_output = capsys.readouterr().out
     assert "Resuming" in resumed_output
     assert "Return the two indices of distinct values" in resumed_output
@@ -365,7 +368,7 @@ def test_practice_and_insights_show_repair_error_id(monkeypatch, tmp_path, capsy
     (root / "attempt").rmdir()
     monkeypatch.chdir(root)
 
-    assert main(["practice", "--no-sync"]) == 0
+    assert main(["practice", "--no-sync", "--include-new"]) == 0
     practice_output = capsys.readouterr().out
     assert f"Error ID: {error_id}" in practice_output
     assert f"study repair --error-id {error_id}" in practice_output
@@ -389,7 +392,7 @@ def test_passing_finish_promotes_solution_and_records_event(monkeypatch, tmp_pat
     (root / "pyproject.toml").write_text("[project]\nname='x'\n")
     monkeypatch.chdir(root)
 
-    assert main(["start", "arrays-001-pair-sum"]) == 0
+    assert main(["start", "arrays-001-pair-sum", "--include-new"]) == 0
     (root / "attempt" / "current.py").write_text(
         "def pair_sum_indices(nums, target):\n"
         "    seen = {}\n"
@@ -587,7 +590,7 @@ def test_finalize_rejects_rating_above_substantial_help(monkeypatch, tmp_path, c
     (root / "pyproject.toml").write_text("[project]\nname='x'\n")
     monkeypatch.chdir(root)
     problem = problem_by_id(root, "arrays-001-pair-sum")
-    assert main(["start", problem["id"]]) == 0
+    assert main(["start", problem["id"], "--include-new"]) == 0
     (root / "attempt" / "current.py").write_text(
         render_template(problem).replace(
             "    raise NotImplementedError",
@@ -613,11 +616,13 @@ def test_finalize_rejects_rating_above_substantial_help(monkeypatch, tmp_path, c
         )
         == 0
     )
+    assert main(["guided"]) == 0
     assert (
         main(
             [
                 "note",
                 "assistance",
+                "--missing-recall",
                 "--level",
                 "substantial",
                 "--summary",
@@ -672,7 +677,7 @@ def test_finalize_publication_failure_saves_locally_without_touching_unrelated_f
     (root / "pyproject.toml").write_text("[project]\nname='x'\n")
     monkeypatch.chdir(root)
     problem = problem_by_id(root, "arrays-001-pair-sum")
-    assert main(["start", problem["id"]]) == 0
+    assert main(["start", problem["id"], "--include-new"]) == 0
     candidate = root / "attempt" / "current.py"
     candidate.write_text(
         render_template(problem).replace(

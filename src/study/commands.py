@@ -24,13 +24,34 @@ def dispatch(root: Path, args) -> int | None:
         launch(root, args.port, not args.no_open)
         return 0
     service = StudyService(root)
+    if command in {"coach-context", "guided", "retry", "advance"}:
+        if command == "coach-context":
+            result = service.coach_context()
+        elif command == "guided":
+            result = service.convert_to_practice()
+        elif command == "retry":
+            result = service.record_retry(args.answer)
+        else:
+            result = service.practice_advance(
+                answer=args.answer, skip=args.skip, passed=args.passed
+            )
+        output(result, True)
+        return 0
     if command in {"practice", "start"}:
-        result = service.start(
-            problem_id=getattr(args, "problem_id", None),
-            activity=getattr(args, "activity", "implement"),
-            include_new=getattr(args, "include_new", False),
-            minutes=getattr(args, "minutes", None),
-            synchronize=not getattr(args, "no_sync", False),
+        result = (
+            service.practice_start(
+                include_new=getattr(args, "include_new", False),
+                minutes=getattr(args, "minutes", None) or 60,
+                synchronize=not getattr(args, "no_sync", False),
+            )
+            if command == "practice"
+            else service.start(
+                problem_id=getattr(args, "problem_id", None),
+                activity=getattr(args, "activity", "implement"),
+                include_new=getattr(args, "include_new", False),
+                minutes=getattr(args, "minutes", None),
+                synchronize=not getattr(args, "no_sync", False),
+            )
         )
         session = result.get("session")
         if session:
@@ -86,7 +107,12 @@ def dispatch(root: Path, args) -> int | None:
                 open_candidate(root)
             output(result["session"]["initial_reasoning"], args.json)
         elif args.note_kind == "assistance":
-            output(service.assistance(args.level, args.summary), args.json)
+            output(
+                service.assistance(
+                    args.level, args.summary, supplied_missing_recall=args.missing_recall
+                ),
+                args.json,
+            )
         else:
             with service.lock:
                 service._session()
@@ -114,7 +140,7 @@ def dispatch(root: Path, args) -> int | None:
         output(result, getattr(args, "json", False))
         return (0 if result["all_passed"] else 1) if command == "test" else 0
     if command == "pause":
-        print(service.pause()["sync"]["message"])
+        print(service.practice_pause()["sync"]["message"])
         return 0
     if command == "evaluate":
         output(service.evaluate(), args.json)
@@ -128,6 +154,7 @@ def dispatch(root: Path, args) -> int | None:
             service.check()
         facts = service.evaluate()
         if command == "complete":
+            prior_phase = session["phase"]
             service.phase("administration")
             rating = (
                 input(f"Recall rating [{facts['recommended_rating']}]: ").strip().lower()
@@ -143,6 +170,7 @@ def dispatch(root: Path, args) -> int | None:
                 print(f"Includes {facts['unpublished_count']} earlier locally saved sessions.")
             choice = input("Type YES to publish, LOCAL to finish locally, or Enter to cancel: ")
             if choice not in {"YES", "LOCAL"}:
+                service.phase(prior_phase)
                 print("Completion cancelled; your work is preserved.")
                 return 1
             # The explicit destination is collected once, after the concrete summary.
@@ -170,7 +198,7 @@ def dispatch(root: Path, args) -> int | None:
                 and (payload.get("space_complexity") or getattr(args, "space_complexity", None))
             )
             publish = command == "finalize" and getattr(args, "sync", False)
-        result = service.finish(
+        result = service.practice_finish(
             session["session_id"],
             rating,
             takeaway,

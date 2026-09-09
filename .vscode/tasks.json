@@ -108,6 +108,48 @@
       "problemMatcher": []
     },
     {
+      "label": "Study: Safe Coaching Context",
+      "type": "shell",
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}\\scripts\\study.ps1",
+        "coach-context"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Study: Switch to Guided Practice",
+      "type": "shell",
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}\\scripts\\study.ps1",
+        "guided"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Study: Advance Supporting Activity",
+      "type": "shell",
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}\\scripts\\study.ps1",
+        "advance"
+      ],
+      "problemMatcher": []
+    },
+    {
       "label": "Quality: Full Suite",
       "type": "shell",
       "command": "powershell.exe",

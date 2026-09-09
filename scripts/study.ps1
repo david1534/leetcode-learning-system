@@ -22,7 +22,8 @@ if ($LASTEXITCODE -ne 0) {
 if ($StudyArgs.Count -eq 0) { $StudyArgs = @('app') }
 if ($StudyArgs[0] -eq 'app') {
     $webIndex = Join-Path $repoRoot 'src\study\web\index.html'
-    $sources = Get-ChildItem -LiteralPath (Join-Path $repoRoot 'frontend\src') -Recurse -File
+    $sources = @(Get-ChildItem -LiteralPath (Join-Path $repoRoot 'frontend\src') -Recurse -File)
+    $sources += Get-Item -LiteralPath (Join-Path $repoRoot 'frontend\index.html'), (Join-Path $repoRoot 'frontend\package-lock.json'), (Join-Path $repoRoot 'frontend\vite.config.ts')
     $latestSource = ($sources | Sort-Object LastWriteTime -Descending | Select-Object -First 1).LastWriteTime
     $buildNeeded = -not (Test-Path -LiteralPath $webIndex)
     if (-not $buildNeeded) { $buildNeeded = $latestSource -gt (Get-Item -LiteralPath $webIndex).LastWriteTime }
@@ -45,8 +46,23 @@ if ($StudyArgs.Count -eq 1 -and $StudyArgs[0] -eq '_quality') {
     & $python -m pytest
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     & $python -m ruff check --no-cache .
-    exit $LASTEXITCODE
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    & $python -m ruff format --check src tests
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    Push-Location -LiteralPath (Join-Path $repoRoot 'frontend')
+    try {
+        & npm.cmd ci
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        foreach ($qualityStep in @('test', 'format:check', 'build')) {
+            & npm.cmd run $qualityStep
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        }
+        & npx.cmd playwright install chromium
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        & npm.cmd run test:browser
+        exit $LASTEXITCODE
+    } finally { Pop-Location }
 }
 
-& $python -m study @StudyArgs
+& $python -m study --root $repoRoot @StudyArgs
 exit $LASTEXITCODE

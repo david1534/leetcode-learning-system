@@ -1,20 +1,58 @@
 from __future__ import annotations
 
+import asyncio
+import json
+import threading
 import webbrowser
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import BackgroundTasks, FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from study import policy
+from study.coach import Coach, CoachRequest, CoachStatus, RequestReceipt
+from study.interfaces import (
+    AdvancePractice,
+    ApplyProposal,
+    CoachPreferences,
+    FinishPractice,
+    RepairDraft,
+    RepairReview,
+    RetryReasoning,
+    Revision,
+    StartPractice,
+)
 from study.service import Conflict, StudyService
 
 
-def create_app(root: Path) -> FastAPI:
-    app = FastAPI(title="Practice Room", docs_url=None, redoc_url=None)
+def create_app(root: Path, coach_factory=Coach) -> FastAPI:
     service = StudyService(root)
+    coach = coach_factory(service)
+    stopped = threading.Event()
+
+    @asynccontextmanager
+    async def lifespan(app):
+        service.recover_timing()
+
+        def checkpoint():
+            while not stopped.wait(5):
+                service.timer_checkpoint()
+
+        timer = threading.Thread(target=checkpoint, daemon=True)
+        timer.start()
+        yield
+        stopped.set()
+        try:
+            service.timer_checkpoint(pause=True)
+            coach.disconnect()
+        except RuntimeError:
+            pass
+
+    app = FastAPI(title="Practice Room", docs_url=None, redoc_url=None, lifespan=lifespan)
     app.state.service = service
+    app.state.coach = coach
 
     @app.middleware("http")
     async def local_only(request: Request, call_next):
@@ -55,6 +93,134 @@ def create_app(root: Path) -> FastAPI:
     def progress():
         return policy.metrics(root)
 
+    @app.post("/api/practice/start")
+    def practice_start(data: StartPractice):
+        return service.practice_start(**data.model_dump())
+
+    @app.post("/api/practice/advance")
+    def practice_advance(data: AdvancePractice):
+        return service.practice_advance(**data.model_dump())
+
+    @app.post("/api/practice/convert")
+    def practice_convert(data: Revision):
+        return service.convert_to_practice(**data.model_dump())
+
+    @app.post("/api/practice/retry")
+    def practice_retry(data: RetryReasoning):
+        return service.record_retry(**data.model_dump())
+
+    @app.post("/api/practice/pause")
+    def practice_pause():
+        result = service.practice_pause()
+        try:
+            coach.interrupt()
+        except RuntimeError:
+            pass
+        return result
+
+    @app.post("/api/practice/finish")
+    def practice_finish(data: FinishPractice):
+        try:
+            coach.interrupt()
+            if coach.worker:
+                coach.worker.join(timeout=3)
+        except RuntimeError:
+            pass
+        return service.practice_finish(**data.model_dump())
+
+    @app.post("/api/practice/repair-draft")
+    def repair_draft(data: RepairDraft):
+        return service.repair_draft(**data.model_dump())
+
+    @app.post("/api/practice/repair-review")
+    def repair_review(data: RepairReview):
+        service.repair_draft(data.answer, data.revision)
+        context = service.coach_context()
+        return coach.submit(
+            CoachRequest(
+                request_id=data.request_id,
+                session_id=context["session_id"],
+                revision=context["revision"],
+                code_digest=context["code_digest"],
+                message="Assess this fresh application of the corrected rule. "
+                "Preserve unknown evidence.",
+                kind="review",
+            )
+        )
+
+    @app.post("/api/practice/repair-check")
+    def repair_check(data: RepairDraft, background: BackgroundTasks):
+        service.repair_draft(data.answer, data.revision)
+
+        def run():
+            try:
+                service.check_repair()
+            except (RuntimeError, SyntaxError) as exc:
+                from study.storage import atomic_json
+
+                with service.lock:
+                    timer = service._read_local("repair-timer")
+                    if timer:
+                        timer["check"] = {"status": "error", "message": str(exc)}
+                        atomic_json(service.local / "repair-timer.json", timer)
+
+        background.add_task(run)
+        return {"message": "Checking your fresh application…"}
+
+    @app.post("/api/practice/repair-stop")
+    def repair_stop():
+        return service.stop_repair_check()
+
+    @app.get("/api/coach/status", response_model=CoachStatus)
+    def coach_status(session_id: str | None = None):
+        return coach.status(session_id)
+
+    @app.post("/api/coach/connect", response_model=CoachStatus)
+    def coach_connect():
+        return coach.connect()
+
+    @app.post("/api/coach/refresh", response_model=CoachStatus)
+    def coach_refresh():
+        return coach.refresh()
+
+    @app.post("/api/coach/disconnect", response_model=CoachStatus)
+    def coach_disconnect():
+        return coach.disconnect()
+
+    @app.post("/api/coach/preferences", response_model=CoachStatus)
+    def coach_preferences(data: CoachPreferences):
+        return coach.configure(**data.model_dump())
+
+    @app.post("/api/coach/requests", status_code=202, response_model=RequestReceipt)
+    def coach_request(data: CoachRequest):
+        return coach.submit(data)
+
+    @app.post("/api/coach/interrupt")
+    def coach_interrupt():
+        return coach.interrupt()
+
+    @app.post("/api/coach/apply")
+    def coach_apply(data: ApplyProposal):
+        return coach.apply(**data.model_dump())
+
+    @app.get("/api/coach/events")
+    async def coach_events(request: Request, session_id: str | None = None):
+        async def events():
+            previous = None
+            while not await request.is_disconnected():
+                status = coach.status(session_id)
+                data = json.dumps(status)
+                if data != previous:
+                    yield f"id: {status['sequence']}\ndata: {data}\n\n"
+                    previous = data
+                else:
+                    yield ": keepalive\n\n"
+                await asyncio.sleep(1)
+
+        return StreamingResponse(
+            events(), media_type="text/event-stream", headers={"Cache-Control": "no-cache"}
+        )
+
     @app.post("/api/action/{operation}")
     def action(operation: str, data: dict, background: BackgroundTasks):
         actions = {
@@ -63,6 +229,7 @@ def create_app(root: Path) -> FastAPI:
             "recover": service.recover,
             "choose-attempt": service.choose_attempt,
             "reasoning": service.reasoning,
+            "evidence": service.evidence,
             "save": service.save_code,
             "assistance": service.assistance,
             "hint": service.hint,

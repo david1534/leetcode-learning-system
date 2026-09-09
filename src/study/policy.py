@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import statistics
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -46,6 +47,8 @@ def independent(event: dict) -> bool:
         return core.is_independent_successful_review(event)
     return (
         event.get("activity") in {"implement", "transfer"}
+        and event.get("assessment", {}).get("status")
+        not in {"ended_for_help", "stopped", "incomplete"}
         and event.get("recall_outcome") == "success"
         and event.get("rating") in {"hard", "good", "easy"}
         and event.get("assistance_level") in {"none", "minor"}
@@ -95,6 +98,9 @@ def queue(
     due = core.due_problems(root, now)
     events = [e for e in implementation_events(root) if e.get("schema_version", 1) >= 4]
     completed = len(events)
+    guided = practice_sessions(root)
+    if guided:
+        completed = len(guided)
     weekend = now.astimezone(core.EASTERN).weekday() >= 5
     allow_new = include_new or config["new_on_weekends"] or not weekend
     available = [p for p in catalog if eligible(root, p, now)]
@@ -105,13 +111,34 @@ def queue(
     new = [p for p in new if p["estimated_minutes"] <= fit]
     transfer = [p for p in transfer if p["estimated_minutes"] <= fit]
     chosen, reason, activity = None, "No eligible activity fits this session.", "implement"
-    if transfer and (completed + 1) % config["transfer_every"] == 0:
+    last_transfer = next(
+        (
+            i + 1
+            for i, e in reversed(list(enumerate(guided)))
+            if e.get("main_activity") == "transfer"
+        ),
+        0,
+    )
+    transfer_due = (
+        (completed - last_transfer + 1) >= config["transfer_every"]
+        if guided
+        else (completed + 1) % config["transfer_every"] == 0
+    )
+    review_streak = 0
+    for completed_parent in reversed(guided):
+        if completed_parent.get("main_activity") == "transfer":
+            continue
+        if completed_parent.get("main_was_new"):
+            break
+        review_streak += 1
+    new_turn = review_streak >= 2 if guided else completed % 3 == 2
+    if transfer and allow_new and transfer_due:
         chosen, reason, activity = (
             transfer[0],
             "An unfamiliar assessment checks transfer.",
             "transfer",
         )
-    elif new and allow_new and (not reviewable or completed % 3 == 2):
+    elif new and allow_new and (not reviewable or new_turn):
         chosen, reason = new[0], "Protected time for new material."
     elif reviewable:
         # Prefer a different topic from the preceding main activity when both are due.
@@ -129,7 +156,7 @@ def queue(
     elif new and not allow_new:
         reason = "Weekend review day. Enable new material to override."
     gates = core.open_repair_gates(root, now)
-    short = [p for p in due if chosen is None or p["id"] != chosen["id"]][:2]
+    short = [p for p in reviewable if chosen is None or p["id"] != chosen["id"]][:2]
     return {
         "minutes": budget,
         "main": chosen,
@@ -147,6 +174,16 @@ def queue(
         "completed_sessions": completed,
         "weekend": weekend,
     }
+
+
+def practice_sessions(root: Path) -> list[dict]:
+    return sorted(
+        (
+            json.loads(p.read_text(encoding="utf-8"))
+            for p in (root / "progress/practice-sessions").glob("*.json")
+        ),
+        key=lambda e: e["completed_at"],
+    )
 
 
 def topic_progress(root: Path) -> list[dict]:
@@ -263,7 +300,40 @@ def metrics(root: Path) -> dict:
         level: sum(e.get("assistance_level") == level for e in attempts)
         for level in core.ASSISTANCE_LEVELS
     }
+    guided = practice_sessions(root)
+    cohort = guided[:12]
+    child_ids = {sid for parent in guided for sid in parent.get("attempt_ids", [])}
+    parent_repairs = {Path(p).stem for parent in guided for p in parent.get("repair_paths", [])}
+    remaining = [
+        e for e in timed if e["event_id"] not in child_ids and e["event_id"] not in parent_repairs
+    ]
+    time_by_phase = {}
+    for event in [*remaining, *guided]:
+        for phase, seconds in event.get("timing", {}).items():
+            time_by_phase[phase] = time_by_phase.get(phase, 0) + seconds
+    cohort_ids = {sid for p in cohort for sid in p.get("attempt_ids", [])}
+    cohort_delayed = [e for e in delayed if e["event_id"] in cohort_ids]
+    cohort_unseen = [e for e in unseen if e["event_id"] in cohort_ids]
+    latency = [
+        seconds for p in cohort for seconds in p.get("coaching", {}).get("latency_seconds", [])
+    ]
+    if cohort:
+        admin = [p["timing"].get("administration", 0) / 60 for p in cohort]
     return {
+        "workflow_version": 3,
+        "guided_sessions": len(guided),
+        "cohort": {
+            "delayed": rate(cohort_delayed),
+            "unseen": rate(cohort_unseen),
+            "coaching_interruptions": sum(
+                p.get("coaching", {}).get("interruptions", 0) for p in cohort
+            ),
+            "coaching_turns": sum(p.get("coaching", {}).get("turns", 0) for p in cohort),
+            "help_escalations": sum(p.get("coaching", {}).get("escalations", 0) for p in cohort),
+            "latency_median_seconds": statistics.median(latency) if latency else None,
+            "latency_samples": len(latency),
+        },
+        "unaided": rate([e for e in attempts if e.get("assistance_level") == "none"]),
         "historical": old,
         "repairs": core.open_repair_gates(root),
         "independent": rate(attempts),
@@ -271,14 +341,19 @@ def metrics(root: Path) -> dict:
         "unseen": rate(unseen),
         "assistance": assistance,
         "timing_seconds": time_by_phase,
-        "recorded_total_minutes": sum(e["minutes"] for e in core.effective_events(root))
+        "recorded_total_minutes": sum(
+            e["minutes"] for e in core.effective_events(root) if e["event_id"] not in child_ids
+        )
+        + sum(p["minutes"] for p in guided)
         + sum(
-            sum(e.get("timing", {}).values()) / 60 for e in timed if e.get("event_type") == "repair"
+            sum(e.get("timing", {}).values()) / 60
+            for e in remaining
+            if e.get("event_type") == "repair"
         ),
         "legacy_timing_incomplete": any(
             e.get("schema_version", 1) < 4 for e in core.effective_events(root)
         ),
-        "baseline_sessions": min(12, len(attempts)),
+        "baseline_sessions": len(cohort),
         "baseline_target": 12,
         "administration_median_minutes": statistics.median(admin) if admin else None,
         "administration_target_met": statistics.median(admin) <= 3 if admin else None,

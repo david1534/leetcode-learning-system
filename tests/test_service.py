@@ -24,7 +24,7 @@ def service(tmp_path):
 
 
 def prepared(service, problem=PAIR, activity="implement"):
-    service.start(problem, activity, synchronize=False)
+    service.start(problem, activity, synchronize=False, include_new=True)
     service.reasoning("Map prior values to indices; check the complement before insertion.")
     state = service.state()["session"]
     return service.save_code(REFERENCE[problem]["reference"], state["revision"])["session"]
@@ -119,13 +119,16 @@ def test_minor_hint_does_not_supply_algorithm_or_count_as_failure(service):
 
 def test_guided_recall_requires_again_but_preserves_correct_implementation(service):
     prepared(service)
-    service.assistance("guided", "Supplied the missing complement lookup reasoning.")
+    service.convert_to_practice()
+    service.assistance(
+        "guided", "Supplied the missing complement lookup reasoning.", supplied_missing_recall=True
+    )
     service.check()
     with pytest.raises(RuntimeError, match="Again"):
         finish(service, rating="hard")
     finish(service, rating="again")
     event = core.load_events(service.root)[0]
-    assert event["tests_passed"] and not policy.independent(event)
+    assert event["guided_outcome"]["tests_passed"] and not policy.independent(event)
 
 
 def test_recall_does_not_reschedule_implementation(service):
@@ -211,10 +214,10 @@ def test_repeat_transfer_is_practice_even_after_unfinished_exposure(service):
     p = next(p for p in core.load_problems(service.root) if p["kind"] == "transfer")
     for i, prerequisite in enumerate(p["prerequisites"]):
         evidence(service, prerequisite, datetime(2026, 8, 1 + i, tzinfo=UTC))
-    service.start(p["id"], "transfer", synchronize=False)
+    service.start(p["id"], "transfer", synchronize=False, include_new=True)
     assert service.state()["session"]["unseen"]
     finish(service, rating="again", stopped=True)
-    service.start(p["id"], "transfer", synchronize=False)
+    service.start(p["id"], "transfer", synchronize=False, include_new=True)
     assert service.state()["session"]["activity"] == "implement"
     assert not service.state()["session"]["unseen"]
 
@@ -293,8 +296,9 @@ def test_fifth_main_session_prefers_unseen_transfer(service):
 
 
 def test_generic_formal_hint_keeps_independent_recall(service):
-    service.start("diagnostic-001-frequency", synchronize=False)
+    service.start("diagnostic-001-frequency", synchronize=False, include_new=True)
     service.reasoning("Count frequencies, then scan first appearances to resolve ties.")
+    service.convert_to_practice()
     assert service.hint()["level"] == "minor"
     assert service.state()["session"]["hints_used"] == 1
     assert service.evaluate()["recall_outcome"] == "success"

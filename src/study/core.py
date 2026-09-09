@@ -52,9 +52,6 @@ def find_root(start: Path | None = None) -> Path:
     for candidate in (current, *current.parents):
         if (candidate / "pyproject.toml").exists() and (candidate / "curriculum").exists():
             return candidate
-    module_root = Path(__file__).resolve().parents[2]
-    if (module_root / "pyproject.toml").exists():
-        return module_root
     raise RuntimeError("Run this command from the learning-system repository.")
 
 
@@ -149,6 +146,8 @@ def rebuild_cards(root: Path) -> dict[str, Card]:
     engine = scheduler()
     for event in effective_events(root):
         if event.get("activity", "implement") not in {"implement", "transfer"}:
+            continue
+        if event.get("rating") == "unknown":
             continue
         problem_id = event["problem_id"]
         card = cards.setdefault(problem_id, Card(card_id=card_id(problem_id)))

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 import uuid
 from pathlib import Path
 
@@ -14,7 +15,16 @@ def atomic_text(path: Path, text: str) -> None:
             stream.write(text)
             stream.flush()
             os.fsync(stream.fileno())
-        os.replace(temporary, path)
+        # Windows can briefly deny replacement while another process reads the file.
+        # Keep the complete old version until replacement succeeds; never truncate it.
+        for retry in range(8):
+            try:
+                os.replace(temporary, path)
+                break
+            except PermissionError:
+                if retry == 7:
+                    raise
+                time.sleep(0.01 * (retry + 1))
     finally:
         temporary.unlink(missing_ok=True)
 

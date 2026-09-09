@@ -12,6 +12,7 @@ from pathlib import Path
 from filelock import FileLock
 
 from study import core, gitflow, policy
+from study.guided import GuidedSession
 from study.storage import atomic_json, atomic_text
 
 PHASES = {"recall", "implementation", "explanation", "repair", "administration", "learning"}
@@ -34,7 +35,7 @@ def digest(text: str) -> str:
     return hashlib.sha256(text.encode()).hexdigest()
 
 
-class StudyService:
+class StudyService(GuidedSession):
     def __init__(self, root: Path):
         self.root = root.resolve()
         self.local = self.root / ".study-local"
@@ -74,9 +75,14 @@ class StudyService:
             json.loads(p.read_text(encoding="utf-8"))
             for p in (self.local / "completions").glob("*.json")
         ]
-        return [r for r in receipts if not r.get("published")]
+        return [r for r in receipts if not r.get("published") and not r.get("grouped_into")]
 
     def _save(self, session: dict):
+        parent = self._read_local("practice")
+        if parent and parent.get("status") == "active":
+            session["practice"] = parent
+            session["practice_session_id"] = parent["practice_id"]
+            session["workflow_version"] = 3
         session["revision"] = session.get("revision", 0) + 1
         core.save_session(self.root, session)
 
@@ -156,6 +162,7 @@ class StudyService:
 
     def state(self) -> dict:
         with self.lock:
+            self._restore_portable_practice()
             self._recover_completed()
             raw = core.load_session(self.root)
             session = self._session() if raw else None
@@ -184,6 +191,7 @@ class StudyService:
             check = self._check_state()
             return {
                 "session": session,
+                "practice": self.practice_state(),
                 "sync": self._read_local(
                     "sync", {"status": "local", "message": "Saved on this computer."}
                 ),
@@ -280,6 +288,14 @@ class StudyService:
                     "Learn mode remains available."
                 )
             seen = problem_id in policy.exposures(self.root)
+            if (
+                not seen
+                and choice["weekend"]
+                and not (include_new or policy.settings(self.root)["new_on_weekends"])
+            ):
+                raise RuntimeError(
+                    "Weekend review day. Enable new material to open unseen content."
+                )
             if activity == "transfer" and seen:
                 activity = "implement"
             if problem["kind"] in {"worked", "faded", "warmup"}:
@@ -294,9 +310,11 @@ class StudyService:
             now = datetime.now(UTC).isoformat()
             session.update(
                 schema_version=6,
+                workflow_version=3,
                 session_id=uuid.uuid4().hex,
                 revision=0,
                 activity=activity,
+                assessment_mode="practice" if activity == "learn" else "independent",
                 unseen=not seen,
                 phase="learning" if activity == "learn" else "recall",
                 timing={},
@@ -308,9 +326,16 @@ class StudyService:
                     policy.skill_id(s) for s in problem.get("skill_ids", problem.get("skills", []))
                 ],
             )
-            code = problem.get("starter_code") if activity == "learn" else None
-            if code:
-                atomic_text(self.root / "attempt/current.py", code)
+            code = f"def {problem['signature']}:\n    raise NotImplementedError\n"
+            if problem.get("validator") == "codec":
+                code += (
+                    "\n\ndef decode_strings(encoded: str) -> list[str]:\n"
+                    "    raise NotImplementedError\n"
+                )
+            if activity == "learn":
+                code = problem.get("starter_code") or code
+            # The prompt is already visible beside the editor; start at the implementation.
+            atomic_text(self.root / "attempt/current.py", code)
             session["code_digest"] = digest(
                 (self.root / "attempt/current.py").read_text(encoding="utf-8")
             )
@@ -368,30 +393,49 @@ class StudyService:
         if len(code) > 200_000:
             raise RuntimeError("Candidate is too large (limit 200 KB).")
         with self.lock:
-            session = self._session(revision)
+            session = self._session()
+            if revision != session["revision"] and code_digest != session["code_digest"]:
+                raise Conflict(
+                    "The candidate changed. Preserve your draft and compare before saving."
+                )
             if code_digest is not None and code_digest != session["code_digest"]:
                 raise Conflict(
                     "Candidate changed externally. Keep your text and compare before saving."
                 )
             if not session.get("initial_reasoning") and session["activity"] != "learn":
                 raise RuntimeError("Record a compact initial approach first.")
+            previous = (self.root / "attempt/current.py").read_text(encoding="utf-8")
+            if previous != code:
+                atomic_text(
+                    self.local / "drafts" / f"{session['session_id']}-{session['code_digest']}.py",
+                    previous,
+                )
             atomic_text(self.root / "attempt/current.py", code)
             session["code_digest"] = digest(code)
             self._save(session)
             return self.state()
 
-    def assistance(self, level, summary, revision=None, source="conversation"):
+    def assistance(
+        self, level, summary, revision=None, source="conversation", supplied_missing_recall=False
+    ):
         if level not in core.ASSISTANCE_LEVELS or not summary.strip():
             raise RuntimeError("Record the assistance level and what help actually supplied.")
         with self.lock:
             session = self._session(revision)
             if not session.get("initial_reasoning") and session["activity"] != "learn":
                 raise RuntimeError("An initial attempt is required before coaching.")
+            if (
+                session.get("workflow_version") == 3
+                and session.get("assessment_mode", "independent") == "independent"
+                and level in {"guided", "substantial"}
+            ):
+                raise RuntimeError("Switch to guided practice before substantive help.")
             session.setdefault("assistance_log", []).append(
                 {
                     "level": level,
                     "summary": summary,
                     "source": source,
+                    "supplied_missing_recall": supplied_missing_recall,
                     "recorded_at": datetime.now(UTC).isoformat(),
                 }
             )
@@ -401,6 +445,12 @@ class StudyService:
     def hint(self, revision=None, retried=False):
         with self.lock:
             session = self._session(revision)
+            if session.get("workflow_version") == 3:
+                if session.get("assessment_mode", "independent") == "independent":
+                    raise RuntimeError("Switch to guided practice before revealing a hint.")
+                retried = len(session.get("reasoning_retries", [])) > session.get(
+                    "last_hint_retry", 0
+                )
             if not session.get("initial_reasoning") and session["activity"] != "learn":
                 raise RuntimeError("Record your initial attempt before asking for a hint.")
             p = core.problem_by_id(self.root, session["problem_id"])
@@ -423,6 +473,7 @@ class StudyService:
             level = p.get("hint_levels", ["minor", "guided", "substantial"])[used]
             session["hints_used"] = used + 1
             session["last_hint_digest"] = session["code_digest"]
+            session["last_hint_retry"] = len(session.get("reasoning_retries", []))
             session.setdefault("assistance_log", []).append(
                 {
                     "level": level,
@@ -438,6 +489,11 @@ class StudyService:
     def worked_example(self, revision=None):
         with self.lock:
             session = self._session(revision)
+            if (
+                session.get("workflow_version") == 3
+                and session.get("assessment_mode") != "practice"
+            ):
+                raise RuntimeError("Switch to guided practice before revealing an example.")
             if not session.get("initial_reasoning"):
                 raise RuntimeError("Record an initial attempt before opening a worked example.")
             self._tick(session)
@@ -576,21 +632,35 @@ class StudyService:
             self._save(session)
             levels = [e["level"] for e in session.get("assistance_log", [])]
             level = max(levels, key=core.ASSISTANCE_LEVELS.index, default="none")
-            quality = session.get("initial_reasoning", {}).get("quality", "failed")
+            quality = session.get("initial_reasoning", {}).get("quality", "unknown")
             failed = quality in {"partial", "failed"} or level in {"guided", "substantial"}
-            recommendation = "again" if failed else "good"
+            if session.get("workflow_version") == 3:
+                failed = quality in {"partial", "failed"} or any(
+                    e.get("supplied_missing_recall") for e in session.get("assistance_log", [])
+                )
+            dimensions = {}
+            for finding in session.get("evidence_amendments", []):
+                if finding.get("code_digest") == session["code_digest"]:
+                    dimensions[finding["dimension"]] = finding["value"]
+            failed = failed or dimensions.get("recall") == "failure"
+            unknown = (
+                session.get("workflow_version") == 3
+                and (quality == "unknown" or dimensions.get("recall") == "unknown")
+                and not failed
+            )
+            recommendation = "unknown" if unknown else "again" if failed else "good"
             latest = session.get("latest_checkpoint", {})
             return {
                 "session_id": session["session_id"],
                 "revision": session["revision"],
                 "problem_id": session["problem_id"],
                 "recommended_rating": recommendation,
-                "rating_rationale": (
-                    "Help supplied missing reasoning or initial recall was incomplete."
-                )
+                "rating_rationale": "Recall is unknown. The scheduling interval stays unchanged."
+                if unknown
+                else ("Help supplied missing reasoning or initial recall was incomplete.")
                 if failed
                 else "Independent recall; select Hard, Good, or Easy according to recall effort.",
-                "recall_outcome": "failure" if failed else "success",
+                "recall_outcome": "unknown" if unknown else "failure" if failed else "success",
                 "assistance_level": level,
                 "active_minutes": round(sum(session.get("timing", {}).values()) / 60, 2),
                 "tests_current": latest.get("code_digest") == session["code_digest"],
@@ -599,6 +669,10 @@ class StudyService:
                 and latest.get("code_digest") == session["code_digest"],
                 "timing": session["timing"],
                 "initial_reasoning": session.get("initial_reasoning"),
+                "evidence": session.get("evidence_amendments", []),
+                "dimensions": dimensions,
+                "assessment_before_help": session.get("assessment_before_help"),
+                "timing_uncertain": session.get("timing_uncertain"),
                 "prompt": "What would you recognize or do differently next time?",
                 "unpublished_count": len(self._unpublished()),
                 "public_repository": "https://github.com/david1534/leetcode-learning-system",
@@ -742,7 +816,7 @@ class StudyService:
         revision=None,
         stopped=False,
     ):
-        if rating not in core.RATINGS:
+        if rating not in {*core.RATINGS, "unknown"}:
             raise RuntimeError("Select Again, Hard, Good, or Easy.")
         if minutes is not None and not 0 < minutes <= 1440:
             raise RuntimeError("Minutes must be between 0 and 1440.")
@@ -762,6 +836,14 @@ class StudyService:
                 raise RuntimeError("Stop or finish the running check before closing the activity.")
             facts = self.evaluate()
             session = self._session()
+            if facts["recall_outcome"] == "unknown":
+                rating = "unknown"
+            elif rating == "unknown":
+                raise RuntimeError("Recall evidence is available; review its suggested rating.")
+            explained = explained and facts["dimensions"].get("explanation", "success") == "success"
+            constraints_met = (
+                constraints_met and facts["dimensions"].get("constraints", "success") == "success"
+            )
             if facts["recall_outcome"] == "failure" and rating != "again":
                 raise RuntimeError(
                     "Again records the missing independent recall; implementation and"
@@ -819,7 +901,7 @@ class StudyService:
                 "attempt_kind": session["attempt_kind"],
                 "unseen": session["unseen"],
                 "recall_outcome": facts["recall_outcome"],
-                "recall_quality": session.get("initial_reasoning", {}).get("quality", "failed"),
+                "recall_quality": session.get("initial_reasoning", {}).get("quality", "unknown"),
                 "assistance_level": facts["assistance_level"],
                 "assistance_count": len(session.get("assistance_log", [])),
                 "hints_used": session.get("hints_used", 0),
@@ -828,6 +910,13 @@ class StudyService:
                 "explained": explained,
                 "assessment": {
                     "constraints_met": constraints_met,
+                    "dimensions": facts["dimensions"],
+                    "explanation_source": "reviewed_evidence"
+                    if "explanation" in facts["dimensions"]
+                    else "learner_report",
+                    "constraints_source": "reviewed_evidence"
+                    if "constraints" in facts["dimensions"]
+                    else "learner_report",
                     "status": "stopped" if stopped else "completed",
                 },
                 "skill_ids": session["skill_ids"],
@@ -836,9 +925,29 @@ class StudyService:
                 "scheduler": SCHEDULER,
                 "code_digest": session["code_digest"],
             }
+            if session.get("workflow_version") == 3:
+                event.update(
+                    workflow_version=3,
+                    practice_session_id=session.get("practice_session_id"),
+                    evidence=session.get("evidence_amendments", []),
+                    timing_uncertain=session.get("timing_uncertain"),
+                )
+                original = session.get("assessment_before_help")
+                if original:
+                    event.update(
+                        activity=original["activity"],
+                        unseen=original["unseen"],
+                        assessment_before_help=original,
+                        tests_passed=False,
+                        guided_outcome={"tests_passed": facts["tests_passed"], "activity": "learn"},
+                    )
+                    event["assessment"]["status"] = "ended_for_help"
             archive = self.root / "progress/attempts" / session_id
             atomic_text(archive / "candidate.py", text)
             atomic_json(archive / "session.json", session)
+            prior = self.root / "attempt/assessment.py"
+            if prior.exists():
+                atomic_text(archive / "assessment.py", prior.read_text(encoding="utf-8"))
             review = self.root / "progress/reviews" / f"{session_id}.json"
             atomic_json(review, event)
             reflection = self.root / "reflections" / f"{session['problem_id']}.md"
@@ -998,6 +1107,13 @@ class StudyService:
     ):
         with self.lock:
             timer = self._read_local("repair-timer")
+            if timer and timer.get("check", {}).get("status") == "running":
+                raise RuntimeError("Stop or finish the repair check before continuing.")
+            review = timer.get("coach_review") if timer else None
+            if review and (
+                review["code_digest"] != digest(application) or review["value"] != "success"
+            ):
+                passed = False
             if not application.strip():
                 raise RuntimeError("Apply the corrected rule to a fresh example.")
             if not timer or timer["error_id"] != error_id:
@@ -1037,6 +1153,15 @@ class StudyService:
             event["misconception"] = None
             event["recognition_trigger"] = None
             event["why_failed"] = explanation or None
+            event["assessment_source"] = (
+                "reviewed_coach_judgment" if review else "learner_or_external_coach_report"
+            )
+            event["assessment"] = review
+            event["check"] = timer.get("check") if timer else None
+            parent = self._practice()
+            event["practice_session_id"] = (
+                parent["practice_id"] if parent and parent["status"] == "active" else None
+            )
             atomic_json(path, event)
             (self.local / "repair-timer.json").unlink(missing_ok=True)
             # Repair publication is deliberate through the same sync control.
@@ -1046,6 +1171,7 @@ class StudyService:
                     path.relative_to(self.root).as_posix()
                 )
                 self._save(session)
+                self.start(synchronize=False)
             else:
                 receipt = {
                     "session_id": event["event_id"],
@@ -1058,6 +1184,8 @@ class StudyService:
                 atomic_json(self.local / "completions" / f"{event['event_id']}.json", receipt)
                 atomic_json(self.local / "last-completion.json", receipt)
             return {
+                "event_path": path.relative_to(self.root).as_posix(),
+                "event_id": event["event_id"],
                 "passed": event["passed"],
                 "message": "Repair cleared." if event["passed"] else "Repair remains open.",
                 "minutes": round(elapsed / 60, 2),
