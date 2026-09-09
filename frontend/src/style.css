@@ -1283,9 +1283,6 @@ dialog > .button-row {
   .practice-tabs {
     display: flex;
   }
-  .practice-tabs button:last-child:nth-child(3) {
-    display: none;
-  }
   .practice-grid,
   .practice-grid.with-coach {
     grid-template-columns: minmax(0, 1fr) 4px var(--coach-width);
@@ -1343,9 +1340,6 @@ dialog > .button-row {
   }
   .tab-coach > .work-panel {
     display: none;
-  }
-  .practice-tabs button:last-child:nth-child(3) {
-    display: block;
   }
   .today-grid {
     grid-template-columns: 1fr;
