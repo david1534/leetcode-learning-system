@@ -99,6 +99,9 @@ test("explicit assessment conversion, fake coach reply and safe code preview", a
   await expect(page.getByText("Preview proposed code change")).toBeVisible();
   await page.getByText("Preview proposed code change").click();
   await page.getByRole("button", { name: "Apply this change" }).click();
+  await expect(
+    page.getByRole("button", { name: "Applied", exact: true }),
+  ).toBeVisible();
   const state = await (await request.get("/api/state")).json();
   expect(state.session.code).toContain("Reviewed draft");
   expect(state.session.assessment_before_help.status).toBe("ended_for_help");

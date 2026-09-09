@@ -114,9 +114,21 @@ export function useWorkspace(minutes: number, includeNew: boolean) {
     const events = new EventSource(
       "/api/coach/events" + (sid ? `?session_id=${sid}` : ""),
     );
-    events.onmessage = (e) => {
+    events.onmessage = async (e) => {
       try {
-        setCoach(JSON.parse(e.data) as CoachStatus);
+        const incoming = JSON.parse(e.data) as CoachStatus;
+        const current = latest.current?.session;
+        if (
+          current &&
+          incoming.requests.some(
+            (r) =>
+              r.session_id === current.session_id &&
+              (r.application_revision ?? 0) > current.revision,
+          )
+        ) {
+          apply(await api<StudyState>("state"));
+        }
+        setCoach(incoming);
       } catch {
         setError("Coach status could not be read. Reconnect coaching.");
       }
@@ -246,8 +258,20 @@ export function useWorkspace(minutes: number, includeNew: boolean) {
     allowCode = false,
   ) => {
     await save();
-    const s = latest.current?.session;
+    const previousSession = latest.current?.session;
+    const freshState = await api<StudyState>("state");
+    apply(freshState);
+    const s = freshState.session;
     if (!s) return;
+    if (
+      previousSession &&
+      (previousSession.session_id !== s.session_id ||
+        previousSession.code_digest !== s.code_digest)
+    ) {
+      throw new Error(
+        "Your code changed in another window. Review the saved version before sending this question.",
+      );
+    }
     const fresh = {
       request_id: crypto.randomUUID(),
       session_id: s.session_id,

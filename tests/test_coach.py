@@ -253,3 +253,21 @@ def test_checkpoint_preferences_are_independent(coach):
     assert coach.active is None
     assert coach.submit(request(coach, kind="check"))["status"] == "queued"
     assert wait(coach)["status"] == "completed"
+
+
+def test_launcher_reuses_only_the_same_workspace(guided, monkeypatch):
+    import io
+
+    import study.app as app
+
+    client = TestClient(create_app(guided.root, coach_factory=factory), base_url="http://127.0.0.1")
+    health = client.get("/api/health").json()
+    monkeypatch.setattr(
+        app.urllib.request, "urlopen", lambda *a, **k: io.StringIO(json.dumps(health))
+    )
+    opened = []
+    monkeypatch.setattr(app.webbrowser, "open", opened.append)
+    app.launch(guided.root)
+    assert opened == ["http://127.0.0.1:8765"]
+    with pytest.raises(RuntimeError, match="Another workspace"):
+        app.launch(guided.root.parent)

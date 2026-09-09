@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import threading
+import urllib.error
+import urllib.request
 import webbrowser
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -82,6 +85,14 @@ def create_app(root: Path, coach_factory=Coach) -> FastAPI:
     @app.get("/api/state")
     def state():
         return service.state()
+
+    @app.get("/api/health")
+    def health():
+        return {
+            "app": "practice-room",
+            "version": "0.3.0",
+            "workspace": hashlib.sha256(str(root.resolve()).encode()).hexdigest(),
+        }
 
     @app.get("/api/queue")
     def queue(include_new: bool = False, minutes: int = 60):
@@ -287,8 +298,25 @@ def create_app(root: Path, coach_factory=Coach) -> FastAPI:
 def launch(root: Path, port: int = 8765, open_browser=True):
     import uvicorn
 
+    url = f"http://127.0.0.1:{port}"
+    try:
+        with urllib.request.urlopen(url + "/api/health", timeout=1) as response:
+            active = json.load(response)
+    except (urllib.error.URLError, OSError, ValueError):
+        active = None
+    if active:
+        if (
+            active.get("app") != "practice-room"
+            or active.get("workspace") != hashlib.sha256(str(root.resolve()).encode()).hexdigest()
+        ):
+            raise RuntimeError("Another workspace uses this port. Choose a different --port.")
+        if active.get("version") != "0.3.0":
+            raise RuntimeError("Restart the running Practice Room to use this update.")
+        if open_browser:
+            webbrowser.open(url)
+        return
     if open_browser:
         import threading
 
-        threading.Timer(1, lambda: webbrowser.open(f"http://127.0.0.1:{port}")).start()
+        threading.Timer(1, lambda: webbrowser.open(url)).start()
     uvicorn.run(create_app(root), host="127.0.0.1", port=port)

@@ -240,7 +240,7 @@ export default function CoachPanel({
                         operate("coach/apply", {
                           request_id: m.request_id,
                           kind: "code",
-                          revision: session.revision,
+                          revision: m.application_revision,
                         }),
                       )
                     }
