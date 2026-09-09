@@ -250,6 +250,31 @@ test("practice panels support arrow keys and keep the selected tab focused", asy
   await expect(codeTab).toHaveAttribute("aria-selected", "true");
 });
 
+test("laptop keyboard navigation uses visible tabs and recovers after resizing", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await start(page);
+  const codeTab = page.getByRole("tab", { name: "Code", exact: true });
+  const problemTab = page.getByRole("tab", { name: "Problem", exact: true });
+  await codeTab.focus();
+  await codeTab.press("ArrowRight");
+  await expect(problemTab).toBeFocused();
+  await problemTab.press("End");
+  await expect(codeTab).toBeFocused();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await codeTab.press("End");
+  await expect(
+    page.getByRole("tab", { name: "Coach", exact: true }),
+  ).toBeFocused();
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await expect(codeTab).toHaveAttribute("aria-selected", "true");
+  await expect(codeTab).toBeFocused();
+  await expect(
+    page.getByRole("tabpanel", { name: "Code", exact: true }),
+  ).toBeVisible();
+});
+
 test("polling an acknowledged save before its response does not create a false conflict", async ({
   page,
 }) => {

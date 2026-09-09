@@ -109,7 +109,30 @@ export default function App() {
   const [pane, setPane] = useState("code");
   const [coachVisible, setCoachVisible] = useDraft("coach-visible", true);
   const [coachWidth, setCoachWidth] = useDraft("coach-width", 360);
-  const panes = ["problem", "code", ...(coachVisible ? ["coach"] : [])];
+  const [narrow, setNarrow] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.matchMedia("(max-width: 1023px)").matches,
+  );
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 1023px)");
+    const update = () => {
+      setNarrow(media.matches);
+      if (!media.matches) {
+        setPane((current) => (current === "coach" ? "code" : current));
+        if (document.activeElement?.id === "practice-tab-coach")
+          document.getElementById("practice-tab-code")?.focus();
+      }
+    };
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+  const panes = [
+    "problem",
+    "code",
+    ...(coachVisible && narrow ? ["coach"] : []),
+  ];
   const [answer, setAnswer] = useDraft(
     "reasoning-" + (s?.session_id || parent?.practice_id || "none"),
     "",
