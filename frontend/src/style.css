@@ -71,6 +71,18 @@ button:disabled {
   opacity: 0.48;
   cursor: not-allowed;
 }
+.timer-digits {
+  font-variant-numeric: tabular-nums;
+  min-width: 4ch;
+}
+.coach-setup {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.coach-setup-help {
+  margin-top: 12px;
+  font-size: 13px;
+}
 a {
   color: var(--accent);
   text-decoration: none;
@@ -1271,9 +1283,6 @@ dialog > .button-row {
   .practice-tabs {
     display: flex;
   }
-  .practice-tabs button:last-child:nth-child(3) {
-    display: none;
-  }
   .practice-grid,
   .practice-grid.with-coach {
     grid-template-columns: minmax(0, 1fr) 4px var(--coach-width);
@@ -1331,9 +1340,6 @@ dialog > .button-row {
   }
   .tab-coach > .work-panel {
     display: none;
-  }
-  .practice-tabs button:last-child:nth-child(3) {
-    display: block;
   }
   .today-grid {
     grid-template-columns: 1fr;

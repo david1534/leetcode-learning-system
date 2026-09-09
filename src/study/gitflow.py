@@ -24,11 +24,20 @@ def run_git(root: Path, *args: str) -> GitResult:
             cwd=root,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             check=False,
             timeout=20,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
     except subprocess.TimeoutExpired:
         return GitResult(124, f"git {' '.join(args)} timed out after 20 seconds")
+    except FileNotFoundError:
+        return GitResult(
+            127, "Git was not found. Install Git, then reopen Practice Room and retry sync."
+        )
+    except OSError as exc:
+        return GitResult(126, f"Git could not start: {exc}")
     parts = [part.rstrip() for part in (result.stdout, result.stderr) if part.strip()]
     output = "\n".join(parts)
     return GitResult(result.returncode, output)

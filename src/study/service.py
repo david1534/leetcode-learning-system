@@ -189,15 +189,27 @@ class StudyService(GuidedSession):
                         "worked_explanation", "Trace the example and explain each step."
                     )
             check = self._check_state()
+            repair = self._read_local("repair-timer")
+            if repair:
+                repair["elapsed_seconds"] = repair.get("seconds", 0)
+                if repair.get("started_at"):
+                    repair["elapsed_seconds"] += max(
+                        0,
+                        (
+                            datetime.now(UTC) - datetime.fromisoformat(repair["started_at"])
+                        ).total_seconds(),
+                    )
+            practice = self.practice_state()
             return {
+                "observed_at": datetime.now(UTC).isoformat(timespec="microseconds"),
                 "session": session,
-                "practice": self.practice_state(),
+                "practice": practice,
                 "sync": self._read_local(
                     "sync", {"status": "local", "message": "Saved on this computer."}
                 ),
                 "check": check,
                 "completion": self._read_local("last-completion"),
-                "repair": self._read_local("repair-timer"),
+                "repair": repair,
                 "remote_attempts": self._read_local("remote-attempts", []),
                 "unpublished_count": len(self._unpublished()),
             }
@@ -389,11 +401,21 @@ class StudyService(GuidedSession):
             self._save(session)
             return self.state()
 
-    def save_code(self, code: str, revision: int, code_digest: str | None = None):
+    def save_code(
+        self,
+        code: str,
+        revision: int,
+        code_digest: str | None = None,
+        session_id: str | None = None,
+    ):
         if len(code) > 200_000:
             raise RuntimeError("Candidate is too large (limit 200 KB).")
         with self.lock:
             session = self._session()
+            if session_id is not None and session_id != session["session_id"]:
+                raise Conflict(
+                    "The active exercise changed. Preserve your draft before continuing."
+                )
             if revision != session["revision"] and code_digest != session["code_digest"]:
                 raise Conflict(
                     "The candidate changed. Preserve your draft and compare before saving."

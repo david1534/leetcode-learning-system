@@ -62,6 +62,7 @@ export interface CheckResult {
   public_failures?: { example: number; error: string }[];
 }
 export interface StudyState {
+  observed_at: string;
   session: Session | null;
   practice: Practice | null;
   sync: { status: string; message: string };
@@ -70,6 +71,8 @@ export interface StudyState {
     error_id: string;
     application: string;
     started_at: string | null;
+    elapsed_seconds?: number;
+    timing_uncertain?: boolean;
     revision?: number;
     check?: { status: string; message?: string };
     coach_review?: { value: string; explanation?: string };

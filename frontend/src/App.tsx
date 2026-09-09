@@ -21,10 +21,12 @@ import {
   X,
 } from "lucide-react";
 import CoachPanel from "./CoachPanel";
+import CoachConnection from "./CoachConnection";
 import { formatTime, metricLabel } from "./api";
 import { exportText, useDraft } from "./persistence";
 import { useTheme, type Theme } from "./theme";
 import { useWorkspace } from "./useWorkspace";
+import { useStudyClock } from "./useStudyClock";
 import type { Evaluation, Finding, Metric, StudyState } from "./types";
 const Editor = lazy(() => import("./Editor"));
 type View = "today" | "practice" | "progress";
@@ -107,6 +109,30 @@ export default function App() {
   const [pane, setPane] = useState("code");
   const [coachVisible, setCoachVisible] = useDraft("coach-visible", true);
   const [coachWidth, setCoachWidth] = useDraft("coach-width", 360);
+  const [narrow, setNarrow] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.matchMedia("(max-width: 1023px)").matches,
+  );
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 1023px)");
+    const update = () => {
+      setNarrow(media.matches);
+      if (!media.matches) {
+        setPane((current) => (current === "coach" ? "code" : current));
+        if (document.activeElement?.id === "practice-tab-coach")
+          document.getElementById("practice-tab-code")?.focus();
+      }
+    };
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+  const panes = [
+    "problem",
+    "code",
+    ...(coachVisible && narrow ? ["coach"] : []),
+  ];
   const [answer, setAnswer] = useDraft(
     "reasoning-" + (s?.session_id || parent?.practice_id || "none"),
     "",
@@ -152,21 +178,7 @@ export default function App() {
   const [finishFindings, setFinishFindings] = useState<Finding[]>([]);
   const beforeFinishPhase = useRef("implementation");
   const [hintChoice, setHintChoice] = useState(false);
-  const [tick, setTick] = useState(0);
-  const receivedAt = useRef(Date.now());
-  useEffect(() => {
-    receivedAt.current = Date.now();
-  }, [w.state]);
-  useEffect(() => {
-    const timer = setInterval(() => setTick((t) => t + 1), 1000);
-    return () => clearInterval(timer);
-  }, []);
-  const elapsed =
-    (parent?.elapsed_seconds ?? s?.elapsed_seconds ?? 0) +
-    (s?.phase_started_at
-      ? Math.max(0, (Date.now() - receivedAt.current) / 1000)
-      : 0) +
-    tick * 0;
+  const elapsed = useStudyClock(w.state);
   const safely = (fn: () => Promise<unknown>) => {
     void fn().catch(() => {});
   };
@@ -379,17 +391,7 @@ export default function App() {
               <option value="system">System</option>
             </select>
           </label>
-          <button
-            className="text-button"
-            onClick={() => safely(() => w.operate("coach/connect", {}))}
-          >
-            Connect Codex
-          </button>
-          {w.coach?.auth_url && (
-            <a href={w.coach.auth_url} target="_blank" rel="noreferrer">
-              Sign in with ChatGPT
-            </a>
-          )}
+          <CoachConnection status={w.coach} operate={w.operate} />
         </details>
         <div className="sidebar-bottom">
           <span
@@ -721,7 +723,7 @@ export default function App() {
                   aria-label="Active study time"
                 >
                   <Clock3 size={19} />
-                  {formatTime(elapsed)}
+                  <span className="timer-digits">{formatTime(elapsed)}</span>
                   <small>
                     / {parent?.budget_minutes || s?.budget_minutes} min
                   </small>
@@ -761,6 +763,15 @@ export default function App() {
               <section className="panel support-card">
                 <Lightbulb />
                 <h2>Apply the corrected rule</h2>
+                {w.state.repair?.timing_uncertain && (
+                  <p className="warning-text">
+                    A timer gap was detected. Review your total active minutes
+                    when finishing.
+                  </p>
+                )}
+                {!w.state.repair?.started_at && (
+                  <p role="status">Paused. No active time is being counted.</p>
+                )}
                 <p>
                   {
                     w.queue?.repairs.find((r) => r.event_id === stage.error_id)
@@ -786,14 +797,7 @@ export default function App() {
                 </label>
                 <div className="button-row">
                   {w.coach?.connection !== "connected" ? (
-                    <button
-                      className="secondary"
-                      onClick={() =>
-                        safely(() => w.operate("coach/connect", {}))
-                      }
-                    >
-                      Connect Codex
-                    </button>
+                    <CoachConnection status={w.coach} operate={w.operate} />
                   ) : (
                     <button
                       className="secondary"
@@ -842,11 +846,6 @@ export default function App() {
                     </button>
                   )}
                 </div>
-                {w.coach?.auth_url && (
-                  <a href={w.coach.auth_url} target="_blank" rel="noreferrer">
-                    Sign in with ChatGPT
-                  </a>
-                )}
                 {w.state?.repair?.check && (
                   <p role="status">
                     {w.state.repair.check.message || "Checking repair…"}
@@ -1009,7 +1008,10 @@ export default function App() {
                     )}
                     <button
                       className="text-button"
-                      onClick={() => setCoachVisible(!coachVisible)}
+                      onClick={() => {
+                        if (coachVisible && pane === "coach") setPane("code");
+                        setCoachVisible(!coachVisible);
+                      }}
                     >
                       {coachVisible ? "Hide coach" : "Show coach"}
                     </button>
@@ -1019,17 +1021,44 @@ export default function App() {
                     role="tablist"
                     aria-label="Practice panels"
                   >
-                    {[
-                      "problem",
-                      "code",
-                      ...(coachVisible ? ["coach"] : []),
-                    ].map((p) => (
+                    {panes.map((p) => (
                       <button
                         role="tab"
+                        id={`practice-tab-${p}`}
+                        aria-controls={`practice-panel-${p}`}
                         aria-selected={pane === p}
+                        tabIndex={pane === p ? 0 : -1}
                         key={p}
                         className={pane === p ? "selected" : ""}
                         onClick={() => setPane(p)}
+                        onKeyDown={(event) => {
+                          if (
+                            ![
+                              "ArrowLeft",
+                              "ArrowRight",
+                              "Home",
+                              "End",
+                            ].includes(event.key)
+                          )
+                            return;
+                          event.preventDefault();
+                          const index = panes.indexOf(p);
+                          const next =
+                            panes[
+                              event.key === "Home"
+                                ? 0
+                                : event.key === "End"
+                                  ? panes.length - 1
+                                  : (index +
+                                      (event.key === "ArrowRight" ? 1 : -1) +
+                                      panes.length) %
+                                    panes.length
+                            ];
+                          setPane(next);
+                          document
+                            .getElementById(`practice-tab-${next}`)
+                            ?.focus();
+                        }}
                       >
                         {p.charAt(0).toUpperCase() + p.slice(1)}
                       </button>
@@ -1043,7 +1072,12 @@ export default function App() {
                       } as React.CSSProperties
                     }
                   >
-                    <section className="problem-panel panel">
+                    <section
+                      className="problem-panel panel"
+                      id="practice-panel-problem"
+                      role="tabpanel"
+                      aria-labelledby="practice-tab-problem"
+                    >
                       <span className="eyebrow">THE PROBLEM</span>
                       <h2>{s.problem.title}</h2>
                       <p className="prompt">{s.problem.prompt}</p>
@@ -1077,7 +1111,12 @@ export default function App() {
                         </div>
                       ))}
                     </section>
-                    <section className="work-panel">
+                    <section
+                      className="work-panel"
+                      id="practice-panel-code"
+                      role="tabpanel"
+                      aria-labelledby="practice-tab-code"
+                    >
                       {!s.initial_reasoning && s.activity !== "learn" ? (
                         <div className="panel reasoning-card">
                           <Lightbulb size={28} />

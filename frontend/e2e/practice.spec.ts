@@ -134,6 +134,14 @@ test("conflicting tabs preserve the browser draft and require a choice", async (
   context,
 }) => {
   await start(page);
+  // Load both tabs before editing so each has its own clean starting version.
+  // Opening a new tab after an offline edit intentionally recovers that browser draft.
+  const other = await context.newPage();
+  await other.goto("/");
+  await other.getByRole("button", { name: "Practice", exact: true }).click();
+  await expect(
+    other.getByRole("textbox", { name: "Python solution editor" }),
+  ).toBeVisible();
   await page.route("**/api/action/save", (route) => route.abort());
   const editor = page.getByRole("textbox", { name: "Python solution editor" });
   await editor.focus();
@@ -142,9 +150,6 @@ test("conflicting tabs preserve the browser draft and require a choice", async (
     "def pair_sum_indices(nums, target):\n    return [0, 1]\n# first window\n",
   );
   await expect(page.locator(".save-status")).toHaveText("Saved in browser");
-  const other = await context.newPage();
-  await other.goto("/");
-  await other.getByRole("button", { name: "Practice", exact: true }).click();
   // The other tab has its own loaded draft, while the first retains an unsent edit.
   await code(
     other,
