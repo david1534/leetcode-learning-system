@@ -4,9 +4,9 @@
   "attempt_kind": "review",
   "started_at": "2026-09-08T09:55:34.724999+00:00",
   "active_started_at": null,
-  "accumulated_seconds": 882,
+  "accumulated_seconds": 986,
   "hints_used": 0,
-  "checkpoint_count": 0,
+  "checkpoint_count": 1,
   "assistance_log": [],
   "focus_extensions": [],
   "learning_event_paths": [
@@ -14,13 +14,14 @@
   ],
   "substantial_gate_recorded": false,
   "session_id": "d497f16efba54d0fafac2180107b9ff4",
-  "revision": 37,
+  "revision": 46,
   "activity": "implement",
   "unseen": false,
   "phase": "implementation",
   "timing": {
     "recall": 311.914,
-    "implementation": 570.272
+    "implementation": 651.8190000000001,
+    "administration": 23.215
   },
   "phase_started_at": null,
   "budget_minutes": 60,
@@ -31,7 +32,7 @@
     "one-pass-hashing",
     "index-invariants"
   ],
-  "code_digest": "737bd7b9fc09527d84eee9727e6694ecdcdc85a2740f826726799318a087641b",
+  "code_digest": "ca89f8215770db2ff9b18479a3828127a0c1c9c4779316b0b59ab50884183ae4",
   "initial_reasoning": {
     "approach": "I would create a hashmap to map seen values while looping through the array. The hash key would be the list value while the hash value would be the list index. During each iteration of the loop, we will first calculate the complement, which will be used to check if it exist in the hashmap. If it exists we can derive the current index and retrieve the complement index, if it doesn't exist we can add the current value to the hashmap. For every loop iteration,",
     "quality": "complete",
@@ -71,5 +72,14 @@
     "main_was_new": false
   },
   "practice_session_id": "c66811547c31454ca00a0179ceb7570d",
-  "workflow_version": 3
+  "workflow_version": 3,
+  "first_checkpoint_passed": true,
+  "latest_checkpoint": {
+    "attempt": 1,
+    "checked_at": "2026-09-09T15:16:52.615664+00:00",
+    "passed_cases": 4,
+    "total_cases": 4,
+    "code_digest": "ca89f8215770db2ff9b18479a3828127a0c1c9c4779316b0b59ab50884183ae4",
+    "status": "complete"
+  }
 }

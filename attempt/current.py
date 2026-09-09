@@ -42,7 +42,12 @@ https://leetcode.com/problems/two-sum/
 def pair_sum_indices(nums: list[int], target: int) -> list[int]:
     seenMap = {}
     for index, value in enumerate(nums):
-        if value not in seenMap:
+        compValue = target - value
+        if compValue not in seenMap:
             seenMap[value] = index
+        else:
+            ind1 = seenMap[compValue]
+            ind2 = index
+    return [ind1, ind2]
 
         
