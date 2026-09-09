@@ -9,30 +9,40 @@ permissions:
   contents: read
 jobs:
   test:
-    name: Tests and lint
-    runs-on: ubuntu-latest
+    name: Tests and browser build (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: '3.13'
           cache: pip
-      - name: Install project
-        run: python -m pip install -e ".[dev]"
-      - name: Run full test suite
-        id: tests
-        run: python -m pytest
-      - name: Lint all tracked Python
-        id: lint
-        run: python -m ruff check --no-cache .
-      - name: Explain quality result
-        if: always()
-        shell: bash
-        run: |
-          {
-            echo "## Code quality"
-            echo "This workflow protects main by running behavioral tests and linting every tracked Python file."
-            echo ""
-            echo "- Tests: ${{ steps.tests.outcome }}"
-            echo "- Ruff: ${{ steps.lint.outcome }}"
-          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: python -m pip install -e ".[dev]"
+      - run: python -m pytest
+      - run: python -m ruff check --no-cache .
+      - run: npm ci
+        working-directory: frontend
+      - run: npm test
+        working-directory: frontend
+      - run: npm run build
+        working-directory: frontend
+      - run: npm run format:check
+        working-directory: frontend
+      - run: npx playwright install --with-deps chromium
+        working-directory: frontend
+      - run: npm run test:browser
+        working-directory: frontend
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-traces-${{ matrix.os }}
+          path: frontend/test-results

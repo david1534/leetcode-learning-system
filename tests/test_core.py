@@ -63,7 +63,7 @@ def test_catalog_contains_diagnostic_and_complete_first_module(repo_root):
     assert sum(problem["kind"] == "diagnostic" for problem in problems) == 5
     arrays = [problem for problem in problems if problem["topic"] == "arrays-hashing"]
     assert sum(problem["kind"] == "core" for problem in arrays) == 7
-    assert sum(problem["kind"] == "transfer" for problem in arrays) == 1
+    assert sum(problem["kind"] == "transfer" for problem in arrays) == 3
     assert all(len(problem["hints"]) == 3 for problem in problems)
     assert all(problem["cases"] for problem in problems)
     assert all(problem["signature"].startswith(problem["function"]) for problem in problems)
@@ -446,7 +446,7 @@ def test_recurring_minor_error_creates_gate_and_early_repair_is_rejected(tmp_pat
             recorded_at=started + timedelta(hours=2),
         )
     except RuntimeError as exc:
-        assert "next Eastern day" in str(exc)
+        assert "at least 24 hours" in str(exc)
     else:
         raise AssertionError("An early repair should be rejected.")
 
@@ -513,7 +513,7 @@ def test_successful_repair_resets_recurring_minor_history(tmp_path):
         "I skipped the boundary.",
         "Applied the rule to an empty grid.",
         True,
-        recorded_at=started + timedelta(days=1),
+        recorded_at=started + timedelta(days=1, hours=1),
     )
     record_learning_error(
         root,

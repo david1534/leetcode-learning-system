@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#111318" />
+    <script>
+      try {
+        var t = JSON.parse(localStorage.getItem("practice-theme") || '"dark"');
+        document.documentElement.dataset.theme =
+          t === "system"
+            ? matchMedia("(prefers-color-scheme: dark)").matches
+              ? "dark"
+              : "light"
+            : t;
+      } catch (e) {}
+    </script>
+    <style>
+      html {
+        background: #111318;
+        color: #eef0f5;
+      }
+      html[data-theme="light"] {
+        background: #f5f6fa;
+        color: #202433;
+      }
+    </style>
+    <title>Practice Room · Learn with intention</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import copy
 import hashlib
-import importlib.util
 import json
 import pprint
 import re
@@ -53,9 +52,6 @@ def find_root(start: Path | None = None) -> Path:
     for candidate in (current, *current.parents):
         if (candidate / "pyproject.toml").exists() and (candidate / "curriculum").exists():
             return candidate
-    module_root = Path(__file__).resolve().parents[2]
-    if (module_root / "pyproject.toml").exists():
-        return module_root
     raise RuntimeError("Run this command from the learning-system repository.")
 
 
@@ -149,6 +145,10 @@ def rebuild_cards(root: Path) -> dict[str, Card]:
     cards: dict[str, Card] = {}
     engine = scheduler()
     for event in effective_events(root):
+        if event.get("activity", "implement") not in {"implement", "transfer"}:
+            continue
+        if event.get("rating") == "unknown":
+            continue
         problem_id = event["problem_id"]
         card = cards.setdefault(problem_id, Card(card_id=card_id(problem_id)))
         reviewed_at = datetime.fromisoformat(event["reviewed_at"]).astimezone(UTC)
@@ -170,6 +170,10 @@ def latest_by_problem(root: Path) -> dict[str, dict[str, Any]]:
 
 def is_independent_successful_review(event: dict[str, Any]) -> bool:
     """Return whether a review is complete, independent mastery evidence."""
+    if event.get("schema_version", 1) >= 4:
+        from study.policy import independent
+
+        return independent(event)
     return (
         int(event.get("schema_version", 1)) >= 3
         and event.get("rating") in {"good", "easy"}
@@ -227,7 +231,13 @@ def _write_learning_event(
     directory.mkdir(parents=True, exist_ok=True)
     name = recorded_at.strftime("%Y%m%dT%H%M%S%fZ") + f"-{event['event_type']}-{event_id[:8]}.json"
     path = directory / name
-    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    from study.storage import atomic_json
+
+    if payload.get("skill"):
+        from study.policy import skill_id
+
+        payload["skill_id"] = skill_id(payload["skill"])
+    atomic_json(path, payload)
     return path
 
 
@@ -289,19 +299,23 @@ def record_learning_error(
 def open_repair_gates(root: Path, now: datetime | None = None) -> list[dict[str, Any]]:
     now = (now or datetime.now(UTC)).astimezone(UTC)
     events = load_learning_events(root)
-    latest_repairs: dict[tuple[str, str], datetime] = {}
+    latest_repairs: dict[str, datetime] = {}
     for event in events:
         if event["event_type"] != "repair" or not event["passed"]:
             continue
-        key = (event["skill"], event["category"])
+        from study.policy import skill_id
+
+        key = skill_id(event["skill"])
         repaired_at = datetime.fromisoformat(event["recorded_at"]).astimezone(UTC)
         previous = latest_repairs.get(key, datetime.min.replace(tzinfo=UTC))
         latest_repairs[key] = max(previous, repaired_at)
-    grouped: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    grouped: dict[str, list[dict[str, Any]]] = {}
     for event in events:
         if event["event_type"] != "error":
             continue
-        key = (event["skill"], event["category"])
+        from study.policy import skill_id
+
+        key = skill_id(event["skill"])
         recorded_at = datetime.fromisoformat(event["recorded_at"]).astimezone(UTC)
         if recorded_at <= latest_repairs.get(key, datetime.min.replace(tzinfo=UTC)):
             continue
@@ -314,9 +328,7 @@ def open_repair_gates(root: Path, now: datetime | None = None) -> list[dict[str,
             continue
         trigger = (blocking or minor)[-1]
         eligible_at = datetime.fromisoformat(trigger["recorded_at"]).astimezone(EASTERN)
-        eligible_at = datetime.combine(
-            eligible_at.date() + timedelta(days=1), datetime.min.time(), tzinfo=EASTERN
-        ).astimezone(UTC)
+        eligible_at = eligible_at.astimezone(UTC) + timedelta(hours=24)
         gate = copy.deepcopy(trigger)
         gate["eligible_at"] = eligible_at.isoformat()
         gate["eligible"] = eligible_at <= now
@@ -342,8 +354,7 @@ def learning_insights(root: Path) -> dict[str, Any]:
     delayed_success = [
         event
         for event in review_attempts
-        if event.get("recall_quality") == "complete"
-        and is_independent_successful_review(event)
+        if event.get("recall_quality") == "complete" and is_independent_successful_review(event)
     ]
     category_counts: dict[str, int] = {}
     cause_counts: dict[str, int] = {}
@@ -388,10 +399,7 @@ def learning_insights(root: Path) -> dict[str, Any]:
         ),
         "assistance_rate": (
             round(
-                sum(
-                    event.get("assistance_level", "none") != "none"
-                    for event in measurable_reviews
-                )
+                sum(event.get("assistance_level", "none") != "none" for event in measurable_reviews)
                 / len(measurable_reviews),
                 3,
             )
@@ -458,7 +466,7 @@ def record_repair(
     if gate is None:
         raise RuntimeError("This error does not currently require a repair gate.")
     if not gate["eligible"]:
-        raise RuntimeError("This repair is deliberately delayed until the next Eastern day.")
+        raise RuntimeError("This repair is deliberately delayed for at least 24 hours.")
     required = {
         "recognition trigger": recognition_trigger,
         "corrected rule": corrected_rule,
@@ -538,14 +546,15 @@ def save_session(root: Path, session: dict[str, Any]) -> Path:
     if "latest_checkpoint" not in session and legacy_files:
         latest = json.loads(legacy_files[-1].read_text(encoding="utf-8"))
         session["latest_checkpoint"] = {
-            key: latest[key]
-            for key in ("attempt", "checked_at", "passed_cases", "total_cases")
+            key: latest[key] for key in ("attempt", "checked_at", "passed_cases", "total_cases")
         }
     if legacy_checkpoints.exists():
         rmtree(legacy_checkpoints)
     path = root / "attempt" / "session.json"
     path.parent.mkdir(exist_ok=True)
-    path.write_text(json.dumps(session, indent=2) + "\n", encoding="utf-8")
+    from study.storage import atomic_json
+
+    atomic_json(path, session)
     return path
 
 
@@ -689,6 +698,13 @@ def cleanup_legacy_attempt(root: Path) -> None:
 
 def active_seconds(session: dict[str, Any], now: datetime | None = None) -> int:
     now = (now or datetime.now(UTC)).astimezone(UTC)
+    if session.get("schema_version", 1) >= 6:
+        elapsed = (
+            (now - datetime.fromisoformat(session["phase_started_at"])).total_seconds()
+            if session.get("phase_started_at")
+            else 0
+        )
+        return int(sum(session.get("timing", {}).values()) + max(0, elapsed))
     total = int(session.get("accumulated_seconds", 0))
     active = session.get("active_started_at")
     if active:
@@ -884,29 +900,12 @@ class CaseFailure:
     error: str | None = None
 
 
-def run_solution(path: Path, problem: dict[str, Any]) -> list[CaseFailure]:
-    module_name = f"study_candidate_{uuid.uuid4().hex}"
-    spec = importlib.util.spec_from_file_location(module_name, path)
-    if spec is None or spec.loader is None:
-        return [CaseFailure(0, None, error="Could not import candidate file")]
-    module = importlib.util.module_from_spec(spec)
-    try:
-        spec.loader.exec_module(module)
-        function = getattr(module, problem["function"])
-    except Exception as exc:  # learner-facing runner should report all import errors
-        return [CaseFailure(0, None, error=f"{type(exc).__name__}: {exc}")]
+def run_solution(
+    path: Path, problem: dict[str, Any], timeout: float = 10, cancel=None
+) -> list[CaseFailure]:
+    from study.runner import execute
 
-    failures = []
-    for index, case in enumerate(problem["cases"], start=1):
-        try:
-            actual = function(*copy.deepcopy(case["args"]))
-            if actual != case["expected"]:
-                failures.append(CaseFailure(index, case["expected"], actual=actual))
-        except Exception as exc:  # learner-facing runner should report the case
-            failures.append(
-                CaseFailure(index, case["expected"], error=f"{type(exc).__name__}: {exc}")
-            )
-    return failures
+    return [CaseFailure(**item) for item in execute(path, problem, timeout, cancel)]
 
 
 def record_review(
@@ -957,9 +956,7 @@ def record_review(
 
 
 def git_output(root: Path, *args: str) -> tuple[int, str]:
-    result = subprocess.run(
-        ["git", *args], cwd=root, capture_output=True, text=True, check=False
-    )
+    result = subprocess.run(["git", *args], cwd=root, capture_output=True, text=True, check=False)
     return result.returncode, (result.stdout or result.stderr).strip()
 
 

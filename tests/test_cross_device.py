@@ -51,22 +51,25 @@ def test_attempt_moves_between_laptops_and_merges_to_main(monkeypatch, tmp_path,
     remote, _seed = seed_remote(tmp_path, repo_root)
     laptop_a = clone(remote, tmp_path / "laptop-a")
     monkeypatch.chdir(laptop_a)
-    assert main(["practice"]) == 0
-    assert git(laptop_a, "branch", "--show-current") == "attempt/arrays-001-pair-sum"
+    assert main(["practice", "--include-new"]) == 0
+    assert git(laptop_a, "branch", "--show-current") == "main"
 
     candidate = laptop_a / "attempt" / "current.py"
-    assert main(
-        [
-            "note",
-            "reasoning",
-            "--approach",
-            "Use a seen map.",
-            "--invariant",
-            "Seen contains earlier values.",
-            "--complexity",
-            "O(n)",
-        ]
-    ) == 0
+    assert (
+        main(
+            [
+                "note",
+                "reasoning",
+                "--approach",
+                "Use a seen map.",
+                "--invariant",
+                "Seen contains earlier values.",
+                "--complexity",
+                "O(n)",
+            ]
+        )
+        == 0
+    )
     candidate.write_text("def pair_sum_indices(nums, target):\n    return [0, 1]\n")
     assert main(["checkpoint"]) == 0
     checkpoint = json.loads((laptop_a / "attempt" / "session.json").read_text(encoding="utf-8"))[
@@ -77,17 +80,19 @@ def test_attempt_moves_between_laptops_and_merges_to_main(monkeypatch, tmp_path,
         "checked_at",
         "passed_cases",
         "total_cases",
+        "code_digest",
+        "status",
     }
 
     before_pause = clone(remote, tmp_path / "before-pause")
-    git(before_pause, "switch", "--track", "origin/attempt/arrays-001-pair-sum")
-    assert "return [0, 1]" not in (before_pause / "attempt" / "current.py").read_text()
+    assert not git(before_pause, "branch", "-r", "--list", "origin/attempt/*")
+    assert not (before_pause / "attempt").exists()
 
     assert main(["pause"]) == 0
 
     laptop_b = clone(remote, tmp_path / "laptop-b")
     monkeypatch.chdir(laptop_b)
-    assert main(["practice"]) == 0
+    assert main(["practice", "--include-new"]) == 0
     assert git(laptop_b, "branch", "--show-current") == "attempt/arrays-001-pair-sum"
     (laptop_b / "attempt" / "current.py").write_text(
         "def pair_sum_indices(nums, target):\n"
@@ -117,5 +122,6 @@ def test_attempt_moves_between_laptops_and_merges_to_main(monkeypatch, tmp_path,
     assert not git(laptop_b, "branch", "-r", "--list", "origin/attempt/*")
 
     monkeypatch.chdir(laptop_a)
-    assert main(["practice"]) == 0
-    assert git(laptop_a, "branch", "--show-current").startswith("attempt/arrays-002")
+    assert main(["practice", "--include-new"]) == 0
+    assert git(laptop_a, "branch", "--show-current") == "main"
+    assert "arrays-002" in (laptop_a / "attempt/session.json").read_text()

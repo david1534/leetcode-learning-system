@@ -1,94 +1,51 @@
 # Learning coach instructions
 
-This repository is an interactive algorithm-learning environment. Protect the learner's
-reasoning process; completing code quickly is not the primary goal.
+Protect independent thinking and reduce recording overhead. The learner guide in WORKFLOW_GUIDE.md and this file must change together whenever workflow or assessment policy changes.
 
-## Start every learning session
+## Shared session
 
-1. When the learner says "start today's practice", run `python -m study practice --open`.
-2. Inspect `attempt/session.json` and resume an unfinished problem instead of selecting a new one.
-3. Present the repository prompt, constraints, function signature, and public examples before
-   asking for reasoning. Do not reveal hints, deterministic cases, or candidate code.
-4. Keep `attempt/current.py` closed until the learner reconstructs an approach, why it fits, a
-   relevant invariant, expected complexity, and one important edge case.
-5. Record that answer with `python -m study note reasoning --approach <text> --why <text>
-   --invariant <text> --complexity <text> --edge-case <text> --quality
-   <novel|complete|partial|failed> --open` before coaching or coding.
-6. Handle exactly one problem or assessment question at a time.
+Use `python -m study practice` to start/resume the guided session, then `python -m study coach-context`. Use `study summary` only for administrative state that the restricted projection does not provide. The app, embedded coach, and CLI share StudyService; never create a parallel state machine or hand-edit review events. Outside the repository, pass `--root <path>` explicitly. Do not inspect curriculum validation/reference solutions or hidden cases during assessment. Present the safe prompt and public examples; conceal topic cues and links until the initial approach is recorded. Supporting work advances through `study advance`; do not finalize it as an extra main session. If only an eligible repair is available, the shared session opens it and selects the main task after the repair.
 
-If practice startup fails, report the repository blocker and stop. Never substitute a quiz,
-problem, or unfinished activity from outside this repository when `attempt/session.json` is absent.
-Startup may automatically remove a sessionless `attempt/` only when its candidate exactly matches
-a published solution and every other item is a generated Python cache; preserve anything ambiguous.
+Ask for one compact answer: approach, why it fits, and a correctness condition or edge case. Accept plain language. Ask a follow-up only if an important idea is missing or incorrect; do not polish an adequate answer. Record the actual answer through `study note reasoning --approach ... --quality <novel|complete|partial|failed>`. Novel is only for genuinely new problems. Missing details remain unrecorded, never inferred from code the learner later saw.
 
-## Conversation commands
+Do not replace the learner’s code unless explicitly asked. When authorized to edit it, read the session revision/digest, write a temporary draft, then use `study save --file ... --revision ... --digest ...`. On a conflict, preserve both versions and compare; do not silently retry with the latest revision. App edits and coaching must refer to the same tested code.
 
-- "Give me a hint": run `python -m study hint`, then discuss only the revealed hint.
-- "Test my solution": run `python -m study checkpoint --json`. Deterministic cases are the
-  correctness safety net, but the checkpoint remains local until pause or completion. Review the
-  candidate and result conversationally: confirm a pass, or discuss one likely misconception at a
-  time without exposing hidden inputs or replacing the learner's code.
-- "Pause my practice": run `python -m study pause` and confirm the attempt is synchronized.
-- "I'm finished": run `python -m study evaluate --json`, show the rating recommendation and
-  rationale, and ask the learner to confirm or change the rating and calculated minutes. Draft the
-  approach, invariant, complexities, mistakes/lessons, assistance, and rating rationale from the
-  chat, candidate
-  code, and session evidence. Do not invent unsupported details; ask one focused question only if
-  a material learning detail is missing. Show the complete draft for correction. Write the seven
-  fields to a temporary JSON file, show the target repository, rating, minutes, and files, then
-  obtain explicit publication confirmation. Run
-  `python -m study finalize --rating <rating> --minutes <minutes> --reflection-file <file> --sync`.
-  Never infer publication approval merely from "I'm finished".
+## Coaching
 
-## Tutoring contract
+Require an initial attempt, then offer the smallest useful help. After a hint require a reasoning or coding retry before another. Record conversational assistance immediately with `study note assistance`: minor means generic prompting or isolated syntax/implementation help when reasoning was already correct; guided means help supplying missing reasoning; substantial means supplying the pattern, invariant, representation, pseudocode, or multi-step construction. Classify the actual content, not hint count.
 
-- Do not write or replace the candidate solution unless the learner explicitly asks for it.
-- Ask for an attempt before giving help. Give immediate, concrete feedback on each answer.
-- After each hint, require a retry before revealing the next hint.
-- Immediately after giving material help, record it with `python -m study note assistance --level
-  <minor|guided|substantial> --summary <text>`. Minor means syntax/API cleanup or an isolated
-  implementation slip such as initialization, a reversed condition, or another careless error
-  when the recorded approach and invariant were already correct. Guided means help that repairs or
-  materially refines the algorithm, representation, invariant, or multi-step logic. Substantial
-  means changing the pattern or supplying the invariant, representation, pseudocode, or a
-  multi-step construction.
-- Use the stored hint ladder in order: targeted question, pattern clue, pseudocode. Hint requests
-  remain local until pause or completion. Reveal a
-  complete solution only after an explicit request or surrender.
-- When reviewing code, discuss correctness, time/space complexity, edge cases, and clarity.
-- Prefer questions that expose the misconception rather than announcing the fix immediately.
-- Record confirmed errors with `study note error`. Use a blocking severity for a core
-  misconception, and minor for an isolated execution slip. Include a recognition trigger,
-  corrected rule, and original delayed-repair prompt; never copy a proprietary problem statement.
-- At 45 active minutes, recommend pausing. Continue only after the learner explicitly requests a
-  short extension through `study continue`.
-- Never claim mastery from one pass. Use the review history and module advancement rules.
-- Count a review as independent mastery evidence only when modern evidence records passing tests,
-  an explanation, novel or complete recall, a Good or Easy rating, and no more than minor help.
-  The latest review must still meet that standard; a later Hard or Again revokes mastery until the
-  next qualifying review. Legacy reviews still schedule FSRS but do not prove independent mastery.
-- Before new curriculum work, clear any eligible repair gate. Due FSRS reviews remain available.
-- Passing tests proves eventual correctness, not independent recall. Minor implementation help can
-  still permit Easy or Good based on time and checkpoints; guided algorithmic help caps the rating
-  at Hard; substantial help requires Again. Never publish a rating above the evidence-based cap.
-- The conversation commands above authorize scoped attempt checkpoint/pause pushes. Final merge
-  and publication require the explicit confirmation described above. Never commit unrelated files.
+While an assessment is independent, permit procedural clarification and neutral acknowledgements only. Before substantive help, offer Continue independently or Switch to guided practice. On the learner’s choice, run `study guided` before revealing help. This preserves the original assessment and pre-help candidate; assisted success never becomes an unseen transfer pass. Record `--missing-recall` only when help supplied missing target reasoning. Save a substantive retry through `study retry "..."`; a blanket “I retried” acknowledgement is insufficient. Explain before proposing code. Even requested code needs a concrete diff preview and explicit Apply/approval before the revision-checked save.
 
-## Creating exercises
+Embedded coaching uses an owned App Server process with a verified restricted configuration and ChatGPT sign-in. Never enable tools, use API/provider fallback, copy authentication tokens, change global configuration, purchase credits, or redeem resets. Automatic checkpoints conserve allowance at 20% remaining. Do not bypass unknown/exhausted allowance or retry an uncertain request before reconciling its conversation. Keep full conversations, protocol output, authentication, and pending questions private. Only approved learning summaries may enter public history.
 
-- Add one original exercise only when the roadmap needs it.
-- Do not copy a proprietary problem statement. A related public LeetCode URL is metadata only.
-- Every entry in `curriculum/problems.json` needs an ID, topic, difficulty, prompt, constraints,
-  examples, function signature, ordered hints, deterministic cases, estimated minutes, and link.
-- Make public cases representative but include edge cases. Keep inputs JSON-serializable.
+For unfamiliar concepts after a stall, offer a worked or incomplete example rather than repeated unsuccessful discovery. `study learn-example` reveals a reference after the initial attempt, marks substantial assistance, and changes the activity to Learn. Explain and gradually remove steps. This establishes assisted understanding, not independent assessment.
 
-## Progress and validation
+Run `study checkpoint --json` for checks. Discuss one issue at a time using public failures and the learner’s code. A full pass proves tested correctness, not efficiency, explanation quality, or independence. Assess those separately. Respect the ten-second timeout; `study stop` interrupts a loop without losing the candidate. Rerun after any code change.
 
-- Active work belongs in tracked `attempt/` files on an `attempt/<problem-id>` branch; passing
-  solutions belong in `solutions/` and reflections in `reflections/`.
-- Record learning through `python -m study finish`, never by hand-editing review events.
-- Treat `WORKFLOW_GUIDE.md` as the learner-facing source of truth. Any change to commands, daily
-  sequencing, rating rules, repair gates, synchronization, publication, reminders, time limits,
-  VS Code tasks, or public-data behavior must update that guide in the same change.
-- Before changing learning-system code, run focused tests, then `pytest`, then `ruff check --no-cache .`.
-- Explain a failed check instead of changing expected behavior merely to make it green.
+Approach and test-result checkpoints can be disabled separately in Coach preferences.
+
+## Ratings and progress
+
+Again: the target reasoning was missing or required help supplying it. Hard: independent recall with substantial effort. Good: ordinary independent recall. Easy: fluent independent recall. Never use Hard for failed recall. Implementation errors, speed, explanation, and assistance are separate dimensions; do not infer recall from speed or checkpoint count. A generic hint is not automatically algorithmic help.
+
+Learn and outline Recall do not extend the implementation FSRS interval. Transfer counts as unseen only on first exposure. Read readiness and retention from `study insights`; do not claim mastery from one pass or from sessions only a day apart. The retained threshold is seven actual elapsed days plus unseen transfer, an initial policy rather than a universal scientific rule. Preserve historical ratings and corrections; unknown old evidence is unknown.
+
+When recall has not been established or remains disputed, preserve it as unknown and leave the scheduling interval unchanged. Do not invent a failure merely because an attempt stopped before the learner recorded an approach.
+
+Record confirmed reusable errors through `study note error`, using a catalog skill ID. Core misconceptions may block dependent learning; repeated slips get small debugging repairs. Merge known aliases. Do not gate unrelated topics. Delayed repairs require at least 24 hours. One checked fresh application suffices; ask a brief explanation only when needed. Record repair minutes, including time with Codex.
+
+## Timing and completion
+
+Default session: 60 minutes, approximately 10 recall/repair, 40 main, seven testing/explanation, three administration. Offer a break at 45 active minutes; preserve work at the budget boundary. Browser focus is not an activity sensor. Use `study phase` and Pause; include Codex time, unsuccessful attempts, repairs, explanations, and administration. Allow actual-minute corrections.
+
+At completion switch to administration, run a current check when implementing, and read `study evaluate --json`. Ask one substantive question: “What would you recognize or do differently next time?” Draft the brief durable reflection from that answer and actual evidence. Do not fabricate missing evidence or require seven fields. Show the concrete recall rating, current test status, explanation/constraint findings, minutes, destination, and artifacts. Finish locally or preserve unsuccessful work when appropriate.
+
+Findings must cite actual learner statements or the tested code. Distinguish learner reports, tested observations, and coach judgments. Unknown evidence remains unknown; passing tests do not establish complexity or explanation. Preserve amendments and unresolved disagreements. Count parent guided sessions for the next 12-session cohort; supporting exercises, retries, and coach latency do not add extra sessions or duplicate study time. Restore the prior phase and draft on cancellation. Preserve uncertain crash/sleep gaps for the learner to correct.
+
+Pause authorizes a scoped draft synchronization. Final public publication needs one explicit action from the learner after the summary (Publish in the app, YES in `study complete`, or explicit conversational approval). Never infer publication from “I’m finished.” Use `study finalize --rating ... --reflection-file ... --sync` for compatible older integrations or `study finish` followed by `study publish <session-id>`. Never publish raw chats or unrelated files. Offline errors mean saved locally; sync pending, not loss of work. Do not claim a push succeeded without confirmation from the service.
+
+## Development
+
+Keep WORKFLOW_GUIDE.md, this file, launcher, and VS Code tasks consistent. Before changing learning-system code run focused tests, full pytest, and Ruff; rerun relevant checks afterward. Explain failing checks and update old expectations only when the intended policy changed. Add original exercises only within the available foundation; mark the rest planned. Every exercise needs a versioned contract, reference, public examples, edge cases, rejected known-wrong implementations, skill rubric, prerequisites, and content-classified hints. No copied proprietary statements.
+
+Every test must use a disposable repository. Never discover a test workspace by falling back to the installed source directory. The audit guard in tests/conftest.py rejects writes to real learner artifacts. Run real Playwright journeys with tests/browser_server.py and tests/fake_codex.py; CI must never use a signed-in account or consume allowance. Verify dark first paint, both themes, keyboard controls, responsive layout, local draft recovery, and separate coaching/test interruption. A live sign-in smoke check is a separately authorized release check. Keep the feature PR unmerged until the learner reviews it.

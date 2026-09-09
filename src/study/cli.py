@@ -6,13 +6,11 @@ import re
 import shutil
 import subprocess
 import sys
-from collections import defaultdict
 from datetime import UTC, datetime
 from pathlib import Path
 
 from study.core import (
     ASSISTANCE_LEVELS,
-    EASTERN,
     ERROR_CATEGORIES,
     ERROR_CAUSES,
     ERROR_SEVERITIES,
@@ -21,54 +19,20 @@ from study.core import (
     active_seconds,
     assistance_level,
     candidate_path,
-    cleanup_legacy_attempt,
-    current_eastern_date,
     display_value,
-    due_problems,
-    effective_events,
-    extend_focus,
     find_root,
     focus_boundary_reached,
-    format_failure,
     git_output,
-    is_independent_successful_review,
-    latest_by_problem,
-    learning_insights,
     load_problems,
     load_roadmap,
     load_session,
-    migrate_legacy_attempt,
-    next_new_problem,
-    open_repair_gates,
-    pause_timer,
     problem_by_id,
     python_version_ok,
-    rebuild_cards,
-    record_assistance,
-    record_initial_reasoning,
-    record_learning_error,
-    record_repair,
-    record_review,
-    resume_timer,
     run_solution,
     save_session,
-    session_path,
-    start_problem,
 )
 from study.gitflow import (
     GitFlowError,
-    branch_name,
-    commit_paths,
-    create_attempt_branch,
-    fast_forward_main,
-    merge_completed_attempt,
-    push_current,
-    remote_attempts,
-    require_git,
-    switch_to_remote_attempt,
-    sync_branch,
-    tracked_changes,
-    update_current_attempt,
 )
 
 
@@ -163,8 +127,10 @@ def cmd_doctor(root: Path, _args: argparse.Namespace) -> int:
         dependency = False
     dependency_detail = "installed" if dependency else "run pip install -e .[dev]"
     checks.append(("FSRS installed", dependency, dependency_detail))
-    problem_count = len(load_problems(root))
-    checks.append(("Problem catalog", problem_count == 13, f"{problem_count} exercises"))
+    problems = load_problems(root)
+    problem_count = len(problems)
+    valid = bool(problems) and len({p["id"] for p in problems}) == problem_count
+    checks.append(("Problem catalog", valid, f"{problem_count} exercises"))
 
     for label, passed, detail in checks:
         print(f"[{'OK' if passed else '!!'}] {label}: {detail}")
@@ -172,206 +138,38 @@ def cmd_doctor(root: Path, _args: argparse.Namespace) -> int:
 
 
 def cmd_today(root: Path, args: argparse.Namespace) -> int:
-    now = datetime.now(UTC)
-    session = load_session(root)
-    print(f"Study queue for {now.astimezone(EASTERN):%A, %B %d} (45 minutes)")
-    if session:
-        problem = problem_by_id(root, session["problem_id"])
-        print_problem(problem, "RESUME  ")
-        print(f"        {session['hints_used']} hint(s) used; edit attempt/current.py")
-        if message := focus_message(session):
-            print(f"        {message}")
-        return 0
+    from study.commands import dispatch
 
-    due = due_problems(root, now)
-    if due:
-        print("\nDue reviews:")
-        for problem in due:
-            print_problem(problem, "  - ")
-    else:
-        print("\nNo reviews are due.")
-
-    gates = open_repair_gates(root, now)
-    if gates:
-        print("\nRepair gates:")
-        for gate in gates:
-            lines = repair_gate_lines(gate, indent="    ")
-            print(f"  - {lines[0].strip()}")
-            print("\n".join(lines[1:]))
-
-    local_now = now.astimezone(EASTERN)
-    if local_now.weekday() < 5 or args.include_new:
-        new_problem = None if gates else next_new_problem(root, include_diagnostic=args.diagnostic)
-        if new_problem and new_problem not in due:
-            print("\nNew foundation work:")
-            print_problem(new_problem, "  - ")
-    elif not due:
-        print("Weekend: no new problem is scheduled; use --include-new to override.")
-    return 0
+    args.command = "today"
+    return dispatch(root, args)
 
 
 def cmd_practice(root: Path, args: argparse.Namespace) -> int:
-    """Resume active work or automatically start the highest-priority problem."""
-    if not args.no_sync:
-        require_git(root)
-        current_branch = branch_name(root)
-        if current_branch.startswith("attempt/"):
-            if update_current_attempt(root):
-                resume_timer(root)
-            current_branch = branch_name(root)
-        if current_branch == "main":
-            if fast_forward_main(root):
-                print(
-                    "Removed stale files from a completed attempt. Close any old "
-                    "attempt/current.py editor tab if it is still open."
-                )
-            attempts = remote_attempts(root)
-            if len(attempts) > 1:
-                raise GitFlowError(
-                    "More than one public attempt exists. Finish or remove the extra "
-                    "attempt branch."
-                )
-            if attempts:
-                switch_to_remote_attempt(root, attempts[0])
-                resume_timer(root)
+    from study.commands import dispatch
 
-            legacy = root / ".practice" / "session.json"
-            if legacy.exists() and not attempts:
-                legacy_data = json.loads(legacy.read_text(encoding="utf-8"))
-                create_attempt_branch(root, legacy_data["problem_id"])
-                migrate_legacy_attempt(root)
-                commit_paths(
-                    root,
-                    f"study(draft): migrate {legacy_data['problem_id']}",
-                    ["attempt"],
-                )
-                push_current(root, set_upstream=True)
-                cleanup_legacy_attempt(root)
-
-    session = load_session(root)
-    if session:
-        if args.no_sync and migrate_legacy_attempt(root):
-            session = load_session(root)
-        assert session is not None
-        problem = problem_by_id(root, session["problem_id"])
-        print_problem(problem, "Resuming: ")
-        if session.get("initial_reasoning"):
-            print("Open attempt/current.py and continue your solution.")
-        else:
-            print_problem_context(problem)
-            print("First reconstruct the approach, why, invariant, complexity, and one edge case.")
-        if args.open and session.get("initial_reasoning"):
-            open_candidate(root)
-        return 0
-
-    due = due_problems(root)
-    gates = open_repair_gates(root)
-    eligible_gates = [gate for gate in gates if gate["eligible"]]
-    if not due and eligible_gates:
-        gate = eligible_gates[0]
-        print("Repair required before new material:")
-        print("\n".join(repair_gate_lines(gate)))
-        return 0
-    if not due and gates:
-        print("A repair gate becomes eligible next Eastern day. Due reviews remain available.")
-        print("\n".join(repair_gate_lines(gates[0])))
-        return 0
-    problem = due[0] if due else next_new_problem(root)
-    if problem is None:
-        print("No problem is available. Your current exercise catalog is complete.")
-        return 0
-
-    if not args.no_sync:
-        create_attempt_branch(root, problem["id"])
-    path = start_problem(root, problem["id"])
-    if not args.no_sync:
-        commit_paths(root, f"study(draft): start {problem['id']}", ["attempt"])
-        push_current(root, set_upstream=True)
-    reason = "due review" if due else "next roadmap problem"
-    print_problem(problem, f"Started {reason}: ")
-    if not due and not effective_events(root):
-        print_module_map(root)
-    print_problem_context(problem)
-    print(f"Candidate prepared at {path.relative_to(root)}, but keep it closed for initial recall.")
-    print("State the approach, why it fits, invariant, complexity, and one edge case first.")
-    return 0
+    args.command = "practice"
+    return dispatch(root, args)
 
 
 def cmd_start(root: Path, args: argparse.Namespace) -> int:
-    existing = load_session(root)
-    if existing and not args.replace:
-        print(
-            f"An unfinished session exists for {existing['problem_id']}. "
-            "Use --replace to discard it."
-        )
-        return 2
-    path = start_problem(root, args.problem_id)
-    problem = problem_by_id(root, args.problem_id)
-    print_problem(problem, "Started: ")
-    print_problem_context(problem)
-    print(f"Candidate prepared at {path.relative_to(root)}, but keep it closed for initial recall.")
-    print("State the approach, why it fits, invariant, complexity, and one edge case first.")
-    return 0
+    from study.commands import dispatch
+
+    args.command = "start"
+    return dispatch(root, args)
 
 
 def cmd_hint(root: Path, _args: argparse.Namespace) -> int:
-    session = require_reasoning(root)
-    problem = problem_by_id(root, session["problem_id"])
-    used = session["hints_used"]
-    if used and int(session.get("checkpoint_count", 0)) <= int(
-        session.get("checkpoint_count_at_last_hint", -1)
-    ):
-        print("Retry and checkpoint your revised solution before revealing another hint.")
-        return 2
-    if used >= len(problem["hints"]):
-        print(
-            "The full hint ladder has already been used. "
-            "Ask Codex for a solution review if needed."
-        )
-        return 0
-    stages = ("Targeted question", "Pattern clue", "Pseudocode")
-    label = stages[used] if used < len(stages) else f"Hint {used + 1}"
-    print(f"{label}: {problem['hints'][used]}")
-    session["hints_used"] = used + 1
-    session["checkpoint_count_at_last_hint"] = int(session.get("checkpoint_count", 0))
-    save_session(root, session)
-    level = "guided" if used == 0 else "substantial"
-    record_assistance(root, level, problem["hints"][used], source="formal_hint")
-    return 0
+    from study.commands import dispatch
+
+    _args.command = "hint"
+    return dispatch(root, _args)
 
 
 def cmd_note(root: Path, args: argparse.Namespace) -> int:
-    if args.note_kind == "reasoning":
-        note = record_initial_reasoning(
-            root,
-            args.approach,
-            args.invariant,
-            args.complexity,
-            args.why,
-            args.edge_case,
-            args.quality,
-        )
-        if args.open:
-            open_candidate(root)
-        print(json.dumps(note, indent=2) if args.json else "Initial reasoning recorded.")
-        return 0
-    if args.note_kind == "assistance":
-        event = record_assistance(root, args.level, args.summary)
-        print(json.dumps(event, indent=2) if args.json else f"{args.level.title()} help recorded.")
-        return 0
-    path = record_learning_error(
-        root,
-        args.skill,
-        args.category,
-        args.cause,
-        args.severity,
-        args.summary,
-        args.trigger,
-        args.corrected_rule,
-        args.repair_prompt,
-    )
-    print(f"Learning error recorded in {path.relative_to(root)}")
-    return 0
+    from study.commands import dispatch
+
+    args.command = "note"
+    return dispatch(root, args)
 
 
 def test_current(root: Path) -> tuple[dict | None, list]:
@@ -383,18 +181,10 @@ def test_current(root: Path) -> tuple[dict | None, list]:
 
 
 def cmd_test(root: Path, _args: argparse.Namespace) -> int:
-    require_reasoning(root)
-    problem, failures = test_current(root)
-    if problem is None:
-        print("No active problem. Press Ctrl+Shift+B to start one.")
-        return 2
-    if failures:
-        print(f"{len(failures)} of {len(problem['cases'])} case(s) failed:")
-        for failure in failures:
-            print(f"  - {format_failure(failure)}")
-        return 1
-    print(f"PASS — all {len(problem['cases'])} cases passed for {problem['id']}")
-    return 0
+    from study.commands import dispatch
+
+    _args.command = "test"
+    return dispatch(root, _args)
 
 
 def passed_count(total: int, failures: list) -> int:
@@ -421,122 +211,52 @@ def checkpoint(root: Path) -> tuple[dict, int, int, list]:
 
 
 def cmd_checkpoint(root: Path, args: argparse.Namespace) -> int:
-    problem, passed, total, failures = checkpoint(root)
-    result = {
-        "problem_id": problem["id"],
-        "passed_cases": passed,
-        "total_cases": total,
-        "all_passed": passed == total,
-        "checkpoint_count": load_session(root)["checkpoint_count"],
-        "failure_count": len(failures),
-    }
-    if args.json:
-        print(json.dumps(result, indent=2))
-    else:
-        print(f"Local check saved for {problem['id']}: {passed}/{total} cases passed.")
-    if passed < total and not args.json:
-        print("Failure details stayed local:")
-        for failure in failures:
-            print(f"  - {format_failure(failure)}")
-        print("Ask Codex to discuss one issue, then revise the draft and check again.")
-    return 0
+    from study.commands import dispatch
+
+    args.command = "checkpoint"
+    return dispatch(root, args)
 
 
 def cmd_continue(root: Path, args: argparse.Namespace) -> int:
-    session = extend_focus(root, args.minutes)
-    total = 45 + sum(int(item["minutes"]) for item in session["focus_extensions"])
-    print(f"Focus block explicitly extended to {total} active minutes.")
+    from study.service import StudyService
+
+    service = StudyService(root)
+    with service.lock:
+        session = service._session()
+        session["budget_minutes"] = min(180, session.get("budget_minutes", 60) + args.minutes)
+        service._save(session)
+    service.start(synchronize=False)
+    print("Session budget extended; the timer is running.")
     return 0
 
 
 def cmd_repair(root: Path, args: argparse.Namespace) -> int:
-    path = record_repair(
-        root,
-        args.error_id,
-        args.trigger,
-        args.corrected_rule,
-        args.why_failed,
-        args.application,
-        args.passed,
-        args.assistance,
-    )
-    event = json.loads(path.read_text(encoding="utf-8"))
-    result = "cleared" if event["passed"] else "remains open"
-    relative = path.relative_to(root).as_posix()
-    if (root / ".git").exists():
-        commit_paths(root, f"study: record repair {event['skill']}", [relative])
-        push_current(root)
-        suffix = " and synchronized"
-    else:
-        suffix = ""
-    print(f"Repair {result}; evidence recorded{suffix} in {relative}")
-    return 0
+    from study.commands import dispatch
+
+    args.command = "repair"
+    return dispatch(root, args)
 
 
 def cmd_insights(root: Path, args: argparse.Namespace) -> int:
-    result = learning_insights(root)
-    if args.json:
-        print(json.dumps(result, indent=2))
-        return 0
-    print("Learning ROI")
-    def percentage(value: float | None) -> str:
-        return "not yet measured" if value is None else f"{value:.0%}"
+    from study.commands import dispatch
 
-    print(f"Independent solutions: {percentage(result['independent_solution_rate'])}")
-    print(f"Independent delayed recall: {result['delayed_recall_success_rate']:.0%}")
-    print(f"First-checkpoint passes: {percentage(result['first_checkpoint_pass_rate'])}")
-    print(f"Assistance rate: {percentage(result['assistance_rate'])}")
-    print(f"Hint rate: {percentage(result['hint_rate'])}")
-    ratio = result["median_time_vs_estimate"]
-    ratio_text = "not yet measured" if ratio is None else f"{ratio:.2f}x"
-    print(f"Median time vs estimate: {ratio_text}")
-    print(f"Independent transfer: {percentage(result['transfer_success_rate'])}")
-    print(f"Active hours recorded: {result['active_hours']}")
-    print(f"Open repair gates: {result['open_repair_gates']}")
-    for gate in open_repair_gates(root):
-        print("\n".join(repair_gate_lines(gate, indent="  ")))
-    if result["errors_by_category"]:
-        print("Errors by category:")
-        for category, count in result["errors_by_category"].items():
-            print(f"  - {category}: {count}")
-    if result["recurring_errors"]:
-        print("Recurring errors:")
-        for label, count in result["recurring_errors"].items():
-            print(f"  - {label}: {count}")
-    return 0
+    args.command = "insights"
+    return dispatch(root, args)
 
 
 def cmd_pause(root: Path, _args: argparse.Namespace) -> int:
-    session = pause_timer(root)
-    problem = problem_by_id(root, session["problem_id"])
-    paths = ["attempt", *session.get("learning_event_paths", [])]
-    commit_paths(root, f"study(draft): pause {problem['id']}", paths)
-    push_current(root)
-    print(f"Paused and synchronized {problem['title']}.")
-    return 0
+    from study.commands import dispatch
+
+    _args.command = "pause"
+    return dispatch(root, _args)
 
 
 def rating_recommendation(problem: dict, session: dict, passed: int, total: int) -> tuple[str, str]:
-    if passed < total:
-        return "again", "The solution does not pass all cases yet."
-    level = assistance_level(session)
-    checkpoints = int(session.get("checkpoint_count", 0))
-    minutes = max(1, round(active_seconds(session) / 60))
-    recall = session.get("initial_reasoning", {}).get("quality", "novel")
-    if recall == "failed":
-        return "again", "The core approach could not be reconstructed before coding."
-    if level == "substantial":
-        return "again", "It passed, but substantial help supplied the core approach or invariant."
-    if level == "guided":
-        return "hard", "It passed with guided algorithmic help or targeted debugging."
-    if recall == "partial":
-        return "hard", "Initial retrieval was partial, even though the final solution passed."
-    if checkpoints <= 1 and minutes <= int(problem["estimated_minutes"]):
-        if level == "minor":
-            return "easy", "It passed on the first checkpoint with only minor implementation help."
-        return "easy", "It passed on the first checkpoint, independently, within the estimate."
-    qualifier = " with only minor implementation help" if level == "minor" else " independently"
-    return "good", f"It passed{qualifier}; multiple checkpoints or extra time were used."
+    levels = [item["level"] for item in session.get("assistance_log", [])]
+    quality = session.get("initial_reasoning", {}).get("quality", "novel")
+    if quality in {"partial", "failed"} or any(x in {"guided", "substantial"} for x in levels):
+        return "again", "Missing independent reasoning requires Again."
+    return "good", "Independent recall: choose Hard, Good, or Easy according to effort."
 
 
 def rating_too_high(selected: str, recommended: str) -> bool:
@@ -571,17 +291,10 @@ def evaluation(root: Path) -> dict:
 
 
 def cmd_evaluate(root: Path, args: argparse.Namespace) -> int:
-    result = evaluation(root)
-    if args.json:
-        print(json.dumps(result, indent=2))
-    else:
-        print(f"{result['passed_cases']}/{result['total_cases']} cases passed")
-        print(f"Active time: {result['active_minutes']} minutes")
-        print(
-            f"Recommended rating: {result['recommended_rating'].title()} — "
-            f"{result['rating_rationale']}"
-        )
-    return 0
+    from study.commands import dispatch
+
+    args.command = "evaluate"
+    return dispatch(root, args)
 
 
 def reflection_path(root: Path, problem_id: str) -> Path:
@@ -646,7 +359,7 @@ def render_reflection(
 
 def apply_reflection_file(args: argparse.Namespace) -> argparse.Namespace:
     payload = {}
-    if args.reflection_file:
+    if getattr(args, "reflection_file", None):
         payload = json.loads(Path(args.reflection_file).read_text(encoding="utf-8"))
     for field in (
         "approach",
@@ -665,132 +378,17 @@ def apply_reflection_file(args: argparse.Namespace) -> argparse.Namespace:
 
 
 def cmd_finish(root: Path, args: argparse.Namespace) -> int:
-    session = load_session(root)
-    if not session:
-        print("No active problem to finish.")
-        return 2
-    problem, failures = test_current(root)
-    assert problem is not None
-    passed = not failures
-    if not passed and args.rating != "again":
-        print("Only an Again rating may be recorded while tests fail:")
-        for failure in failures:
-            print(f"  - {format_failure(failure)}")
-        return 2
-    if args.rating in {"good", "easy"} and not args.explained:
-        print("Good and Easy require --explained after stating the approach and complexity.")
-        return 2
-    if passed and not session.get("initial_reasoning"):
-        print("Completion requires recorded initial reasoning.")
-        return 2
-    recommended, rationale = rating_recommendation(
-        problem, session, len(problem["cases"]) - len(failures), len(problem["cases"])
-    )
-    if rating_too_high(args.rating, recommended):
-        print(f"Evidence permits at most {recommended.title()}: {rationale}")
-        return 2
+    from study.commands import dispatch
 
-    review_path = record_review(
-        root,
-        problem,
-        args.rating,
-        args.minutes,
-        passed,
-        session["hints_used"],
-        args.explained,
-        assistance_level(session),
-        len(session.get("assistance_log", [])),
-        session["initial_reasoning"].get("quality", "novel"),
-        bool(session.get("first_checkpoint_passed", False)),
-    )
-    if passed:
-        destination = root / "solutions" / f"{problem['id']}.py"
-        destination.parent.mkdir(exist_ok=True)
-        shutil.copy2(candidate_path(root), destination)
-    candidate_path(root).unlink(missing_ok=True)
-    session_path(root).unlink(missing_ok=True)
-
-    card = rebuild_cards(root)[problem["id"]]
-    print(f"Recorded {args.rating.title()} review in {review_path.relative_to(root)}")
-    if passed:
-        print(f"Promoted passing solution to solutions/{problem['id']}.py")
-    print(f"Next review: {card.due.astimezone(EASTERN):%A, %B %d at %I:%M %p %Z}")
-    return 0
+    args.command = "finish"
+    return dispatch(root, args)
 
 
 def cmd_finalize(root: Path, args: argparse.Namespace) -> int:
-    args = apply_reflection_file(args)
-    session = load_session(root)
-    if session is None:
-        raise RuntimeError("No active problem to finalize.")
-    problem, failures = test_current(root)
-    assert problem is not None
-    if failures:
-        raise RuntimeError("The solution must pass all cases before completion.")
-    if not session.get("initial_reasoning"):
-        raise RuntimeError("Completion requires recorded initial reasoning.")
-    recommended, rationale = rating_recommendation(
-        problem, session, len(problem["cases"]), len(problem["cases"])
-    )
-    if rating_too_high(args.rating, recommended):
-        raise RuntimeError(
-            f"Evidence permits at most {recommended.title()}: {rationale}"
-        )
+    from study.commands import dispatch
 
-    minutes = args.minutes or max(1, round(active_seconds(session) / 60))
-    reflection = render_reflection(args, problem, session, recommended, rationale)
-    candidate_text = candidate_path(root).read_text(encoding="utf-8")
-    unsafe = public_content_errors(reflection + "\n" + candidate_text)
-    if unsafe:
-        raise RuntimeError(f"Reflection contains public-content risks: {', '.join(unsafe)}")
-
-    name = branch_name(root)
-    if not name.startswith("attempt/"):
-        raise GitFlowError("Completion must run on an attempt branch.")
-    allowed_existing = set(session.get("learning_event_paths", []))
-    unrelated = tracked_changes(root, exclude_attempt=True)
-    extra = [path for path in unrelated if path not in allowed_existing]
-    if extra:
-        raise GitFlowError(f"Unrelated tracked changes block completion: {', '.join(extra)}")
-
-    destination = root / "solutions" / f"{problem['id']}.py"
-    destination.parent.mkdir(exist_ok=True)
-    shutil.copy2(candidate_path(root), destination)
-    reflection_file = reflection_path(root, problem["id"])
-    reflection_file.parent.mkdir(exist_ok=True)
-    reflection_file.write_text(reflection, encoding="utf-8")
-    review_path = record_review(
-        root,
-        problem,
-        args.rating,
-        minutes,
-        True,
-        int(session.get("hints_used", 0)),
-        True,
-        assistance_level(session),
-        len(session.get("assistance_log", [])),
-        session["initial_reasoning"].get("quality", "novel"),
-        bool(session.get("first_checkpoint_passed", False)),
-    )
-    shutil.rmtree(root / "attempt")
-    paths = [
-        "attempt",
-        destination.relative_to(root).as_posix(),
-        reflection_file.relative_to(root).as_posix(),
-        review_path.relative_to(root).as_posix(),
-        *session.get("learning_event_paths", []),
-    ]
-    commit_paths(root, f"study: finish {problem['id']} ({args.rating})", paths)
-    push_current(root)
-    if args.sync:
-        merge_completed_attempt(root, name)
-        print(f"Completed and synchronized {problem['title']} to main.")
-    else:
-        print(
-            "Completion is committed on the attempt branch. "
-            "Run `python -m study sync --complete`."
-        )
-    return 0
+    args.command = "finalize"
+    return dispatch(root, args)
 
 
 def prompt_nonempty(label: str) -> str:
@@ -802,171 +400,60 @@ def prompt_nonempty(label: str) -> str:
 
 
 def cmd_complete(root: Path, _args: argparse.Namespace) -> int:
-    result = evaluation(root)
-    if result["passed_cases"] < result["total_cases"]:
-        print("The current solution does not pass all cases. Test details:")
-        return cmd_test(root, argparse.Namespace())
-    session = load_session(root)
-    assert session is not None
-    if not session.get("initial_reasoning"):
-        record_initial_reasoning(
-            root,
-            prompt_nonempty("Initial approach before coaching"),
-            prompt_nonempty("Initial invariant or key belief"),
-            prompt_nonempty("Initially expected complexity"),
-            prompt_nonempty("Why this approach fits"),
-            prompt_nonempty("Important edge case"),
-            "novel" if session.get("attempt_kind") == "new" else "partial",
-        )
-        result = evaluation(root)
-    print(json.dumps(result, indent=2))
-    rating = input(f"Rating [{result['recommended_rating']}]: ").strip().lower()
-    rating = rating or result["recommended_rating"]
-    if rating not in RATINGS:
-        raise RuntimeError("Rating must be Again, Hard, Good, or Easy.")
-    if rating_too_high(rating, result["recommended_rating"]):
-        raise RuntimeError(
-            f"Evidence permits at most {result['recommended_rating'].title()}: "
-            f"{result['rating_rationale']}"
-        )
-    minutes_text = input(f"Active minutes [{result['active_minutes']}]: ").strip()
-    minutes = int(minutes_text) if minutes_text else result["active_minutes"]
-    args = argparse.Namespace(
-        rating=rating,
-        minutes=minutes,
-        approach=prompt_nonempty("Approach"),
-        insight=prompt_nonempty("Key invariant or insight"),
-        time_complexity=prompt_nonempty("Time complexity"),
-        space_complexity=prompt_nonempty("Space complexity"),
-        lessons=prompt_nonempty("Mistakes and lessons"),
-        assistance=prompt_nonempty("Assistance received"),
-        rating_rationale=prompt_nonempty("Rating rationale"),
-        sync=False,
-    )
-    print("\nFiles will be committed on the public attempt branch, then merged to public main.")
-    if input("Type YES to publish and synchronize: ").strip() != "YES":
-        print("Completion cancelled; your attempt remains intact.")
-        return 1
-    args.sync = True
-    return cmd_finalize(root, args)
+    from study.commands import dispatch
+
+    _args.command = "complete"
+    return dispatch(root, _args)
 
 
 def cmd_sync(root: Path, args: argparse.Namespace) -> int:
-    name = branch_name(root)
-    if args.complete and name.startswith("attempt/") and not (root / "attempt").exists():
-        push_current(root)
-        merge_completed_attempt(root, name)
-        print("Completed attempt merged and synchronized to main.")
-        return 0
-    synced = sync_branch(root)
-    print(f"Synchronized {synced}.")
-    return 0
+    from study.commands import dispatch
+
+    args.command = "sync"
+    return dispatch(root, args)
 
 
 def mastery(root: Path) -> tuple[int, int, bool]:
-    problems = [p for p in load_problems(root) if p["topic"] == "arrays-hashing"]
-    events = effective_events(root)
-    latest = latest_by_problem(root)
-    review_days: dict[str, set[str]] = defaultdict(set)
-    for event in events:
-        if is_independent_successful_review(event):
-            reviewed = datetime.fromisoformat(event["reviewed_at"]).astimezone(EASTERN)
-            day = reviewed.date().isoformat()
-            review_days[event["problem_id"]].add(day)
-    core = [p for p in problems if p["kind"] == "core"]
-    transfer = [p for p in problems if p["kind"] == "transfer"]
-    mastered_core = sum(
-        len(review_days[p["id"]]) >= 2
-        and p["id"] in latest
-        and is_independent_successful_review(latest[p["id"]])
-        for p in core
+    from study.policy import topic_progress
+
+    topic = next((t for t in topic_progress(root) if t["id"] == "arrays-hashing"), {})
+    return (
+        topic.get("retained_core", 0),
+        topic.get("core_count", 0),
+        topic.get("unseen_transfer_passed", False),
     )
-    transfer_passed = all(
-        p["id"] in latest and is_independent_successful_review(latest[p["id"]])
-        for p in transfer
-    ) and not open_repair_gates(root)
-    return mastered_core, len(core), transfer_passed
 
 
 def cmd_status(root: Path, _args: argparse.Namespace) -> int:
-    events = effective_events(root)
-    cards = rebuild_cards(root)
-    latest = latest_by_problem(root)
-    mastered, core_count, transfer = mastery(root)
-    print("Foundations / Arrays & Hashing")
-    print(f"Core durable reviews: {mastered}/{core_count}")
-    print(f"Independent transfer exercise passed: {'yes' if transfer else 'no'}")
-    print(f"Total review events: {len(events)}")
-    print(f"Open repair gates: {len(open_repair_gates(root))}")
-    if not events:
-        print("Next step: press Ctrl+Shift+B in VS Code")
-        return 0
-    print("\nReviewed problems:")
-    catalog = {p["id"]: p for p in load_problems(root)}
-    for problem_id, event in sorted(latest.items()):
-        due = cards[problem_id].due.astimezone(EASTERN)
-        print(f"  - {catalog[problem_id]['title']}: {event['rating']} -> due {due:%Y-%m-%d}")
-    return 0
+    from study.commands import dispatch
+
+    _args.command = "status"
+    return dispatch(root, _args)
 
 
 def reminder_text(root: Path) -> str:
-    due = due_problems(root)
-    gates = open_repair_gates(root)
-    lines = [
-        f"# Practice due - {current_eastern_date()}",
-        "",
-        "Your adaptive review queue is ready. Start with recall before opening old code.",
-        "",
-    ]
-    if due:
-        lines.append("## Due reviews")
-        lines.append("")
-        for problem in due:
-            lines.append(
-                f"- [ ] `{problem['id']}` - {problem['title']} "
-                f"({problem['topic']}, about {problem['estimated_minutes']} min)"
-            )
-    else:
-        lines.extend(["No spaced-repetition reviews are due today.", ""])
+    from study.policy import queue
 
-    if gates:
-        lines.extend(["", "## Repair gates", ""])
-        for gate in gates:
-            state = "ready now" if gate["eligible"] else "available next Eastern day"
-            lines.extend(
-                [
-                    f"- **{gate['skill']} / {gate['category']}** ({state})",
-                    f"  - Error ID: `{gate['event_id']}`",
-                    f"  - Prompt: {gate['repair_prompt']}",
-                    f"  - Start with: `python -m study repair --error-id {gate['event_id']}`",
-                ]
-            )
-
-    local_now = datetime.now(EASTERN)
-    new_problem = next_new_problem(root)
-    if local_now.weekday() < 5 and new_problem and not gates:
-        lines.extend(
-            [
-                "",
-                "## New foundation work",
-                "",
-                f"- [ ] `{new_problem['id']}` - {new_problem['title']} "
-                f"(about {new_problem['estimated_minutes']} min)",
+    result = queue(root, now=datetime.now(UTC))
+    lines = ["# Today’s practice", "", result["reason"], "", "## Due reviews", ""]
+    lines += [f"- {p['id']}: full implementation remains due." for p in result["due"]]
+    if result["repairs"]:
+        lines += ["", "## Repair gates", ""]
+        for gate in result["repairs"]:
+            lines += [
+                f"- {gate['skill']}: {'ready' if gate['eligible'] else 'wait 24 hours'}",
+                f"  Error ID: `{gate['event_id']}`",
+                f"  Apply: {gate['repair_prompt']}",
+                f"  Use `study repair --error-id {gate['event_id']} "
+                "--application <text> --minutes <n>` or the app.",
             ]
-        )
-    lines.extend(
-        [
-            "",
-            "## Start",
-            "",
-            "```powershell",
-            "# In VS Code, press Ctrl+Shift+B",
-            "python -m study practice",
-            "```",
-            "",
-            "When finished, tell Codex: I'm finished.",
-        ]
-    )
+    if result["main"]:
+        lines += ["", "## Next activity", "", result["activity"] + ". " + result["reason"]]
+    lines += [
+        "",
+        "Open **Start Study** or run `study app`. Codex uses `study summary`.",
+        "Finish locally at any point; use Publish for your reviewed learning artifacts.",
+    ]
     return "\n".join(lines) + "\n"
 
 
@@ -977,31 +464,71 @@ def cmd_reminder(root: Path, _args: argparse.Namespace) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="study", description="Algorithm learning companion")
+    parser.add_argument("--root", type=Path, help="Explicit learning repository")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("doctor", help="check local setup")
+    app = commands.add_parser("app", help="open the local practice app")
+    app.add_argument("--port", type=int, default=8765)
+    app.add_argument("--no-open", action="store_true")
+    commands.add_parser("summary", help="JSON session summary for Codex")
+    commands.add_parser(
+        "coach-context", help="Restricted context for coaching the current activity"
+    )
+    commands.add_parser("guided", help="Explicitly convert an assessment to guided practice")
+    retry = commands.add_parser("retry", help="Save a substantive reasoning retry")
+    retry.add_argument("answer")
+    advance = commands.add_parser("advance", help="Continue or skip a supporting activity")
+    advance.add_argument("--answer", default="")
+    advance.add_argument("--skip", action="store_true")
+    advance.add_argument("--passed", action="store_true")
+    publish = commands.add_parser("publish", help="explicitly publish a saved completion")
+    publish.add_argument("session_id")
+    commands.add_parser("recover", help="preserve a divergent or orphan draft")
+    commands.add_parser("learn-example", help="study a worked solution after an initial attempt")
+    commands.add_parser("keep-local", help="defer pending publication")
+    save = commands.add_parser("save", help="save candidate without overwriting another editor")
+    save.add_argument("--file", required=True)
+    save.add_argument("--revision", type=int, required=True)
+    save.add_argument("--digest")
+    phase = commands.add_parser("phase", help="record the current study phase")
+    phase.add_argument(
+        "phase",
+        choices=("recall", "implementation", "explanation", "repair", "administration", "learning"),
+    )
+    commands.add_parser("stop", help="stop a running code check")
     practice = commands.add_parser(
         "practice", help="start or resume today's highest-priority problem"
     )
     practice.add_argument("--no-sync", action="store_true", help=argparse.SUPPRESS)
+    practice.add_argument("--include-new", action="store_true")
+    practice.add_argument("--minutes", type=int)
     practice.add_argument("--open", action="store_true", help="open the candidate in VS Code")
     today = commands.add_parser("today", help="show today's study queue")
     today.add_argument("--diagnostic", action="store_true", help="offer unreviewed diagnostic work")
     today.add_argument("--include-new", action="store_true", help="offer new work on weekends")
     start = commands.add_parser("start", help="begin one exercise")
     start.add_argument("problem_id")
+    start.add_argument(
+        "--include-new", action="store_true", help="allow unseen content on weekends"
+    )
+    start.add_argument(
+        "--activity", choices=("learn", "recall", "implement", "transfer"), default="implement"
+    )
+    start.add_argument("--minutes", type=int)
     start.add_argument("--replace", action="store_true", help="replace an unfinished session")
     note = commands.add_parser("note", help="record learning evidence for the active attempt")
     note_subcommands = note.add_subparsers(dest="note_kind", required=True)
     reasoning = note_subcommands.add_parser("reasoning", help="record the initial reasoning")
     reasoning.add_argument("--approach", required=True)
-    reasoning.add_argument("--invariant", required=True)
-    reasoning.add_argument("--complexity", required=True)
-    reasoning.add_argument("--why", default="Why the selected pattern fits the constraints.")
-    reasoning.add_argument("--edge-case", default="An important boundary or duplicate case.")
+    reasoning.add_argument("--invariant")
+    reasoning.add_argument("--complexity")
+    reasoning.add_argument("--why", default=None)
+    reasoning.add_argument("--edge-case", default=None)
     reasoning.add_argument("--quality", choices=RECALL_QUALITIES, default="novel")
     reasoning.add_argument("--open", action="store_true")
     reasoning.add_argument("--json", action="store_true")
     assistance = note_subcommands.add_parser("assistance", help="record coaching assistance")
+    assistance.add_argument("--missing-recall", action="store_true")
     assistance.add_argument("--level", required=True, choices=ASSISTANCE_LEVELS[1:])
     assistance.add_argument("--summary", required=True)
     assistance.add_argument("--json", action="store_true")
@@ -1014,7 +541,8 @@ def build_parser() -> argparse.ArgumentParser:
     error.add_argument("--trigger", required=True)
     error.add_argument("--corrected-rule", required=True)
     error.add_argument("--repair-prompt", required=True)
-    commands.add_parser("hint", help="reveal the next progressive hint")
+    hint = commands.add_parser("hint", help="reveal the next progressive hint")
+    hint.add_argument("--retried", action="store_true", help="confirm a reasoning retry")
     commands.add_parser("test", help="run cases for the active attempt")
     checkpoint_command = commands.add_parser(
         "checkpoint", help="run cases and save a local checkpoint"
@@ -1027,10 +555,11 @@ def build_parser() -> argparse.ArgumentParser:
     continuation.add_argument("--minutes", required=True, type=int)
     repair = commands.add_parser("repair", help="submit a delayed repair-gate response")
     repair.add_argument("--error-id", required=True)
-    repair.add_argument("--trigger", required=True)
-    repair.add_argument("--corrected-rule", required=True)
-    repair.add_argument("--why-failed", required=True)
+    repair.add_argument("--trigger")
+    repair.add_argument("--corrected-rule")
+    repair.add_argument("--why-failed")
     repair.add_argument("--application", required=True)
+    repair.add_argument("--minutes", type=float, required=True)
     repair.add_argument("--passed", action="store_true")
     repair.add_argument("--assistance", choices=ASSISTANCE_LEVELS, default="none")
     insights = commands.add_parser("insights", help="show learning ROI and recurring weaknesses")
@@ -1039,7 +568,10 @@ def build_parser() -> argparse.ArgumentParser:
     evaluate.add_argument("--json", action="store_true")
     finish = commands.add_parser("finish", help="record a review and close the active attempt")
     finish.add_argument("--rating", required=True, choices=RATINGS)
-    finish.add_argument("--minutes", required=True, type=int)
+    finish.add_argument("--minutes", type=float)
+    finish.add_argument("--takeaway")
+    finish.add_argument("--constraints-met", action="store_true")
+    finish.add_argument("--stopped", action="store_true")
     finish.add_argument(
         "--explained",
         action="store_true",
@@ -1090,12 +622,15 @@ COMMANDS = {
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    if getattr(args, "minutes", 1) <= 0:
+    if getattr(args, "minutes", None) is not None and args.minutes <= 0:
         print("--minutes must be positive", file=sys.stderr)
         return 2
     try:
-        root = find_root()
-        return COMMANDS[args.command](root, args)
-    except (KeyError, RuntimeError, GitFlowError) as exc:
+        root = find_root(args.root)
+        from study.commands import dispatch
+
+        result = dispatch(root, args)
+        return result if result is not None else COMMANDS[args.command](root, args)
+    except (KeyError, RuntimeError, ValueError, GitFlowError) as exc:
         print(str(exc), file=sys.stderr)
         return 2

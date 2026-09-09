@@ -59,6 +59,8 @@ def tracked_changes(root: Path, exclude_attempt: bool = False) -> list[str]:
     paths = []
     for line in result.output.splitlines():
         path = line[3:].split(" -> ")[-1].replace("\\", "/")
+        if path.startswith(".study-local/"):
+            continue
         if exclude_attempt and path.startswith("attempt/"):
             continue
         paths.append(path)
@@ -82,8 +84,10 @@ def cleanup_stale_completed_attempt(root: Path) -> bool:
         child.name
         for child in attempt.iterdir()
         if not (
-            child.name == "current.py" and child.is_file()
-            or child.name in allowed_cache_dirs and child.is_dir()
+            child.name == "current.py"
+            and child.is_file()
+            or child.name in allowed_cache_dirs
+            and child.is_dir()
         )
     )
     if unknown:
@@ -192,8 +196,7 @@ def update_current_attempt(root: Path) -> bool:
             deleted = run_git(root, "branch", "-D", name)
             if deleted.code:
                 raise GitFlowError(
-                    "Main updated, but stale local branch cleanup failed: "
-                    f"{deleted.output}"
+                    f"Main updated, but stale local branch cleanup failed: {deleted.output}"
                 )
             return False
         return True
