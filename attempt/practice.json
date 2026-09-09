@@ -1,0 +1,30 @@
+{
+  "parent": {
+    "practice_id": "c66811547c31454ca00a0179ceb7570d",
+    "workflow_version": 3,
+    "started_at": "2026-09-09T13:32:16.804233+00:00",
+    "budget_minutes": 60,
+    "include_new": false,
+    "status": "active",
+    "index": 0,
+    "stages": [
+      {
+        "type": "main",
+        "problem_id": "arrays-001-pair-sum",
+        "activity": "implement",
+        "label": "Main activity",
+        "minutes": 60,
+        "status": "active"
+      }
+    ],
+    "attempt_ids": [],
+    "repair_paths": [],
+    "timing": {},
+    "receipts": [],
+    "automatic_coaching": true,
+    "main_was_new": false
+  },
+  "repair": null,
+  "receipts": {},
+  "artifacts": {}
+}

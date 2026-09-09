@@ -1,0 +1,75 @@
+{
+  "schema_version": 6,
+  "problem_id": "arrays-001-pair-sum",
+  "attempt_kind": "review",
+  "started_at": "2026-09-08T09:55:34.724999+00:00",
+  "active_started_at": null,
+  "accumulated_seconds": 882,
+  "hints_used": 0,
+  "checkpoint_count": 0,
+  "assistance_log": [],
+  "focus_extensions": [],
+  "learning_event_paths": [
+    "progress/learning-events/20260908T095534756141Z-exposure-7f18e978.json"
+  ],
+  "substantial_gate_recorded": false,
+  "session_id": "d497f16efba54d0fafac2180107b9ff4",
+  "revision": 37,
+  "activity": "implement",
+  "unseen": false,
+  "phase": "implementation",
+  "timing": {
+    "recall": 311.914,
+    "implementation": 570.272
+  },
+  "phase_started_at": null,
+  "budget_minutes": 60,
+  "content_version": 2,
+  "rubric_version": 2,
+  "skill_ids": [
+    "complement-lookup",
+    "one-pass-hashing",
+    "index-invariants"
+  ],
+  "code_digest": "737bd7b9fc09527d84eee9727e6694ecdcdc85a2740f826726799318a087641b",
+  "initial_reasoning": {
+    "approach": "I would create a hashmap to map seen values while looping through the array. The hash key would be the list value while the hash value would be the list index. During each iteration of the loop, we will first calculate the complement, which will be used to check if it exist in the hashmap. If it exists we can derive the current index and retrieve the complement index, if it doesn't exist we can add the current value to the hashmap. For every loop iteration,",
+    "quality": "complete",
+    "why": "Not recorded",
+    "invariant": "Not recorded",
+    "expected_complexity": "Not recorded",
+    "edge_case": "Not recorded",
+    "recorded_at": "2026-09-08T10:00:46.659524+00:00"
+  },
+  "timing_uncertain": {
+    "reason": "Recovered after the isolated-test workspace bug; confirm active minutes before completion.",
+    "saved_seconds": 869
+  },
+  "practice": {
+    "practice_id": "c66811547c31454ca00a0179ceb7570d",
+    "workflow_version": 3,
+    "started_at": "2026-09-09T13:32:16.804233+00:00",
+    "budget_minutes": 60,
+    "include_new": false,
+    "status": "active",
+    "index": 0,
+    "stages": [
+      {
+        "type": "main",
+        "problem_id": "arrays-001-pair-sum",
+        "activity": "implement",
+        "label": "Main activity",
+        "minutes": 60,
+        "status": "active"
+      }
+    ],
+    "attempt_ids": [],
+    "repair_paths": [],
+    "timing": {},
+    "receipts": [],
+    "automatic_coaching": true,
+    "main_was_new": false
+  },
+  "practice_session_id": "c66811547c31454ca00a0179ceb7570d",
+  "workflow_version": 3
+}
