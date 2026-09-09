@@ -11,6 +11,7 @@ import threading
 import time
 from pathlib import Path
 
+from study import __version__
 from study.storage import atomic_text
 
 SUPPORTED_VERSIONS = {"0.153.4"}
@@ -57,6 +58,82 @@ enabled = false
 """
 
 
+def codex_candidates() -> list[Path]:
+    """Discover launchers without changing PATH or copying desktop credentials."""
+    override = os.environ.get("PRACTICE_ROOM_CODEX")
+    if override:
+        path = Path(override).expanduser()
+        if not path.is_absolute() or not path.is_file():
+            raise RuntimeError(
+                "PRACTICE_ROOM_CODEX must name an existing absolute Codex executable path."
+            )
+        return [path]
+    paths = []
+    executable = shutil.which("codex")
+    if executable:
+        paths.append(Path(executable))
+    if os.name == "nt":
+        local = os.environ.get("LOCALAPPDATA")
+        if local:
+            bundled = Path(local) / "OpenAI/Codex/bin"
+            paths.extend(
+                sorted(bundled.glob("*/codex.exe"), key=lambda p: p.stat().st_mtime, reverse=True)
+            )
+            paths.append(bundled / "codex.exe")
+        roaming = os.environ.get("APPDATA")
+        if roaming:
+            paths.append(Path(roaming) / "npm/codex.cmd")
+    else:
+        paths.extend([Path("/opt/homebrew/bin/codex"), Path("/usr/local/bin/codex")])
+    return list(dict.fromkeys(p for p in paths if p.is_file()))
+
+
+def codex_command(path: Path) -> list[str]:
+    if path.suffix.lower() in {".cmd", ".bat", ".ps1"}:
+        # npm's Windows shim needs a shell. Launch its JS entry point directly,
+        # so paths containing spaces or shell metacharacters remain literal.
+        entry = path.parent / "node_modules/@openai/codex/bin/codex.js"
+        node = path.parent / "node.exe"
+        executable = str(node) if node.is_file() else shutil.which("node")
+        if not entry.is_file() or not executable:
+            raise RuntimeError(
+                "The Codex npm installation is incomplete. Reinstall the supported CLI and Node.js."
+            )
+        return [executable, str(entry)]
+    return [str(path)]
+
+
+def find_codex() -> tuple[list[str], str]:
+    errors = []
+    for path in codex_candidates():
+        try:
+            command = codex_command(path)
+            result = subprocess.run(
+                [*command, "--version"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            )
+            version = result.stdout.strip().removeprefix("codex-cli ")
+            if result.returncode == 0 and version in SUPPORTED_VERSIONS:
+                return command, version
+            errors.append(
+                f"Codex {version or 'unknown version'} has not been validated for this coach."
+            )
+        except (OSError, subprocess.SubprocessError, RuntimeError) as exc:
+            errors.append(str(exc))
+    setup = (
+        "Install Codex CLI 0.153.4 with npm install -g @openai/codex@0.153.4, "
+        "then reconnect. Practice and saving remain available."
+    )
+    if errors:
+        raise RuntimeError(errors[0] + " " + setup)
+    raise RuntimeError(
+        "Codex CLI was not found in PATH or the usual installation folders. " + setup
+    )
+
+
 class CodexRuntime:
     def __init__(self, directory: Path, command: list[str] | None = None):
         self.directory = directory.resolve()
@@ -70,10 +147,13 @@ class CodexRuntime:
         self.on_event = lambda method, params: None
         self.version = None
         self.closed = threading.Event()
+        self.reader = None
 
     def start(self):
         if self.process and self.process.poll() is None:
             return
+        if self.process or self.reader:
+            self.close()
         self.directory.mkdir(parents=True, exist_ok=True)
         home = self.directory / "home"
         work = self.directory / "workspace"
@@ -82,23 +162,8 @@ class CodexRuntime:
         atomic_text(home / "config.toml", CONFIG)
         cmd = self.command
         if cmd is None:
-            executable = shutil.which("codex")
-            if not executable:
-                raise RuntimeError("Codex CLI was not found. Install Codex, then reconnect.")
-            result = subprocess.run(
-                [executable, "--version"],
-                capture_output=True,
-                text=True,
-                timeout=10,
-                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-            )
-            self.version = result.stdout.strip().removeprefix("codex-cli ")
-            if self.version not in SUPPORTED_VERSIONS:
-                raise RuntimeError(
-                    f"Codex {self.version} has not been validated for this coach. "
-                    "Practice remains available; update the adapter before connecting."
-                )
-            cmd = [executable, "app-server", "--strict-config", "--listen", "stdio://"]
+            command, self.version = find_codex()
+            cmd = [*command, "app-server", "--strict-config", "--listen", "stdio://"]
         else:
             self.version = "test-adapter"
         # A child-specific Codex home owns its login. Never copy the desktop's credentials.
@@ -122,11 +187,19 @@ class CodexRuntime:
         )
         self.closed.clear()
         self.turns.clear()
-        threading.Thread(target=self._read, args=(self.process,), daemon=True).start()
+        self.reader = threading.Thread(target=self._read, args=(self.process,), daemon=True)
+        self.reader.start()
+        try:
+            self._initialize()
+        except Exception:
+            self.close()
+            raise
+
+    def _initialize(self):
         self.call(
             "initialize",
             {
-                "clientInfo": {"name": "practice_room", "version": "0.3.0"},
+                "clientInfo": {"name": "practice_room", "version": __version__},
                 "capabilities": {"experimentalApi": False},
             },
         )
@@ -266,5 +339,13 @@ class CodexRuntime:
                 proc.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 proc.kill()
+                proc.wait(timeout=5)
+        if self.reader and self.reader is not threading.current_thread():
+            self.reader.join(timeout=5)
+        if proc:
+            for stream in (proc.stdin, proc.stdout):
+                if stream:
+                    stream.close()
+        self.reader = None
         self.process = None
         self.closed.set()

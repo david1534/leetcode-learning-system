@@ -21,8 +21,18 @@ export function useWorkspace(minutes: number, includeNew: boolean) {
   const activeId = useRef("");
   const base = useRef({ revision: 0, digest: "" });
   const saving = useRef<Promise<void> | null>(null);
+  const savingCandidate = useRef<{ sessionId: string; code: string } | null>(
+    null,
+  );
   const conflictRef = useRef(false);
+  const operations = useRef<Promise<unknown>>(Promise.resolve());
+  const pendingOperations = useRef(0);
   const apply = (next: StudyState) => {
+    if (
+      latest.current?.observed_at &&
+      next.observed_at < latest.current.observed_at
+    )
+      return;
     const s = next.session;
     const previous = latest.current?.session;
     if (
@@ -54,7 +64,13 @@ export function useWorkspace(minutes: number, includeNew: boolean) {
         dirty.current ? "Recovered browser draft" : "Saved locally",
       );
     } else if (dirty.current) {
-      if (base.current.digest !== s.code_digest) {
+      if (
+        base.current.digest !== s.code_digest &&
+        !(
+          savingCandidate.current?.sessionId === s.session_id &&
+          savingCandidate.current.code === s.code
+        )
+      ) {
         conflictRef.current = true;
         setConflict(true);
       }
@@ -66,14 +82,15 @@ export function useWorkspace(minutes: number, includeNew: boolean) {
   };
   const refresh = async () => {
     const results = await Promise.allSettled([
-      api<StudyState>("state"),
+      api<StudyState>("state").then((next) => {
+        apply(next);
+        setConnectionError("");
+        return next;
+      }),
       api<Queue>(`queue?minutes=${minutes}&include_new=${includeNew}`),
       api<Progress>("progress"),
     ]);
-    if (results[0].status === "fulfilled") {
-      apply(results[0].value);
-      setConnectionError("");
-    } else {
+    if (results[0].status === "rejected") {
       setConnectionError(
         "The local app is unreachable. Keep this window open; your browser draft is preserved.",
       );
@@ -85,7 +102,10 @@ export function useWorkspace(minutes: number, includeNew: boolean) {
     void refresh();
   }, [minutes, includeNew]);
   useEffect(() => {
+    let polling = false;
     const timer = setInterval(() => {
+      if (polling) return;
+      polling = true;
       api<StudyState>("state")
         .then((s) => {
           apply(s);
@@ -95,7 +115,10 @@ export function useWorkspace(minutes: number, includeNew: boolean) {
           setConnectionError(
             "Connection lost. Your browser draft is preserved; retry the connection.",
           ),
-        );
+        )
+        .finally(() => {
+          polling = false;
+        });
     }, 2000);
     const warning = () => setStorageError(true);
     const unload = (event: BeforeUnloadEvent) => {
@@ -161,19 +184,28 @@ export function useWorkspace(minutes: number, includeNew: boolean) {
         "No active exercise. Export your draft before starting another.",
       );
     const candidate = text.current;
+    savingCandidate.current = { sessionId: s.session_id, code: candidate };
     const pending = (async () => {
       try {
         setSaveStatus("Saving…");
         const response = await api<StudyState>("action/save", {
           code: candidate,
+          session_id: s.session_id,
           revision: base.current.revision,
           code_digest: base.current.digest,
         });
+        if (activeId.current !== s.session_id) return;
         base.current = {
           revision: response.session!.revision,
           digest: response.session!.code_digest,
         };
-        dirty.current = text.current !== candidate;
+        const newerEdit =
+          latest.current?.session?.session_id === s.session_id &&
+          latest.current.observed_at > response.observed_at &&
+          latest.current.session.code_digest !== response.session!.code_digest;
+        dirty.current = text.current !== candidate || newerEdit;
+        conflictRef.current = Boolean(newerEdit);
+        setConflict(conflictRef.current);
         apply(response);
         storeDraft("code-" + s.session_id, {
           code: text.current,
@@ -188,6 +220,7 @@ export function useWorkspace(minutes: number, includeNew: boolean) {
         }
         throw e;
       } finally {
+        savingCandidate.current = null;
         saving.current = null;
       }
     })();
@@ -217,90 +250,103 @@ export function useWorkspace(minutes: number, includeNew: boolean) {
     );
     return () => clearTimeout(timer);
   }, [draft, conflict]);
-  const operate = async <T = unknown>(
+  const runOperation = <T = unknown>(
     path: string,
-    data: unknown = {},
+    prepare: () => unknown | Promise<unknown>,
   ): Promise<T> => {
+    const urgent = [
+      "action/stop",
+      "practice/repair-stop",
+      "coach/interrupt",
+      "coach/disconnect",
+    ].includes(path);
+    pendingOperations.current += 1;
     setBusy(true);
-    setError("");
-    try {
-      if (
-        !["action/stop", "coach/interrupt", "coach/disconnect"].includes(path)
-      )
-        await save();
-      const result = await api<T>(path, data);
-      if (result && typeof result === "object" && "connection" in result)
-        setCoach(result as unknown as CoachStatus);
-      if (result && typeof result === "object" && "session" in result)
-        apply(result as unknown as StudyState);
-      await refresh();
-      return result;
-    } catch (e) {
-      setError((e as Error).message);
-      throw e;
-    } finally {
-      setBusy(false);
-    }
+    const perform = async () => {
+      setError("");
+      try {
+        if (!urgent) await save();
+        const result = await api<T>(path, await prepare());
+        if (result && typeof result === "object" && "connection" in result)
+          setCoach(result as unknown as CoachStatus);
+        if (result && typeof result === "object" && "session" in result)
+          apply(result as unknown as StudyState);
+        await refresh();
+        return result;
+      } catch (e) {
+        setError((e as Error).message);
+        throw e;
+      } finally {
+        pendingOperations.current -= 1;
+        setBusy(pendingOperations.current > 0);
+      }
+    };
+    const result = urgent ? perform() : operations.current.then(perform);
+    if (!urgent) operations.current = result.catch(() => {});
+    return result;
   };
-  const mutate = async <T = unknown>(
+  const operate = <T = unknown>(path: string, data: unknown = {}): Promise<T> =>
+    runOperation<T>(path, () => data);
+  const mutate = <T = unknown>(
     path: string,
     data: Record<string, unknown> = {},
   ): Promise<T> => {
-    await save();
-    return operate<T>(path, {
+    return runOperation<T>(path, () => ({
       ...data,
       revision: latest.current?.session?.revision,
-    });
+    }));
   };
   const send = async (
     message: string,
     kind: "question" | "approach" | "check" | "review" = "question",
     allowCode = false,
   ) => {
-    await save();
-    const previousSession = latest.current?.session;
-    const freshState = await api<StudyState>("state");
-    apply(freshState);
-    const s = freshState.session;
-    if (!s) return;
-    if (
-      previousSession &&
-      (previousSession.session_id !== s.session_id ||
-        previousSession.code_digest !== s.code_digest)
-    ) {
-      throw new Error(
-        "Your code changed in another window. Review the saved version before sending this question.",
-      );
-    }
-    const fresh = {
-      request_id: crypto.randomUUID(),
-      session_id: s.session_id,
-      revision: s.revision,
-      code_digest: s.code_digest,
-      message,
-      kind,
-      allow_code: allowCode,
-    };
-    const key = "coach-pending-" + s.session_id;
-    const previous = readStored<typeof fresh | null>(key, null);
-    const same =
-      previous &&
-      previous.message === message &&
-      previous.kind === kind &&
-      previous.code_digest === s.code_digest &&
-      previous.allow_code === allowCode;
-    if (
-      previous &&
-      !same &&
-      !coach?.requests.some((r) => r.request_id === previous.request_id)
-    )
-      throw new Error(
-        "The previous question has an uncertain acknowledgement. Reconnect coaching before sending a different question.",
-      );
-    const pending = same ? previous : fresh;
-    storeDraft(key, pending);
+    let key = "";
     try {
-      const result = await operate("coach/requests", pending);
+      const result = await runOperation("coach/requests", async () => {
+        const previousSession = latest.current?.session;
+        const freshState = await api<StudyState>("state");
+        apply(freshState);
+        const s = freshState.session;
+        if (!s) throw new Error("Start an exercise before sending a question.");
+        if (
+          previousSession &&
+          (previousSession.session_id !== s.session_id ||
+            previousSession.code_digest !== s.code_digest)
+        ) {
+          throw new Error(
+            "Your code changed in another window. Review the saved version before sending this question.",
+          );
+        }
+        const fresh = {
+          request_id: crypto.randomUUID(),
+          session_id: s.session_id,
+          revision: s.revision,
+          code_digest: s.code_digest,
+          message,
+          kind,
+          allow_code: allowCode,
+        };
+        key = "coach-pending-" + s.session_id;
+        const previous = readStored<typeof fresh | null>(key, null);
+        const same =
+          previous &&
+          previous.message === message &&
+          previous.kind === kind &&
+          previous.code_digest === s.code_digest &&
+          previous.allow_code === allowCode;
+        if (
+          previous &&
+          !same &&
+          !coach?.requests.some((r) => r.request_id === previous.request_id)
+        )
+          throw new Error(
+            "The previous question has an uncertain acknowledgement. Reconnect coaching before sending a different question.",
+          );
+        const pending = same ? previous : fresh;
+        storeDraft(key, pending);
+        return pending;
+      });
       storeDraft(key, null);
       return result;
     } catch (e) {

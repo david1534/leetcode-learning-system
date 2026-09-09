@@ -71,6 +71,18 @@ button:disabled {
   opacity: 0.48;
   cursor: not-allowed;
 }
+.timer-digits {
+  font-variant-numeric: tabular-nums;
+  min-width: 4ch;
+}
+.coach-setup {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.coach-setup-help {
+  margin-top: 12px;
+  font-size: 13px;
+}
 a {
   color: var(--accent);
   text-decoration: none;

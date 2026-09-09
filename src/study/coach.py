@@ -269,6 +269,7 @@ class Coach:
                 threading.Thread(target=self._refresh_safely, daemon=True).start()
             else:
                 self.connection = "signed_out"
+                self.auth_url = None
                 self.message = "Sign-in was cancelled. Connect when you're ready."
         elif method == "account/rateLimits/updated":
             self.usage = allowance(params)
@@ -335,6 +336,12 @@ class Coach:
 
     def connect(self):
         with self.lock:
+            if (
+                self.connection == "signing_in"
+                and self.runtime.process
+                and self.runtime.process.poll() is None
+            ):
+                return self.status()
             self.connection = "connecting"
             try:
                 self.runtime.start()
@@ -351,8 +358,13 @@ class Coach:
                     self.message = "Finish signing in in your browser, then refresh the connection."
                 else:
                     self.refresh()
-                self.reconcile()
+                if not self.active:
+                    self.reconcile()
             except (RuntimeError, OSError, subprocess.SubprocessError) as exc:
+                self.runtime.close()
+                self.account = None
+                self.auth_url = None
+                self.usage = allowance({})
                 self.connection = "unavailable"
                 self.message = str(exc)
             return self.status()
@@ -361,6 +373,8 @@ class Coach:
         account = self.runtime.call("account/read", {"refreshToken": True}).get("account")
         if not account:
             self.connection = "signed_out"
+            self.account = None
+            self.usage = allowance({})
             self.message = "Sign in to connect coaching."
             return self.status()
         if account.get("type") != "chatgpt":

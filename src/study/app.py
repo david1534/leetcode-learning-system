@@ -14,7 +14,7 @@ from fastapi import BackgroundTasks, FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from study import policy
+from study import __version__, policy
 from study.coach import Coach, CoachRequest, CoachStatus, RequestReceipt
 from study.interfaces import (
     AdvancePractice,
@@ -70,7 +70,10 @@ def create_app(root: Path, coach_factory=Coach) -> FastAPI:
                 return JSONResponse(
                     {"detail": "Open the local app to perform this action."}, status_code=403
                 )
-        return await call_next(request)
+        response = await call_next(request)
+        if request.url.path.startswith("/api/"):
+            response.headers["Cache-Control"] = "no-store"
+        return response
 
     @app.exception_handler(RuntimeError)
     async def recoverable(_request, exc):
@@ -90,7 +93,7 @@ def create_app(root: Path, coach_factory=Coach) -> FastAPI:
     def health():
         return {
             "app": "practice-room",
-            "version": "0.3.0",
+            "version": __version__,
             "workspace": hashlib.sha256(str(root.resolve()).encode()).hexdigest(),
         }
 
@@ -219,7 +222,7 @@ def create_app(root: Path, coach_factory=Coach) -> FastAPI:
         async def events():
             previous = None
             while not await request.is_disconnected():
-                status = coach.status(session_id)
+                status = await asyncio.to_thread(coach.status, session_id)
                 data = json.dumps(status)
                 if data != previous:
                     yield f"id: {status['sequence']}\ndata: {data}\n\n"
@@ -310,7 +313,7 @@ def launch(root: Path, port: int = 8765, open_browser=True):
             or active.get("workspace") != hashlib.sha256(str(root.resolve()).encode()).hexdigest()
         ):
             raise RuntimeError("Another workspace uses this port. Choose a different --port.")
-        if active.get("version") != "0.3.0":
+        if active.get("version") != __version__:
             raise RuntimeError("Restart the running Practice Room to use this update.")
         if open_browser:
             webbrowser.open(url)

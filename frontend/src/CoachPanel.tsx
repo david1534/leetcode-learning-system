@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
-import { Bot, Send, Square, Plug, ChevronDown } from "lucide-react";
+import { Bot, Send, Square, ChevronDown } from "lucide-react";
+import CoachConnection from "./CoachConnection";
 import type { CoachStatus, Session } from "./types";
 import { useDraft, exportText } from "./persistence";
 
@@ -26,6 +27,11 @@ export default function CoachPanel({
   const [allowCode, setAllowCode] = useState(false);
   const [error, setError] = useState("");
   const [sending, setSending] = useState(false);
+  const [working, setWorking] = useState(false);
+  const actionPending = useRef(0);
+  const submitting = useRef(false);
+  const currentMessage = useRef(message);
+  currentMessage.current = message;
   const [conversion, setConversion] = useState(false);
   const [auto, setAuto] = useState(status?.preferences.automatic ?? true);
   useEffect(
@@ -43,30 +49,52 @@ export default function CoachPanel({
       stream.current?.scrollTo({ top: stream.current.scrollHeight });
   }, [JSON.stringify(messages)]);
   const act = async (callback: () => Promise<unknown>) => {
+    actionPending.current += 1;
+    setWorking(true);
     setError("");
     try {
       return await callback();
     } catch (e) {
       setError((e as Error).message);
+    } finally {
+      actionPending.current -= 1;
+      setWorking(actionPending.current > 0);
     }
   };
   const submit = async () => {
+    if (
+      submitting.current ||
+      actionPending.current ||
+      !message.trim() ||
+      status?.active_request ||
+      status?.connection !== "connected" ||
+      status.usage.blocked ||
+      (!session.initial_reasoning && session.activity !== "learn")
+    )
+      return;
+    setError("");
     if (independent) {
       setConversion(true);
       return;
     }
     setSending(true);
+    submitting.current = true;
     try {
       await send(message, "question", allowCode);
-      setMessage("");
+      if (currentMessage.current === message) setMessage("");
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setSending(false);
+      submitting.current = false;
     }
   };
   return (
-    <aside className="coach-panel panel" aria-label="Codex coach">
+    <aside
+      className="coach-panel panel"
+      id="practice-panel-coach"
+      aria-label="Codex coach"
+    >
       <header className="panel-heading">
         <div>
           <Bot size={20} />
@@ -102,35 +130,11 @@ export default function CoachPanel({
               </small>
             ) : null,
           )}
-        <div className="button-row">
-          {status?.connection !== "connected" && (
-            <button
-              className="secondary small"
-              onClick={() => void act(() => operate("coach/connect", {}))}
-            >
-              <Plug size={15} />
-              Connect Codex
-            </button>
-          )}
-          {status?.auth_url && (
-            <a
-              className="primary small"
-              href={status.auth_url}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Sign in with ChatGPT
-            </a>
-          )}
-          {status && (
-            <button
-              className="text-button"
-              onClick={() => void act(() => operate("coach/refresh", {}))}
-            >
-              Refresh connection
-            </button>
-          )}
-        </div>
+        <CoachConnection
+          status={status}
+          operate={operate}
+          showMessage={false}
+        />
       </div>
       {independent && (
         <div className="assessment-notice">
@@ -285,7 +289,11 @@ export default function CoachPanel({
           placeholder="Ask a question or explain where you’re stuck…"
           rows={3}
           onKeyDown={(e) => {
-            if (e.ctrlKey && e.key === "Enter") {
+            if (
+              (e.ctrlKey || e.metaKey) &&
+              e.key === "Enter" &&
+              !e.nativeEvent.isComposing
+            ) {
               e.preventDefault();
               void submit();
             }
@@ -316,6 +324,7 @@ export default function CoachPanel({
               className="primary"
               disabled={
                 sending ||
+                working ||
                 !message.trim() ||
                 status?.connection !== "connected" ||
                 status?.usage.blocked ||

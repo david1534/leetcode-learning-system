@@ -7,19 +7,28 @@ export class ApiError extends Error {
   }
 }
 export async function api<T = any>(path: string, data?: unknown): Promise<T> {
-  const response = await fetch(
-    "/api/" + path,
-    data === undefined
-      ? {}
-      : {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Study-Request": "1",
-          },
-          body: JSON.stringify(data),
-        },
-  );
+  let response;
+  try {
+    response = await fetch("/api/" + path, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(60000),
+      ...(data === undefined
+        ? {}
+        : {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Study-Request": "1",
+            },
+            body: JSON.stringify(data),
+          }),
+    });
+  } catch {
+    throw new ApiError(
+      "The local app did not confirm the request. Your draft is preserved; reconnect before retrying.",
+      0,
+    );
+  }
   let result;
   try {
     result = await response.json();

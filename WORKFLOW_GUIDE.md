@@ -6,6 +6,8 @@ Open **Start Study.cmd** or run `study app`. Today has one Start / Resume action
 
 The default budget is 60 active minutes: up to 10 for retrieval and one repair, about 40 for the main problem, seven for tests and explanation, and three for finishing. These are adjustable defaults. Choose a shorter session when needed. A break is suggested at 45 minutes; reaching a boundary preserves your work. Browser focus never pauses the timer because conversations with Codex count as study. Use the phase menu when switching to explanation or other work. Pause stops the timer. If you leave the timer running, correct total minutes in the completion preview.
 
+The display counts continuously between server updates, including during repairs. Pausing freezes it; resuming continues from the saved total. A sleeping computer or delayed browser may require the display to catch up to the saved time. Review a reported uncertain gap rather than treating it as confirmed study time.
+
 Weekdays allow new material. Weekends default to reviews, with an explicit override on Today. When reviews are waiting, every third main opportunity protects eligible new work. Every fifth main opportunity prefers a never-exposed transfer variant. If no full task fits, a short Recall can revisit an approach while the full implementation remains due. Waiting and postponed reviews are shown honestly. Prerequisite anchors and relevant repair gates determine eligibility; unrelated branches can continue.
 
 Start / Resume restores a whole guided session: supporting retrieval and at most one repair, the main task, and one completion summary. Sessions shorter than 45 minutes omit supporting work when a main task is available. If an eligible repair is the only next step, Start opens that repair before selecting the main task. Unused supporting time remains available to the main activity. Transfer comes first without related warm-up or repair. Completed guided sessions drive rotation; supporting attempts do not inflate the count. An unavailable transfer opportunity stays due until eligible content fits.
@@ -13,6 +15,8 @@ Start / Resume restores a whole guided session: supporting retrieval and at most
 ## Connect Codex when useful
 
 Select **Connect Codex**, then **Sign in with ChatGPT**. After signing in, refresh the connection. This app has its own managed login; it never copies desktop credentials. It currently validates CLI version 0.153.4. An incompatible or missing CLI, login problem, or lost connection leaves the editor and local completion available. **Stop coach** and **Stop tests** control separate processes.
+
+Windows checks include the installed Codex desktop app and npm launcher, so a missing PATH entry alone does not require reinstalling. **Help connecting Codex** explains installation if a supported version is unavailable. Settings and repair screens show the connection result as well. After an application update, close the old terminal and reopen **Start Study.cmd**.
 
 The allowance display is shared with your other Codex use. Automatic checkpoints pause at 20% remaining; manual questions remain possible. Unknown or exhausted allowance requires a successful refresh before another turn. This integration does not use API billing, buy credits, or redeem resets. OpenAI controls plan allowances and account credits.
 

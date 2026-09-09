@@ -163,13 +163,15 @@ def test_missing_and_incompatible_cli_disable_coaching(guided, monkeypatch):
 
     import study.codex_runtime as runtime
 
-    monkeypatch.setattr(runtime.shutil, "which", lambda _: None)
+    monkeypatch.setattr(runtime, "codex_candidates", lambda: [])
     value = Coach(guided)
     assert not value.runtime.directory.is_relative_to(guided.root)
     assert value.connect()["connection"] == "unavailable"
-    monkeypatch.setattr(runtime.shutil, "which", lambda _: "codex")
+    monkeypatch.setattr(runtime, "codex_candidates", lambda: [Path("codex")])
     monkeypatch.setattr(
-        runtime.subprocess, "run", lambda *a, **k: SimpleNamespace(stdout="codex-cli 0.999.0")
+        runtime.subprocess,
+        "run",
+        lambda *a, **k: SimpleNamespace(stdout="codex-cli 0.999.0", returncode=0),
     )
     assert "not been validated" in value.connect()["message"]
     assert value.runtime.process is None
@@ -271,3 +273,6 @@ def test_launcher_reuses_only_the_same_workspace(guided, monkeypatch):
     assert opened == ["http://127.0.0.1:8765"]
     with pytest.raises(RuntimeError, match="Another workspace"):
         app.launch(guided.root.parent)
+    health["version"] = "0.3.0"
+    with pytest.raises(RuntimeError, match="Restart"):
+        app.launch(guided.root)
