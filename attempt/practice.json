@@ -1,0 +1,47 @@
+{
+  "parent": {
+    "practice_id": "ff2ebb00b1fe457680ac5a60761f41e2",
+    "workflow_version": 3,
+    "started_at": "2026-09-12T23:00:34.976963+00:00",
+    "budget_minutes": 60,
+    "include_new": true,
+    "status": "active",
+    "index": 1,
+    "stages": [
+      {
+        "type": "repair",
+        "error_id": "f1c63de3b98d409c99ab98977d7575ca",
+        "label": "Apply a corrected rule",
+        "minutes": 5,
+        "status": "skipped"
+      },
+      {
+        "type": "recall",
+        "activity": "recall",
+        "problem_id": "arrays-003-longest-streak",
+        "label": "Brief retrieval",
+        "minutes": 5,
+        "status": "active"
+      },
+      {
+        "type": "main",
+        "problem_id": "arrays-001-pair-sum",
+        "activity": "implement",
+        "label": "Main activity",
+        "minutes": 60,
+        "status": "pending"
+      }
+    ],
+    "attempt_ids": [],
+    "repair_paths": [],
+    "timing": {
+      "repair": 61.761886999999994
+    },
+    "receipts": [],
+    "automatic_coaching": true,
+    "main_was_new": false
+  },
+  "repair": null,
+  "receipts": {},
+  "artifacts": {}
+}

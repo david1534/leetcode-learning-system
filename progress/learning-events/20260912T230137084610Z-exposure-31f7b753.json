@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "event_id": "31f7b75362d44202ac77a33edb749188",
+  "recorded_at": "2026-09-12T23:01:37.084610+00:00",
+  "event_type": "exposure",
+  "problem_id": "arrays-003-longest-streak",
+  "session_id": "81e668b362e441fabaefa51c6fd48fac",
+  "activity": "recall",
+  "content_version": 2
+}

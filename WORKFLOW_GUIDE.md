@@ -12,7 +12,7 @@ Start / Resume restores a whole guided session: supporting retrieval and at most
 
 ## Connect Codex when useful
 
-Select **Connect Codex**, then **Sign in with ChatGPT**. After signing in, refresh the connection. This app has its own managed login; it never copies desktop credentials. It currently validates CLI version 0.153.4. An incompatible or missing CLI, login problem, or lost connection leaves the editor and local completion available. **Stop coach** and **Stop tests** control separate processes.
+Select **Connect Codex**, then **Sign in with ChatGPT**. After signing in, refresh the connection. This app has its own managed login; it never copies desktop credentials. It currently validates CLI versions 0.153.4 and 0.154.0-alpha.6.2. On Windows it can find a CLI on the normal command path, in the standalone install location, or inside the current Codex Desktop installation. An incompatible or missing CLI, login problem, or lost connection leaves the editor and local completion available. **Stop coach** and **Stop tests** control separate processes.
 
 The allowance display is shared with your other Codex use. Automatic checkpoints pause at 20% remaining; manual questions remain possible. Unknown or exhausted allowance requires a successful refresh before another turn. This integration does not use API billing, buy credits, or redeem resets. OpenAI controls plan allowances and account credits.
 

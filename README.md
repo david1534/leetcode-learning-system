@@ -12,7 +12,7 @@ Dark mode is the first-launch default. Settings offer Dark, Light, and System. M
 
 ## Connect coaching
 
-Choose **Connect Codex**, follow **Sign in with ChatGPT**, then refresh the connection. Practice Room uses its own Codex-managed login and private working directory. It does not copy desktop credentials or change global Codex settings. The adapter currently supports **Codex CLI 0.153.4** (`npm install -g @openai/codex@0.153.4` if needed). Other versions disable coaching until validated; saving and practice continue.
+Choose **Connect Codex**, follow **Sign in with ChatGPT**, then refresh the connection. Practice Room uses its own Codex-managed login and private working directory. It does not copy desktop credentials or change global Codex settings. The adapter currently supports **Codex CLI 0.153.4 and 0.154.0-alpha.6.2**. On Windows it checks the normal command path, the standalone install location, and then the newest CLI bundled with Codex Desktop. Other versions disable coaching until validated; saving and practice continue.
 
 Coaching uses your ChatGPT plan’s included Codex allowance, shared with other Codex use. At 20% remaining, automatic checkpoints pause; manual questions remain available. Exhausted or unknown allowance blocks new turns until refreshed. The integration never invokes API billing, purchases credits, or redeems resets. OpenAI controls account credits and allowances, so this is not an unlimited-free-use guarantee. See [authentication](https://learn.chatgpt.com/docs/auth), [App Server](https://learn.chatgpt.com/docs/app-server), and [usage](https://learn.chatgpt.com/docs/pricing).
 

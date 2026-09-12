@@ -47,6 +47,6 @@ def longest_consecutive_streak(nums: list[int]) -> int:
             while nextNum in numSet:
                 nextNum += 1
                 currStreak += 1
-            if currStreak > largestStreak: 
+            if currStreak > largestStreak:
                 largestStreak = currStreak
     return largestStreak

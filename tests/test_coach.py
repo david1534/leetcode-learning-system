@@ -1,4 +1,5 @@
 import json
+import os
 import sys
 import time
 import uuid
@@ -9,7 +10,7 @@ from fastapi.testclient import TestClient
 
 from study.app import create_app
 from study.coach import Coach, CoachRequest, allowance
-from study.codex_runtime import CONFIG, CodexRuntime
+from study.codex_runtime import CONFIG, SUPPORTED_VERSIONS, CodexRuntime, find_codex
 from study.service import Conflict
 
 FAKE = Path(__file__).with_name("fake_codex.py")
@@ -142,6 +143,31 @@ def test_config_does_not_expose_execution_or_api_fallback():
     assert config["apps"]["_default"]["enabled"] is False
 
 
+def test_codex_discovery_uses_standalone_then_latest_desktop(tmp_path, monkeypatch):
+    import study.codex_runtime as runtime
+
+    monkeypatch.setattr(runtime.shutil, "which", lambda _: None)
+    monkeypatch.delenv("CODEX_INSTALL_DIR", raising=False)
+    local = tmp_path / "LocalAppData"
+    monkeypatch.setenv("LOCALAPPDATA", str(local))
+
+    standalone = local / "Programs/OpenAI/Codex/bin/codex.exe"
+    standalone.parent.mkdir(parents=True)
+    standalone.touch()
+    assert find_codex() == str(standalone)
+
+    standalone.unlink()
+    older = local / "OpenAI/Codex/bin/older/codex.exe"
+    newer = local / "OpenAI/Codex/bin/newer/codex.exe"
+    older.parent.mkdir(parents=True)
+    newer.parent.mkdir(parents=True)
+    older.touch()
+    newer.touch()
+    os.utime(older, (1, 1))
+    os.utime(newer, (2, 2))
+    assert find_codex() == str(newer)
+
+
 def test_typed_api_and_origin_guards(guided):
     client = TestClient(create_app(guided.root, coach_factory=factory), base_url="http://127.0.0.1")
     headers = {"x-study-request": "1"}
@@ -163,16 +189,20 @@ def test_missing_and_incompatible_cli_disable_coaching(guided, monkeypatch):
 
     import study.codex_runtime as runtime
 
-    monkeypatch.setattr(runtime.shutil, "which", lambda _: None)
+    monkeypatch.setattr(runtime, "find_codex", lambda: None)
     value = Coach(guided)
     assert not value.runtime.directory.is_relative_to(guided.root)
     assert value.connect()["connection"] == "unavailable"
-    monkeypatch.setattr(runtime.shutil, "which", lambda _: "codex")
+    monkeypatch.setattr(runtime, "find_codex", lambda: "codex")
     monkeypatch.setattr(
         runtime.subprocess, "run", lambda *a, **k: SimpleNamespace(stdout="codex-cli 0.999.0")
     )
     assert "not been validated" in value.connect()["message"]
     assert value.runtime.process is None
+
+
+def test_current_windows_desktop_cli_is_validated():
+    assert "0.154.0-alpha.6.2" in SUPPORTED_VERSIONS
 
 
 def test_unknown_and_exhausted_allowance_never_start_a_turn(coach, monkeypatch):
