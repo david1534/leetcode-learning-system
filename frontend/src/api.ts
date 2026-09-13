@@ -42,6 +42,18 @@ export function formatTime(seconds: number) {
   const n = Math.max(0, Math.floor(seconds));
   return `${Math.floor(n / 60)}:${String(n % 60).padStart(2, "0")}`;
 }
+export function sessionProgress(seconds: number, budgetMinutes: number) {
+  if (
+    !Number.isFinite(seconds) ||
+    !Number.isFinite(budgetMinutes) ||
+    budgetMinutes <= 0
+  )
+    return 0;
+  return Math.min(
+    100,
+    Math.max(0, Math.round((seconds / (budgetMinutes * 60)) * 100)),
+  );
+}
 export function metricLabel(
   metric: { passed: number; total: number } | undefined,
 ) {

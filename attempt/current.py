@@ -1,6 +1,6 @@
 def longest_consecutive_streak(nums: list[int]) -> int:
     listSet = set(nums)
-    largestStreak = 1
+    largestStreak = 0
     for num in listSet:
         prevNum = num - 1
         if prevNum not in listSet:

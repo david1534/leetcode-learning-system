@@ -39,7 +39,11 @@
     },
     "receipts": [],
     "automatic_coaching": true,
-    "main_was_new": false
+    "main_was_new": false,
+    "coach_checkpoints": {
+      "approach": true,
+      "check": true
+    }
   },
   "repair": null,
   "receipts": {},

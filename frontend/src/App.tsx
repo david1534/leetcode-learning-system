@@ -1,10 +1,9 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
   BookOpen,
   Check,
   ChevronRight,
-  Clock3,
   Code2,
   Download,
   Home,
@@ -21,7 +20,7 @@ import {
   X,
 } from "lucide-react";
 import CoachPanel from "./CoachPanel";
-import { formatTime, metricLabel } from "./api";
+import { metricLabel, sessionProgress } from "./api";
 import { exportText, useDraft } from "./persistence";
 import { useTheme, type Theme } from "./theme";
 import { useWorkspace } from "./useWorkspace";
@@ -153,20 +152,17 @@ export default function App() {
   const beforeFinishPhase = useRef("implementation");
   const [hintChoice, setHintChoice] = useState(false);
   const [tick, setTick] = useState(0);
-  const receivedAt = useRef(Date.now());
-  useEffect(() => {
-    receivedAt.current = Date.now();
-  }, [w.state]);
+  const receivedAt = useMemo(() => Date.now(), [w.state]);
   useEffect(() => {
     const timer = setInterval(() => setTick((t) => t + 1), 1000);
     return () => clearInterval(timer);
   }, []);
   const elapsed =
     (parent?.elapsed_seconds ?? s?.elapsed_seconds ?? 0) +
-    (s?.phase_started_at
-      ? Math.max(0, (Date.now() - receivedAt.current) / 1000)
-      : 0) +
+    (s?.phase_started_at ? Math.max(0, (Date.now() - receivedAt) / 1000) : 0) +
     tick * 0;
+  const budgetMinutes = parent?.budget_minutes || s?.budget_minutes || 60;
+  const elapsedPercent = sessionProgress(elapsed, budgetMinutes);
   const safely = (fn: () => Promise<unknown>) => {
     void fn().catch(() => {});
   };
@@ -716,15 +712,21 @@ export default function App() {
               </div>
               {(s || parent) && (
                 <div
-                  className="timer"
-                  role="timer"
-                  aria-label="Active study time"
+                  className="session-progress"
+                  role="progressbar"
+                  aria-label="Session progress"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={elapsedPercent}
+                  aria-valuetext={`${elapsedPercent}% of ${budgetMinutes} minutes`}
                 >
-                  <Clock3 size={19} />
-                  {formatTime(elapsed)}
-                  <small>
-                    / {parent?.budget_minutes || s?.budget_minutes} min
-                  </small>
+                  <div className="session-progress-label">
+                    <span>Session progress</span>
+                    <strong>{elapsedPercent}%</strong>
+                  </div>
+                  <div className="session-progress-track" aria-hidden="true">
+                    <span style={{ width: `${elapsedPercent}%` }} />
+                  </div>
                 </div>
               )}
             </header>

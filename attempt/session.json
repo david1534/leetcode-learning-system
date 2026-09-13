@@ -3,10 +3,10 @@
   "problem_id": "arrays-003-longest-streak",
   "attempt_kind": "review",
   "started_at": "2026-09-12T23:01:37.054175+00:00",
-  "active_started_at": null,
-  "accumulated_seconds": 1219,
+  "active_started_at": "2026-09-13T00:09:19.030042+00:00",
+  "accumulated_seconds": 2030,
   "hints_used": 0,
-  "checkpoint_count": 7,
+  "checkpoint_count": 8,
   "assistance_log": [
     {
       "request_id": "76ab8fe9-a5b3-4568-b1af-bc8a845f2c81",
@@ -39,6 +39,38 @@
       "summary": "Integrated coaching supplied guided assistance.",
       "source": "codex",
       "recorded_at": "2026-09-12T23:24:48.715547+00:00"
+    },
+    {
+      "request_id": "21fbb5b4-12b1-45f4-8126-18c35e41ca7b",
+      "level": "guided",
+      "supplied_missing_recall": false,
+      "summary": "Integrated coaching supplied guided assistance.",
+      "source": "codex",
+      "recorded_at": "2026-09-12T23:56:07.162580+00:00"
+    },
+    {
+      "request_id": "e7f44ea8-dde1-4386-a79d-1242abd37560",
+      "level": "minor",
+      "supplied_missing_recall": false,
+      "summary": "Integrated coaching supplied minor assistance.",
+      "source": "codex",
+      "recorded_at": "2026-09-13T00:00:13.437517+00:00"
+    },
+    {
+      "request_id": "b3729882-9779-4c35-9397-c5fc3619820b",
+      "level": "minor",
+      "supplied_missing_recall": false,
+      "summary": "Integrated coaching supplied minor assistance.",
+      "source": "codex",
+      "recorded_at": "2026-09-13T00:08:41.794204+00:00"
+    },
+    {
+      "request_id": "8f512244-4fa8-4c16-b067-5bb7c51eddeb",
+      "level": "minor",
+      "supplied_missing_recall": false,
+      "summary": "Integrated coaching supplied minor assistance.",
+      "source": "codex",
+      "recorded_at": "2026-09-13T00:09:16.979555+00:00"
     }
   ],
   "focus_extensions": [],
@@ -48,16 +80,16 @@
   "substantial_gate_recorded": false,
   "workflow_version": 3,
   "session_id": "81e668b362e441fabaefa51c6fd48fac",
-  "revision": 91,
+  "revision": 103,
   "activity": "learn",
   "assessment_mode": "practice",
   "unseen": false,
   "phase": "learning",
   "timing": {
     "recall": 903.7069999999999,
-    "learning": 315.53700000000003
+    "learning": 1127.2620000000002
   },
-  "phase_started_at": null,
+  "phase_started_at": "2026-09-13T00:09:19.030042+00:00",
   "budget_minutes": 60,
   "content_version": 2,
   "rubric_version": 2,
@@ -66,7 +98,7 @@
     "sequence-start-recognition",
     "amortized-linear-scans"
   ],
-  "code_digest": "d606b485d33004dca40432a157ba054cfb26c31a83b331ad63e21bcaf57a8558",
+  "code_digest": "93a90764942c5d1b6926554e62ea82538de3f10be6ce1909c0b269eed1421caa",
   "practice": {
     "practice_id": "ff2ebb00b1fe457680ac5a60761f41e2",
     "workflow_version": 3,
@@ -125,11 +157,11 @@
   },
   "first_checkpoint_passed": false,
   "latest_checkpoint": {
-    "attempt": 7,
-    "checked_at": "2026-09-12T23:24:39.013859+00:00",
-    "passed_cases": 3,
+    "attempt": 8,
+    "checked_at": "2026-09-12T23:56:00.241622+00:00",
+    "passed_cases": 4,
     "total_cases": 4,
-    "code_digest": "d606b485d33004dca40432a157ba054cfb26c31a83b331ad63e21bcaf57a8558",
+    "code_digest": "93a90764942c5d1b6926554e62ea82538de3f10be6ce1909c0b269eed1421caa",
     "status": "complete"
   },
   "timing_uncertain": {

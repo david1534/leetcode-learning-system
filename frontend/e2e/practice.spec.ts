@@ -82,12 +82,24 @@ test("explicit assessment conversion, fake coach reply and safe code preview", a
     .getByRole("button", { name: "Connect Codex", exact: true })
     .click();
   await expect(page.getByText("Connected", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("progressbar", { name: "Session progress" }),
+  ).toBeVisible();
+  await expect(page.getByLabel(/allowance remaining/)).toBeVisible();
+  await expect(page.getByText(/included allowance remaining/)).toHaveCount(0);
   await page.getByText("Coach preferences", { exact: true }).click();
+  const model = page.getByRole("combobox", { name: "Model" });
+  await expect(model).toBeVisible();
+  await model.selectOption("test-model");
+  await expect(
+    page.getByRole("combobox", { name: "Reasoning effort" }),
+  ).toBeVisible();
   await page.getByLabel("Automatic practice checkpoints").uncheck();
+  await page.getByText("Coach preferences", { exact: true }).click();
   await page
     .getByRole("textbox", { name: "Ask your learning coach" })
     .fill("Please suggest a small code change.");
-  await page.getByLabel("Include a code-change preview if useful").check();
+  await page.getByLabel("Allow a code preview").check();
   await page.getByRole("button", { name: "Send", exact: true }).click();
   await expect(
     page.getByRole("region", { name: "Assessment help choice" }),
@@ -267,6 +279,7 @@ test("malformed coaching and unsafe Markdown leave local practice available", as
   await expect(page.getByText("Connected", { exact: true })).toBeVisible();
   await page.getByText("Coach preferences", { exact: true }).click();
   await page.getByLabel("Automatic practice checkpoints").uncheck();
+  await page.getByText("Coach preferences", { exact: true }).click();
   await page
     .getByRole("button", { name: "Get guided help", exact: true })
     .click();

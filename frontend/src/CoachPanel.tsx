@@ -1,6 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
-import { Bot, Send, Square, Plug, ChevronDown } from "lucide-react";
+import {
+  Bot,
+  ChartPie,
+  ChevronDown,
+  Plug,
+  RefreshCw,
+  Send,
+  Square,
+} from "lucide-react";
 import type { CoachStatus, Session } from "./types";
 import { useDraft, exportText } from "./persistence";
 
@@ -27,6 +35,7 @@ export default function CoachPanel({
   const [error, setError] = useState("");
   const [sending, setSending] = useState(false);
   const [conversion, setConversion] = useState(false);
+  const [preferencesOpen, setPreferencesOpen] = useState(false);
   const [auto, setAuto] = useState(status?.preferences.automatic ?? true);
   useEffect(
     () => setAuto(status?.preferences.automatic ?? true),
@@ -38,6 +47,13 @@ export default function CoachPanel({
   const following = useRef(true);
   const independent =
     session.assessment_mode !== "practice" && session.activity !== "learn";
+  const remaining = Math.round(status?.usage.remaining ?? 0);
+  const selectedModel = status?.models.find(
+    (model) => model.id === status.preferences.model,
+  );
+  const preferenceSummary = status?.preferences.model
+    ? `${selectedModel?.name || status.preferences.model} · ${status.preferences.effort || "default"}`
+    : "Codex default";
   useEffect(() => {
     if (following.current)
       stream.current?.scrollTo({ top: stream.current.scrollHeight });
@@ -50,6 +66,17 @@ export default function CoachPanel({
       setError((e as Error).message);
     }
   };
+  const savePreferences = (changes: Partial<CoachStatus["preferences"]>) =>
+    act(() =>
+      operate("coach/preferences", {
+        automatic: status?.preferences.automatic ?? true,
+        approach: status?.preferences.approach ?? true,
+        check: status?.preferences.check ?? true,
+        model: status?.preferences.model ?? null,
+        effort: status?.preferences.effort ?? null,
+        ...changes,
+      }),
+    );
   const submit = async () => {
     if (independent) {
       setConversion(true);
@@ -72,38 +99,60 @@ export default function CoachPanel({
           <Bot size={20} />
           <h2>Learning coach</h2>
         </div>
-        <span
-          className={
-            status?.connection === "connected" ? "badge success" : "badge"
-          }
-        >
-          {status?.connection === "connected" ? "Connected" : "Optional"}
-        </span>
-      </header>
-      <div className="coach-connection">
-        <p>
-          {status?.connection === "connected"
-            ? status.usage.known
-              ? `${Math.round(status.usage.remaining || 0)}% of included allowance remaining`
-              : "Allowance unavailable · refresh to continue"
-            : status?.message ||
-              "Connect your ChatGPT account for coaching here."}
-        </p>
-        {status?.connection === "connected" && status.usage.conserving && (
-          <p className="warning-text">
-            Conserving allowance. Automatic checkpoints are paused.
-          </p>
-        )}
-        {status?.connection === "connected" &&
-          status.usage.windows.map((w, i) =>
-            w.resets_at ? (
-              <small key={i}>
-                Window resets {new Date(w.resets_at * 1000).toLocaleString()}
-              </small>
-            ) : null,
+        <div className="coach-status">
+          {status?.connection === "connected" && (
+            <span
+              className={
+                status.usage.conserving
+                  ? "usage-indicator warning"
+                  : "usage-indicator"
+              }
+              role="img"
+              aria-label={
+                status.usage.known
+                  ? `${remaining}% allowance remaining`
+                  : "Allowance status unavailable"
+              }
+              title={
+                status.usage.known
+                  ? `${remaining}% allowance remaining`
+                  : "Allowance status unavailable"
+              }
+            >
+              <ChartPie size={16} />
+            </span>
           )}
-        <div className="button-row">
-          {status?.connection !== "connected" && (
+          <span
+            className={
+              status?.connection === "connected" ? "badge success" : "badge"
+            }
+          >
+            {status?.connection === "connected" ? "Connected" : "Optional"}
+          </span>
+          {status && (
+            <button
+              className="icon-button coach-refresh"
+              aria-label="Refresh coach connection"
+              title="Refresh connection"
+              onClick={() => void act(() => operate("coach/refresh", {}))}
+            >
+              <RefreshCw size={15} />
+            </button>
+          )}
+        </div>
+      </header>
+      {status?.connection === "connected" ? (
+        status.usage.conserving && (
+          <div className="coach-usage-warning warning-text">
+            Automatic checkpoints are paused to conserve allowance.
+          </div>
+        )
+      ) : (
+        <div className="coach-connection">
+          <p>
+            {status?.message || "Connect your ChatGPT account for coaching."}
+          </p>
+          <div className="button-row">
             <button
               className="secondary small"
               onClick={() => void act(() => operate("coach/connect", {}))}
@@ -111,27 +160,19 @@ export default function CoachPanel({
               <Plug size={15} />
               Connect Codex
             </button>
-          )}
-          {status?.auth_url && (
-            <a
-              className="primary small"
-              href={status.auth_url}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Sign in with ChatGPT
-            </a>
-          )}
-          {status && (
-            <button
-              className="text-button"
-              onClick={() => void act(() => operate("coach/refresh", {}))}
-            >
-              Refresh connection
-            </button>
-          )}
+            {status?.auth_url && (
+              <a
+                className="primary small"
+                href={status.auth_url}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Sign in with ChatGPT
+              </a>
+            )}
+          </div>
         </div>
-      </div>
+      )}
       {independent && (
         <div className="assessment-notice">
           <strong>Independent attempt</strong>
@@ -297,10 +338,9 @@ export default function CoachPanel({
             checked={allowCode}
             onChange={(e) => setAllowCode(e.target.checked)}
           />
-          Include a code-change preview if useful
+          Allow a code preview
         </label>
         <div className="button-row">
-          <small>Ctrl + Enter to send</small>
           <span className="spacer" />
           {status?.active_request ? (
             <button
@@ -328,119 +368,110 @@ export default function CoachPanel({
           )}
         </div>
       </form>
-      <details className="coach-options">
+      <details
+        className="coach-options"
+        open={preferencesOpen}
+        onToggle={(event) => setPreferencesOpen(event.currentTarget.open)}
+      >
         <summary>
           <ChevronDown size={14} />
-          Coach preferences
+          <span>Coach preferences</span>
+          {!preferencesOpen && <small>{preferenceSummary}</small>}
         </summary>
-        <label className="checkbox">
-          <input
-            type="checkbox"
-            checked={auto}
-            onChange={(e) => {
-              setAuto(e.target.checked);
-              void act(() =>
-                operate("coach/preferences", {
-                  ...status?.preferences,
-                  automatic: e.target.checked,
-                }),
-              );
-            }}
-          />
-          Automatic practice checkpoints
-        </label>
-        {(["approach", "check"] as const).map((kind) => (
-          <label className="checkbox" key={kind}>
+        <div className="coach-options-body">
+          <span className="eyebrow">Checkpoints</span>
+          <label className="checkbox">
             <input
               type="checkbox"
-              checked={status?.preferences[kind] ?? true}
-              onChange={(e) =>
-                void act(() =>
-                  operate("coach/preferences", {
-                    ...status?.preferences,
-                    [kind]: e.target.checked,
-                  }),
-                )
-              }
+              checked={auto}
+              onChange={(e) => {
+                setAuto(e.target.checked);
+                void savePreferences({ automatic: e.target.checked });
+              }}
             />
-            {kind === "approach"
-              ? "After my initial approach"
-              : "After meaningful test results"}
+            Automatic practice checkpoints
           </label>
-        ))}
-        <label>
-          Model
-          <select
-            value={status?.preferences.model || ""}
-            onChange={(e) =>
-              void act(() =>
-                operate("coach/preferences", {
-                  ...status?.preferences,
+          {(["approach", "check"] as const).map((kind) => (
+            <label className="checkbox" key={kind}>
+              <input
+                type="checkbox"
+                checked={status?.preferences[kind] ?? true}
+                onChange={(e) =>
+                  void savePreferences({ [kind]: e.target.checked })
+                }
+              />
+              {kind === "approach"
+                ? "After my initial approach"
+                : "After meaningful test results"}
+            </label>
+          ))}
+          <span className="eyebrow">Model</span>
+          <label>
+            Model
+            <select
+              value={status?.preferences.model || ""}
+              onChange={(e) =>
+                void savePreferences({
                   model: e.target.value || null,
                   effort: null,
-                }),
-              )
-            }
-          >
-            <option value="">Codex default</option>
-            {status?.models.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        {status?.preferences.model && (
-          <label>
-            Reasoning effort
-            <select
-              value={status.preferences.effort || ""}
-              onChange={(e) =>
-                void act(() =>
-                  operate("coach/preferences", {
-                    ...status.preferences,
-                    effort: e.target.value || null,
-                  }),
+                })
+              }
+            >
+              <option value="">Codex default</option>
+              {status?.models.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          {status?.preferences.model && (
+            <label>
+              Reasoning effort
+              <select
+                value={status.preferences.effort || ""}
+                onChange={(e) =>
+                  void savePreferences({ effort: e.target.value || null })
+                }
+              >
+                <option value="">Model default</option>
+                {status.models
+                  .find((m) => m.id === status.preferences.model)
+                  ?.efforts.map((e) => (
+                    <option value={e} key={e}>
+                      {e}
+                    </option>
+                  ))}
+              </select>
+            </label>
+          )}
+          <div className="coach-options-actions">
+            <button
+              className="text-button"
+              onClick={() => void act(() => operate("coach/disconnect", {}))}
+            >
+              Disconnect
+            </button>
+            <button
+              className="text-button"
+              onClick={() =>
+                exportText(
+                  JSON.stringify(
+                    { question: message, conversation: messages },
+                    null,
+                    2,
+                  ),
+                  "private-coaching-backup.json",
                 )
               }
             >
-              <option value="">Model default</option>
-              {status.models
-                .find((m) => m.id === status.preferences.model)
-                ?.efforts.map((e) => (
-                  <option value={e} key={e}>
-                    {e}
-                  </option>
-                ))}
-            </select>
-          </label>
-        )}
-        <button
-          className="text-button"
-          onClick={() => void act(() => operate("coach/disconnect", {}))}
-        >
-          Disconnect coaching
-        </button>
-        <button
-          className="text-button"
-          onClick={() =>
-            exportText(
-              JSON.stringify(
-                { question: message, conversation: messages },
-                null,
-                2,
-              ),
-              "private-coaching-backup.json",
-            )
-          }
-        >
-          Export private conversation
-        </button>
-        <p className="muted">
-          Conversations stay on this computer and in Codex’s managed storage.
-          Approved learning summaries can be published. No API billing or credit
-          purchases.
-        </p>
+              Export conversation
+            </button>
+          </div>
+          <p className="muted coach-privacy">
+            Private on this computer and in Codex’s managed storage.
+          </p>
+        </div>
       </details>
     </aside>
   );

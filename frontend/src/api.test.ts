@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { formatTime, metricLabel, reconcileDraft } from "./api";
+import {
+  formatTime,
+  metricLabel,
+  reconcileDraft,
+  sessionProgress,
+} from "./api";
 describe("learner evidence and draft protection", () => {
   it("does not represent absent measurements as zero success", () => {
     expect(metricLabel({ passed: 0, total: 0 })).toBe("Not measured");
@@ -13,4 +18,9 @@ describe("learner evidence and draft protection", () => {
   });
   it("formats elapsed time without wrapping at an hour", () =>
     expect(formatTime(3661)).toBe("61:01"));
+  it("turns elapsed time into a bounded session percentage", () => {
+    expect(sessionProgress(900, 60)).toBe(25);
+    expect(sessionProgress(4000, 60)).toBe(100);
+    expect(sessionProgress(-10, 60)).toBe(0);
+  });
 });
