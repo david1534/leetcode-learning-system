@@ -20,11 +20,13 @@ import {
   X,
 } from "lucide-react";
 import CoachPanel from "./CoachPanel";
+import CompletionDialog, { type CompletionValues } from "./CompletionDialog";
+import ReasoningForm from "./ReasoningForm";
 import { metricLabel, sessionProgress } from "./api";
 import { exportText, useDraft } from "./persistence";
 import { useTheme, type Theme } from "./theme";
 import { useWorkspace } from "./useWorkspace";
-import type { Evaluation, Finding, Metric, StudyState } from "./types";
+import type { Evaluation, Metric, StudyState } from "./types";
 const Editor = lazy(() => import("./Editor"));
 type View = "today" | "practice" | "progress";
 const phases: Record<string, string> = {
@@ -60,39 +62,6 @@ function Signal({
     </article>
   );
 }
-function Dialog({
-  children,
-  cancel,
-}: {
-  children: React.ReactNode;
-  cancel: () => void;
-}) {
-  const ref = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    ref.current?.showModal();
-    return () => ref.current?.close();
-  }, []);
-  return (
-    <dialog
-      ref={ref}
-      aria-labelledby="finish-title"
-      onCancel={(e) => {
-        e.preventDefault();
-        cancel();
-      }}
-    >
-      <button
-        className="icon-button dialog-close"
-        aria-label="Cancel completion"
-        onClick={cancel}
-      >
-        <X />
-      </button>
-      {children}
-    </dialog>
-  );
-}
-
 export default function App() {
   const [view, setView] = useState<View>("today");
   const [theme, setTheme] = useTheme();
@@ -110,7 +79,10 @@ export default function App() {
     "reasoning-" + (s?.session_id || parent?.practice_id || "none"),
     "",
   );
-  const [quality, setQuality] = useState("complete");
+  const [quality, setQuality] = useDraft(
+    "recall-quality-" + (s?.session_id || "none"),
+    "complete",
+  );
   const [retry, setRetry] = useDraft("retry-" + (s?.session_id || "none"), "");
   const [takeaway, setTakeaway] = useDraft(
     "takeaway-" + (s?.session_id || "none"),
@@ -144,11 +116,6 @@ export default function App() {
     });
   };
   const [facts, setFacts] = useState<Evaluation | null>(null);
-  const [rating, setRating] = useState("good");
-  const [explained, setExplained] = useState(false);
-  const [constraints, setConstraints] = useState(false);
-  const [actualMinutes, setActualMinutes] = useState("");
-  const [finishFindings, setFinishFindings] = useState<Finding[]>([]);
   const beforeFinishPhase = useRef("implementation");
   const [hintChoice, setHintChoice] = useState(false);
   const [tick, setTick] = useState(0);
@@ -166,11 +133,27 @@ export default function App() {
   const safely = (fn: () => Promise<unknown>) => {
     void fn().catch(() => {});
   };
-  const start = async () => {
-    await w.operate("practice/start", { minutes, include_new: includeNew });
-    setView("practice");
+  const start = async (synchronize = true) => {
+    const next = await w.operate<StudyState>("practice/start", {
+      minutes,
+      include_new: includeNew,
+      synchronize,
+    });
+    if (!next.remote_attempts.length) setView("practice");
   };
-  const convert = () => w.mutate("practice/convert");
+  const keepLocalAndContinue = async () => {
+    await w.operate("action/keep-local", {});
+    await start(false);
+  };
+  const [converting, setConverting] = useState(false);
+  const convert = async () => {
+    setConverting(true);
+    try {
+      return await w.mutate("practice/convert");
+    } finally {
+      setConverting(false);
+    }
+  };
   const checked = w.state?.check;
   const running = checked?.status === "running";
   const currentCheck =
@@ -186,21 +169,6 @@ export default function App() {
         r.code_digest === s?.code_digest,
     )
     .at(-1);
-  useEffect(() => {
-    if (facts && review?.findings) {
-      setFinishFindings(review.findings);
-      setExplained(
-        review.findings.some(
-          (f) => f.dimension === "explanation" && f.value === "success",
-        ),
-      );
-      setConstraints(
-        review.findings.some(
-          (f) => f.dimension === "constraints" && f.value === "success",
-        ),
-      );
-    }
-  }, [review?.request_id, !!facts]);
   const automatic = useRef(new Set<string>());
   useEffect(() => {
     if (
@@ -248,11 +216,6 @@ export default function App() {
     await w.mutate("action/phase", { phase: "administration" });
     const result = await w.operate<Evaluation>("action/evaluate", {});
     setFacts(result);
-    setRating(result.recommended_rating);
-    setActualMinutes("");
-    setExplained(false);
-    setConstraints(false);
-    setFinishFindings(result.evidence || []);
     if (
       w.coach?.connection === "connected" &&
       !w.coach.usage.blocked &&
@@ -273,21 +236,21 @@ export default function App() {
       setFacts(null);
       await w.mutate("action/phase", { phase: beforeFinishPhase.current });
     });
-  const finish = async (publish: boolean) => {
+  const finish = async (values: CompletionValues) => {
     if (!s || !facts) return;
-    if (finishFindings.length) {
-      await w.mutate("action/evidence", { findings: finishFindings });
+    if (values.findings.length) {
+      await w.mutate("action/evidence", { findings: values.findings });
     }
     const now = await w.operate<Evaluation>("action/evaluate", {});
     const session = w.latest.current!.session!;
     await w.mutate("practice/finish", {
       session_id: session.session_id,
-      rating: now.recall_outcome === "failure" ? "again" : rating,
-      takeaway,
-      explained,
-      constraints_met: constraints,
-      minutes: actualMinutes ? Number(actualMinutes) : null,
-      publish,
+      rating: now.recall_outcome === "failure" ? "again" : values.rating,
+      takeaway: values.takeaway,
+      explained: values.explained,
+      constraints_met: values.constraints,
+      minutes: values.minutes,
+      publish: values.publish,
       stopped: !now.tests_passed,
     });
     setFacts(null);
@@ -479,6 +442,45 @@ export default function App() {
               </h1>
               <p>One clear next step, with room to think.</p>
             </header>
+            {w.state.completion && (!s || w.state.unpublished_count > 0) && (
+              <section className="notice success" aria-label="Saved learning">
+                <div>
+                  <strong>
+                    {s ? "Saved learning awaits publication" : "Session saved"}
+                  </strong>
+                  <p>
+                    {s
+                      ? `${w.state.unpublished_count} earlier saved item(s) can be published when this activity is finished.`
+                      : w.state.completion.message}
+                  </p>
+                </div>
+                {!s && !w.state.completion.published && (
+                  <div className="button-row">
+                    <button
+                      className="secondary small"
+                      disabled={w.busy}
+                      onClick={() => safely(keepLocalAndContinue)}
+                    >
+                      Keep local and continue
+                    </button>
+                    <button
+                      className="primary small"
+                      disabled={w.busy}
+                      onClick={() =>
+                        safely(() =>
+                          w.operate("action/publish", {
+                            session_id: w.state!.completion!.session_id,
+                            include_saved: true,
+                          }),
+                        )
+                      }
+                    >
+                      Publish saved learning ({w.state.unpublished_count})
+                    </button>
+                  </div>
+                )}
+              </section>
+            )}
             <div className="today-grid">
               <section className="focus-card panel">
                 <div className="card-top">
@@ -599,29 +601,6 @@ export default function App() {
                 <small>Measuring learning and administration time</small>
               </article>
             </div>
-            {w.state.completion && !s && (
-              <section className="notice success">
-                <div>
-                  <strong>Session saved</strong>
-                  <p>{w.state.completion.message}</p>
-                </div>
-                {!w.state.completion.published && (
-                  <button
-                    className="primary small"
-                    onClick={() =>
-                      safely(() =>
-                        w.operate("action/publish", {
-                          session_id: w.state!.completion!.session_id,
-                          include_saved: true,
-                        }),
-                      )
-                    }
-                  >
-                    Publish saved learning ({w.state.unpublished_count})
-                  </button>
-                )}
-              </section>
-            )}
             <section className="panel review-list">
               <h2>
                 Reviews waiting{" "}
@@ -661,19 +640,19 @@ export default function App() {
             {!!w.state.remote_attempts.length && (
               <section className="panel">
                 <h2>Choose a saved attempt</h2>
-                {w.state.remote_attempts.map((a) => (
+                {w.state.remote_attempts.map((branch) => (
                   <button
-                    key={a.branch}
+                    key={branch}
                     className="secondary"
+                    disabled={w.busy}
                     onClick={() =>
-                      safely(() =>
-                        w.operate("action/choose-attempt", {
-                          branch: a.branch,
-                        }),
-                      )
+                      safely(async () => {
+                        await w.operate("action/choose-attempt", { branch });
+                        setView("practice");
+                      })
                     }
                   >
-                    {a.branch}
+                    {branch}
                   </button>
                 ))}
               </section>
@@ -1081,71 +1060,19 @@ export default function App() {
                     </section>
                     <section className="work-panel">
                       {!s.initial_reasoning && s.activity !== "learn" ? (
-                        <div className="panel reasoning-card">
-                          <Lightbulb size={28} />
-                          <h2>Start with your idea.</h2>
-                          <p>
-                            What approach would you try, why does it fit, and
-                            what should remain true—or which edge case matters?
-                          </p>
-                          <label htmlFor="reasoning">
-                            A few plain-language sentences are enough.
-                          </label>
-                          <textarea
-                            id="reasoning"
-                            rows={6}
-                            value={answer}
-                            onChange={(e) => setAnswer(e.target.value)}
-                            placeholder="I would try… because… One thing to check is…"
-                          />
-                          <details>
-                            <summary>Recall self-report</summary>
-                            <select
-                              aria-label="Recall self-report"
-                              value={quality}
-                              onChange={(e) => setQuality(e.target.value)}
-                            >
-                              <option value="complete">
-                                I reconstructed the core approach
-                              </option>
-                              <option value="partial">
-                                I recalled part of it
-                              </option>
-                              <option value="failed">
-                                I don't know the approach yet
-                              </option>
-                              <option value="novel">
-                                This is my first approach to a new problem
-                              </option>
-                            </select>
-                          </details>
-                          <div className="button-row">
-                            <button
-                              className="primary"
-                              disabled={w.busy || !answer.trim()}
-                              onClick={() =>
-                                safely(() =>
-                                  w.mutate("action/reasoning", {
-                                    answer,
-                                    quality,
-                                  }),
-                                )
-                              }
-                            >
-                              Record idea & open editor
-                              <ArrowRight size={16} />
-                            </button>
-                            <button
-                              className="text-button"
-                              onClick={() => {
-                                setAnswer("I don't know the approach yet.");
-                                setQuality("failed");
-                              }}
-                            >
-                              I don’t know yet
-                            </button>
-                          </div>
-                        </div>
+                        <ReasoningForm
+                          key={s.session_id}
+                          answer={answer}
+                          quality={quality}
+                          busy={w.busy}
+                          setAnswer={setAnswer}
+                          setQuality={setQuality}
+                          submit={() =>
+                            safely(() =>
+                              w.mutate("action/reasoning", { answer, quality }),
+                            )
+                          }
+                        />
                       ) : (
                         <>
                           {s.worked_example && (
@@ -1201,9 +1128,40 @@ export default function App() {
                                 <Code2 size={16} />
                                 solution.py
                               </span>
-                              <span className="save-status" role="status">
-                                {w.saveStatus}
-                              </span>
+                              <div className="editor-controls">
+                                <span className="save-status" role="status">
+                                  {w.saveStatus}
+                                </span>
+                                <button
+                                  className="secondary small"
+                                  aria-label="Export code"
+                                  onClick={() => exportText(w.draft)}
+                                >
+                                  <Download size={16} />
+                                </button>
+                                {running ? (
+                                  <button
+                                    className="secondary"
+                                    onClick={() =>
+                                      safely(() => w.operate("action/stop", {}))
+                                    }
+                                  >
+                                    <Square size={15} />
+                                    Stop tests
+                                  </button>
+                                ) : (
+                                  <button
+                                    className="primary"
+                                    disabled={w.busy || w.conflict}
+                                    onClick={() =>
+                                      safely(() => w.mutate("action/check"))
+                                    }
+                                  >
+                                    <Play size={15} />
+                                    Run tests
+                                  </button>
+                                )}
+                              </div>
                             </div>
                             <Suspense
                               fallback={
@@ -1219,40 +1177,6 @@ export default function App() {
                                 onChange={w.change}
                               />
                             </Suspense>
-                            <div className="editor-actions">
-                              <span className="muted">
-                                Python · your own implementation
-                              </span>
-                              <button
-                                className="secondary small"
-                                aria-label="Export code"
-                                onClick={() => exportText(w.draft)}
-                              >
-                                <Download size={16} />
-                              </button>
-                              {running ? (
-                                <button
-                                  className="secondary"
-                                  onClick={() =>
-                                    safely(() => w.operate("action/stop", {}))
-                                  }
-                                >
-                                  <Square size={15} />
-                                  Stop tests
-                                </button>
-                              ) : (
-                                <button
-                                  className="primary"
-                                  disabled={w.busy || w.conflict}
-                                  onClick={() =>
-                                    safely(() => w.mutate("action/check"))
-                                  }
-                                >
-                                  <Play size={15} />
-                                  Run tests
-                                </button>
-                              )}
-                            </div>
                           </div>
                           <section
                             className="panel test-panel"
@@ -1343,6 +1267,7 @@ export default function App() {
                                   </button>
                                   <button
                                     className="primary small"
+                                    disabled={converting || w.busy}
                                     onClick={() =>
                                       safely(async () => {
                                         await convert();
@@ -1465,6 +1390,8 @@ export default function App() {
                           send={w.send}
                           operate={w.operate}
                           convert={convert}
+                          converting={converting}
+                          busy={w.busy}
                         />
                       </>
                     )}
@@ -1608,165 +1535,19 @@ export default function App() {
         </footer>
       </main>
       {facts && s && (
-        <Dialog cancel={cancelFinish}>
-          <span className="eyebrow">KEEP THE USEFUL PART</span>
-          <h2 id="finish-title">What will you take forward?</h2>
-          <p>What would you recognize or do differently next time?</p>
-          <label htmlFor="takeaway">Your takeaway</label>
-          <textarea
-            id="takeaway"
-            rows={3}
-            value={takeaway}
-            onChange={(e) => setTakeaway(e.target.value)}
-            placeholder="Next time, I’ll notice…"
-          />
-          <div className="completion-preview">
-            <strong>
-              {s.assessment_before_help
-                ? "Independent assessment ended for help. Guided work is recorded separately."
-                : facts.tests_passed
-                  ? "Your saved code passed its checks."
-                  : s.activity === "recall"
-                    ? "Short retrieval; implementation scheduling stays separate."
-                    : "An unfinished attempt is useful evidence. Your code will be preserved."}
-            </strong>
-            <p>
-              Help: {facts.assistance_level}. Active time:{" "}
-              {Math.round(elapsed / 60)} minutes.
-            </p>
-          </div>
-          {review?.findings && (
-            <section>
-              <h3>Drafted from your evidence</h3>
-              {review.findings
-                .filter((f) => f.dimension !== "misconception")
-                .map((f, i) => (
-                  <p key={i}>
-                    <strong>{f.dimension}:</strong>{" "}
-                    {f.value === "unknown"
-                      ? "not established"
-                      : f.value === "success"
-                        ? "supported by recorded evidence"
-                        : "needs review"}
-                    <small> · Coach judgment</small>
-                  </p>
-                ))}
-            </section>
-          )}
-          <label className="checkbox">
-            <input
-              type="checkbox"
-              checked={explained}
-              onChange={(e) => setExplained(e.target.checked)}
-            />
-            Explanation of why the approach works is recorded
-          </label>
-          <label className="checkbox">
-            <input
-              type="checkbox"
-              checked={constraints}
-              onChange={(e) => setConstraints(e.target.checked)}
-            />
-            Time and space requirements were checked
-          </label>
-          <details>
-            <summary>Review ratings, evidence, and time</summary>
-            <label>
-              Recall rating
-              <select
-                value={rating}
-                disabled={facts.recall_outcome === "unknown"}
-                onChange={(e) => setRating(e.target.value)}
-              >
-                {facts.recall_outcome === "unknown" && (
-                  <option value="unknown">
-                    Unknown · scheduling unchanged
-                  </option>
-                )}
-                <option value="again">
-                  Again · specified recall was missing
-                </option>
-                {facts.recall_outcome === "success" && (
-                  <>
-                    <option value="hard">
-                      Hard · recalled with substantial effort
-                    </option>
-                    <option value="good">Good · ordinary effort</option>
-                    <option value="easy">Easy · fluent recall</option>
-                  </>
-                )}
-              </select>
-            </label>
-            <p className="muted">{facts.rating_rationale}</p>
-            <label>
-              Total active minutes
-              <input
-                type="number"
-                min="0.1"
-                max="1440"
-                step="0.1"
-                value={actualMinutes}
-                onChange={(e) => setActualMinutes(e.target.value)}
-                placeholder={`${Math.round(elapsed / 60)} · calculated`}
-              />
-            </label>
-            {finishFindings.map((f, i) => (
-              <div className="finding" key={i}>
-                <label>
-                  {f.dimension}
-                  <select
-                    value={f.value}
-                    onChange={(e) =>
-                      setFinishFindings(
-                        finishFindings.map((v, j) =>
-                          j === i
-                            ? {
-                                ...v,
-                                value: e.target.value as Finding["value"],
-                                source: "learner_amendment",
-                              }
-                            : v,
-                        ),
-                      )
-                    }
-                  >
-                    <option value="success">Supported</option>
-                    <option value="failure">Not yet supported</option>
-                    <option value="unknown">Unknown / disputed</option>
-                  </select>
-                </label>
-                {f.evidence && <blockquote>{f.evidence}</blockquote>}
-              </div>
-            ))}
-          </details>
-          <p className="muted">
-            Publication includes your code, reviewed learning evidence, and
-            brief takeaway. Full coach conversations stay private.{" "}
-            {w.state.unpublished_count > 0
-              ? `Also includes ${w.state.unpublished_count} earlier saved item(s).`
-              : ""}
-          </p>
-          <p className="muted">
-            Destination: github.com/david1534/leetcode-learning-system
-          </p>
-          <div className="button-row">
-            <button
-              className="secondary"
-              disabled={w.busy || !takeaway.trim()}
-              onClick={() => safely(() => finish(false))}
-            >
-              Finish locally
-            </button>
-            <button
-              className="primary"
-              disabled={w.busy || !takeaway.trim()}
-              onClick={() => safely(() => finish(true))}
-            >
-              Publish & finish
-              <ArrowRight size={16} />
-            </button>
-          </div>
-        </Dialog>
+        <CompletionDialog
+          key={s.session_id}
+          session={s}
+          facts={facts}
+          review={review}
+          elapsed={elapsed}
+          unpublishedCount={w.state.unpublished_count}
+          busy={w.busy}
+          takeaway={takeaway}
+          setTakeaway={setTakeaway}
+          cancel={cancelFinish}
+          onFinish={(values) => safely(() => finish(values))}
+        />
       )}
     </div>
   );

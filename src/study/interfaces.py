@@ -12,6 +12,7 @@ class Input(BaseModel):
 class StartPractice(Input):
     minutes: int = Field(default=60, ge=5, le=180)
     include_new: bool = False
+    synchronize: bool = True
 
 
 class AdvancePractice(Input):

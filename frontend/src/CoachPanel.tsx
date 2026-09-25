@@ -22,6 +22,8 @@ interface Props {
   ) => Promise<unknown>;
   operate: (path: string, data?: unknown) => Promise<unknown>;
   convert: () => Promise<unknown>;
+  converting: boolean;
+  busy: boolean;
 }
 export default function CoachPanel({
   session,
@@ -29,6 +31,8 @@ export default function CoachPanel({
   send,
   operate,
   convert,
+  converting,
+  busy,
 }: Props) {
   const [message, setMessage] = useDraft("question-" + session.session_id, "");
   const [allowCode, setAllowCode] = useState(false);
@@ -78,6 +82,7 @@ export default function CoachPanel({
       }),
     );
   const submit = async () => {
+    if (sending || converting || busy) return;
     if (independent) {
       setConversion(true);
       return;
@@ -133,6 +138,7 @@ export default function CoachPanel({
             <button
               className="icon-button coach-refresh"
               aria-label="Refresh coach connection"
+              disabled={busy}
               title="Refresh connection"
               onClick={() => void act(() => operate("coach/refresh", {}))}
             >
@@ -155,6 +161,7 @@ export default function CoachPanel({
           <div className="button-row">
             <button
               className="secondary small"
+              disabled={busy}
               onClick={() => void act(() => operate("coach/connect", {}))}
             >
               <Plug size={15} />
@@ -214,6 +221,7 @@ export default function CoachPanel({
             </button>
             <button
               className="primary small"
+              disabled={converting || busy}
               onClick={() =>
                 void act(async () => {
                   await convert();
@@ -273,6 +281,7 @@ export default function CoachPanel({
                   <button
                     className="secondary small"
                     disabled={
+                      busy ||
                       m.proposal_applied ||
                       m.code_digest !== session.code_digest
                     }
@@ -356,6 +365,8 @@ export default function CoachPanel({
               className="primary"
               disabled={
                 sending ||
+                converting ||
+                busy ||
                 !message.trim() ||
                 status?.connection !== "connected" ||
                 status?.usage.blocked ||
@@ -384,6 +395,7 @@ export default function CoachPanel({
             <input
               type="checkbox"
               checked={auto}
+              disabled={busy}
               onChange={(e) => {
                 setAuto(e.target.checked);
                 void savePreferences({ automatic: e.target.checked });
@@ -396,6 +408,7 @@ export default function CoachPanel({
               <input
                 type="checkbox"
                 checked={status?.preferences[kind] ?? true}
+                disabled={busy}
                 onChange={(e) =>
                   void savePreferences({ [kind]: e.target.checked })
                 }
@@ -410,6 +423,7 @@ export default function CoachPanel({
             Model
             <select
               value={status?.preferences.model || ""}
+              disabled={busy}
               onChange={(e) =>
                 void savePreferences({
                   model: e.target.value || null,
@@ -430,6 +444,7 @@ export default function CoachPanel({
               Reasoning effort
               <select
                 value={status.preferences.effort || ""}
+                disabled={busy}
                 onChange={(e) =>
                   void savePreferences({ effort: e.target.value || null })
                 }
@@ -448,6 +463,7 @@ export default function CoachPanel({
           <div className="coach-options-actions">
             <button
               className="text-button"
+              disabled={busy}
               onClick={() => void act(() => operate("coach/disconnect", {}))}
             >
               Disconnect

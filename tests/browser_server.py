@@ -7,7 +7,6 @@ import tempfile
 from pathlib import Path
 
 import uvicorn
-from fastapi import Request
 
 from study.app import create_app
 from study.coach import Coach
@@ -39,7 +38,7 @@ def main():
         app = create_app(root, coach_factory=factory)
 
         @app.post("/__test__/reset")
-        async def reset(request: Request):
+        def reset():
             app.state.coach.disconnect()
             with app.state.service.lock:
                 for name in ("attempt", "progress", "solutions", "reflections"):
@@ -61,7 +60,11 @@ def main():
         def records():
             from study import core, policy
 
-            return {"reviews": core.load_events(root), "parents": policy.practice_sessions(root)}
+            with app.state.service.lock:
+                return {
+                    "reviews": core.load_events(root),
+                    "parents": policy.practice_sessions(root),
+                }
 
         @app.post("/__test__/repair")
         def seed_repair():

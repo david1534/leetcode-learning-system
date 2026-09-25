@@ -105,10 +105,16 @@ def queue(
     allow_new = include_new or config["new_on_weekends"] or not weekend
     available = [p for p in catalog if eligible(root, p, now)]
     reviewable = [p for p in due if eligible(root, p, now)]
+    scheduled = core.rebuild_cards(root)
+    retries = [
+        p for p in available if p["kind"] == "core" and p["id"] in seen and p["id"] not in scheduled
+    ]
     new = [p for p in available if p["kind"] == "core" and p["id"] not in seen]
     transfer = [p for p in available if p["kind"] == "transfer" and p["id"] not in seen]
     fit = max(5, budget - min(20, budget // 3))
+    retries = [p for p in retries if p["estimated_minutes"] <= fit]
     new = [p for p in new if p["estimated_minutes"] <= fit]
+    core_work = retries + (new if allow_new else [])
     transfer = [p for p in transfer if p["estimated_minutes"] <= fit]
     chosen, reason, activity = None, "No eligible activity fits this session.", "implement"
     last_transfer = next(
@@ -138,8 +144,13 @@ def queue(
             "An unfamiliar assessment checks transfer.",
             "transfer",
         )
-    elif new and allow_new and (not reviewable or new_turn):
-        chosen, reason = new[0], "Protected time for new material."
+    elif core_work and (not reviewable or new_turn):
+        chosen = core_work[0]
+        reason = (
+            "A previously opened problem still needs an implementation assessment."
+            if chosen in retries
+            else "Protected time for new material."
+        )
     elif reviewable:
         # Prefer a different topic from the preceding main activity when both are due.
         last_topic = events[-1]["topic"] if events else None

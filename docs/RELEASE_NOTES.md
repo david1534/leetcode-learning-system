@@ -1,3 +1,23 @@
+# Recovery and learning-evidence update (2026-09-25)
+
+## Daily workflow
+
+- Pending publication can be deferred with **Keep local and continue**. The next session starts without contacting GitHub, and Today retains the reminder to publish saved learning.
+- Saved-attempt choices display their branch names and resume the selected guided session before creating new work. Schema-5 attempts preserve their code, reasoning, assistance, and recorded time during migration.
+- Recall selections belong to one attempt and survive refreshes without carrying into the next problem. Previously exposed core exercises without an implementation scheduling record remain available as retries, subject to the existing prerequisites, repairs, and budget.
+- Grouped completion recovers the original child reviews and corrected total time after an interrupted write. Pause, Sync, and completed publication share the public-content check, including serialized supporting artifacts.
+- Run/Stop tests sit beside the editor save status. The reasoning and completion forms are separate components. Coaching controls wait for preference saves and mode conversion before sending another action.
+
+## Reliability and validation
+
+Session, queue, progress, and coaching snapshots use the shared session lock. Coaching event streaming runs the blocking read off the event loop, and browser fixtures reset under that same lock. Calendar-independent test setup explicitly allows new material, and historical review assertions use immutable IDs.
+
+Local Windows validation: 164 Python tests, five frontend unit tests, and 11 browser journeys passed, along with Ruff, Python and frontend formatting, TypeScript, and the production build. Browser checks use the deterministic fake coach and disposable learning records; this update did not run a live account smoke check or alter learner history.
+
+After pulling the update, restart the running Practice Room terminal through **Start Study.cmd**. A browser refresh alone does not reload the Python service.
+
+---
+
 # Integrated coaching release (0.3.0)
 
 ## Daily practice
@@ -34,7 +54,7 @@ A live Windows smoke check used ChatGPT sign-in with the restricted CLI 0.153.4 
 
 The full Monaco bundle remains large but is loaded only with the editor; Today and Progress do not download it. Two upstream test-client deprecation notices remain. Candidate execution is interruptible, not an operating-system sandbox for hostile code. The next 12 completed guided sessions measure delayed independent implementation, unseen transfer, total/stage time, administration against a three-minute median target, and coaching interruptions/latency. These measurements are descriptive, not a causal claim of improved learning.
 
-The feature remains a draft pull request until reviewed. No automatic merge or learner-history publication is part of this release.
+Publishing learning history remains a separate, explicit learner action.
 
 ---
 
