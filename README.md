@@ -8,6 +8,10 @@ Install Python 3.11 or newer and Git. A source checkout also needs Node.js 22.12
 
 You can also use `python -m pip install -e ".[dev]"`, build the interface with `npm ci` and `npm run build` inside `frontend`, then run `study app`. The interface and API share one loopback origin. Outside this repository, use `study --root <repository> app`; discovery never falls back to an installed checkout.
 
+If publication is unavailable, **Keep local and continue** starts the next practice without contacting GitHub. Saved learning stays visible on Today for later publication. Branch choices and interrupted grouped completions preserve the existing attempt and review records.
+
+After pulling an update, close the running Practice Room terminal and reopen **Start Study.cmd**. This reloads the Python service and rebuilds the interface when needed; refreshing an existing browser tab alone does not restart the service.
+
 Dark mode is the first-launch default. Settings offer Dark, Light, and System. Monaco loads when you open the editor. Interface assets are local, including fonts and the editor worker.
 
 ## Connect coaching

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from study import core, policy
+from study import core
 from study.service import StudyService
 
 
@@ -231,7 +231,7 @@ def dispatch(root: Path, args) -> int | None:
         output(result)
         return 0
     if command in {"status", "insights"}:
-        result = policy.metrics(root)
+        result = service.progress()
         output(result, getattr(args, "json", False))
         return 0
     if command == "repair":

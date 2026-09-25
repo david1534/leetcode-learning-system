@@ -1,15 +1,16 @@
 import json
+from datetime import UTC, datetime
 
 import pytest
 from test_cross_device import clone, seed_remote
 
-from study import core, gitflow
+from study import core, gitflow, policy
 from study.service import StudyService
 
 
 def prepare_service(root, repo_root):
     service = StudyService(root)
-    service.start("arrays-001-pair-sum", synchronize=False)
+    service.start("arrays-001-pair-sum", synchronize=False, include_new=True)
     service.reasoning("Map prior values to their indices; look up the complement first.")
     reference = json.loads((repo_root / "curriculum/validation.json").read_text(encoding="utf-8"))
     session = service.state()["session"]
@@ -17,7 +18,15 @@ def prepare_service(root, repo_root):
     return service
 
 
-def test_offline_completion_retry_has_one_review(monkeypatch, tmp_path, repo_root):
+@pytest.mark.parametrize("day", [11, 13])
+def test_offline_completion_retry_has_one_review(monkeypatch, tmp_path, repo_root, day):
+    class Calendar(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            value = datetime(2026, 9, day, 14, tzinfo=UTC)
+            return value.astimezone(tz) if tz else value.replace(tzinfo=None)
+
+    monkeypatch.setattr(policy, "datetime", Calendar)
     remote, _ = seed_remote(tmp_path, repo_root)
     laptop = clone(remote, tmp_path / "offline-laptop")
     service = prepare_service(laptop, repo_root)
@@ -59,8 +68,9 @@ def test_divergent_drafts_are_preserved_on_separate_branches(tmp_path, repo_root
     assert first.sync()["status"] == "synced"
     observer = clone(remote, tmp_path / "observer")
     observer_service = StudyService(observer)
-    choice = observer_service.start()
+    choice = observer_service.practice_start(include_new=True)
     assert choice["session"] is None
+    assert choice["practice"] is None
     assert len(choice["remote_attempts"]) == 2
     selected = observer_service.choose_attempt("attempt/arrays-001-pair-sum")
     assert "Device B" in selected["session"]["code"]

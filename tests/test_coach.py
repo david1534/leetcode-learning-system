@@ -1,6 +1,7 @@
 import json
 import os
 import sys
+import threading
 import time
 import uuid
 from pathlib import Path
@@ -301,3 +302,25 @@ def test_launcher_reuses_only_the_same_workspace(guided, monkeypatch):
     assert opened == ["http://127.0.0.1:8765"]
     with pytest.raises(RuntimeError, match="Another workspace"):
         app.launch(guided.root.parent)
+
+
+def test_status_observes_the_completed_session_update(coach):
+    started, finished = threading.Event(), threading.Event()
+    result = {}
+
+    def read_status():
+        started.set()
+        result.update(coach.status())
+        finished.set()
+
+    reader = threading.Thread(target=read_status)
+    with coach.service.lock:
+        reader.start()
+        assert started.wait(2)
+        assert not finished.wait(0.1)
+        parent = coach.service._practice()
+        parent["automatic_coaching"] = False
+        coach.service._save_practice(parent)
+    reader.join(2)
+    assert not reader.is_alive()
+    assert result["preferences"]["automatic"] is False

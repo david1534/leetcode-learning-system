@@ -14,7 +14,6 @@ from fastapi import BackgroundTasks, FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from study import policy
 from study.coach import Coach, CoachRequest, CoachStatus, RequestReceipt
 from study.interfaces import (
     AdvancePractice,
@@ -102,7 +101,7 @@ def create_app(root: Path, coach_factory=Coach) -> FastAPI:
 
     @app.get("/api/progress")
     def progress():
-        return policy.metrics(root)
+        return service.progress()
 
     @app.post("/api/practice/start")
     def practice_start(data: StartPractice):
@@ -219,7 +218,7 @@ def create_app(root: Path, coach_factory=Coach) -> FastAPI:
         async def events():
             previous = None
             while not await request.is_disconnected():
-                status = coach.status(session_id)
+                status = await asyncio.to_thread(coach.status, session_id)
                 data = json.dumps(status)
                 if data != previous:
                     yield f"id: {status['sequence']}\ndata: {data}\n\n"

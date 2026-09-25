@@ -80,7 +80,7 @@ export interface StudyState {
     published: boolean;
   } | null;
   unpublished_count: number;
-  remote_attempts: { branch: string }[];
+  remote_attempts: string[];
 }
 export interface Repair {
   event_id: string;

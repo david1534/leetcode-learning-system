@@ -284,6 +284,10 @@ class Coach:
             self.message = str(exc)
 
     def status(self, session_id=None):
+        with self.service.lock:
+            return self._status(session_id)
+
+    def _status(self, session_id):
         requests = []
         for path in (self.directory / "requests").glob("*.json"):
             value = self._load("requests/" + path.stem)

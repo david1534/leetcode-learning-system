@@ -290,9 +290,18 @@ class GuidedSession:
 
     def practice_start(self, minutes=60, include_new=False, synchronize=True):
         with self.lock:
+            self._recover_completed()
             if synchronize:
                 self._pull()
             self._restore_portable_practice()
+            existing = self._session() if core.load_session(self.root) else None
+            if not existing and self._read_local("remote-attempts"):
+                return {**self.state(), "message": "Choose a saved attempt before starting."}
+            if not existing and self._read_local("pending"):
+                raise RuntimeError(
+                    "A completed session awaits publication. Publish it or choose "
+                    "Keep local and continue on Today."
+                )
             parent = self._practice()
             if parent and parent["status"] != "completed":
                 parent["include_new"] = parent["include_new"] or include_new
@@ -304,7 +313,6 @@ class GuidedSession:
                 else:
                     self._open_practice_stage(parent)
                 return self.state()
-            existing = core.load_session(self.root)
             choice = self.plan(include_new, minutes)
             stages = []
             if existing:
@@ -466,76 +474,53 @@ class GuidedSession:
                 self._publish_paths(["attempt"], "guided-session")
             return self.state()
 
-    def practice_finish(
-        self,
-        session_id,
-        rating,
-        takeaway,
-        explained=False,
-        constraints_met=False,
-        minutes=None,
-        publish=False,
-        revision=None,
-        stopped=False,
-    ):
-        with self.lock:
-            parent = self._practice()
-            if not parent:
-                return self.finish(
-                    session_id,
-                    rating,
-                    takeaway,
-                    explained,
-                    constraints_met,
-                    minutes,
-                    publish,
-                    revision,
-                    stopped,
-                )
-            if parent["status"] == "completed":
-                return self._read_local("completions/" + parent["practice_id"])
-            stage = parent["stages"][parent["index"]]
-            if stage["type"] != "main":
-                raise RuntimeError("Continue or skip the supporting activity first.")
-            if minutes is not None and not 0 < minutes <= 1440:
-                raise RuntimeError("Minutes must be positive and at most 1440.")
-            receipt = self.finish(
-                session_id,
-                rating,
-                takeaway,
-                explained,
-                constraints_met,
-                None,
-                False,
-                revision,
-                stopped,
-            )
+    def _recover_practice_completion(self):
+        intent = self._read_local("practice-completion")
+        if not intent:
+            return
+        if self._read_local("completions/" + intent["session_id"]):
+            self._complete_practice(intent)
+        else:
+            # No durable child completion: preserve the still-active attempt.
+            (self.local / "practice-completion.json").unlink(missing_ok=True)
+
+    def _complete_practice(self, intent):
+        parent = intent["parent"]
+        session_id = intent["session_id"]
+        main_receipt = self._read_local("completions/" + session_id)
+        path = f"progress/practice-sessions/{parent['practice_id']}.json"
+        if (self.root / path).exists():
+            # A restart after this write must not add the children's time twice.
+            parent = json.loads((self.root / path).read_text(encoding="utf-8"))
+        else:
             parent["attempt_ids"] = list(dict.fromkeys([*parent["attempt_ids"], session_id]))
             parent["receipts"] = list(dict.fromkeys([*parent["receipts"], session_id]))
-            parent.update(status="completed", completed_at=datetime.now(UTC).isoformat())
+            main_event = json.loads(
+                (self.root / "progress/reviews" / f"{session_id}.json").read_text(encoding="utf-8")
+            )
+            parent.update(status="completed", completed_at=main_event["reviewed_at"])
+            stage = parent["stages"][parent["index"]]
             stage["status"] = "completed"
-            paths = list(parent["repair_paths"])
             for sid in parent["receipts"]:
-                saved = self._read_local("completions/" + sid)
-                if saved:
-                    paths.extend(saved["paths"])
                 event = json.loads(
                     (self.root / "progress/reviews" / f"{sid}.json").read_text(encoding="utf-8")
                 )
                 for phase, seconds in event.get("timing", {}).items():
                     parent["timing"][phase] = parent["timing"].get(phase, 0) + seconds
-            for path in parent["repair_paths"]:
-                event = json.loads((self.root / path).read_text(encoding="utf-8"))
+            for repair_path in parent["repair_paths"]:
+                event = json.loads((self.root / repair_path).read_text(encoding="utf-8"))
                 for phase, seconds in event.get("timing", {}).items():
                     parent["timing"][phase] = parent["timing"].get(phase, 0) + seconds
             parent["receipts"] = list(
                 dict.fromkeys([*parent["receipts"], *parent.get("repair_receipts", [])])
             )
             parent["minutes"] = sum(parent["timing"].values()) / 60
-            if minutes is not None:
-                parent["reported_minutes"] = minutes
-                parent["timing"]["unclassified_adjustment"] = (minutes - parent["minutes"]) * 60
-                parent["minutes"] = minutes
+            if intent["minutes"] is not None:
+                parent["reported_minutes"] = intent["minutes"]
+                parent["timing"]["unclassified_adjustment"] = (
+                    intent["minutes"] - parent["minutes"]
+                ) * 60
+                parent["minutes"] = intent["minutes"]
             parent["main_attempt_id"] = session_id
             parent["main_activity"] = stage["activity"]
             requests = [
@@ -553,30 +538,89 @@ class GuidedSession:
                     r.get("assistance") in {"guided", "substantial"} for r in requests
                 ),
             }
-            path = f"progress/practice-sessions/{parent['practice_id']}.json"
             atomic_json(self.root / path, parent)
-            paths.append(path)
-            receipt = {
-                "session_id": parent["practice_id"],
-                "problem_id": receipt["problem_id"],
-                "event_id": parent["practice_id"],
-                "status": "saved",
-                "published": False,
-                "paths": list(dict.fromkeys(paths)),
-                "child_receipts": parent["receipts"],
-                "message": "Your complete practice session is saved locally.",
-            }
-            atomic_json(self.local / "completions" / f"{parent['practice_id']}.json", receipt)
-            for sid in parent["receipts"]:
-                child = self._read_local("completions/" + sid)
-                if child:
-                    child["grouped_into"] = parent["practice_id"]
-                    atomic_json(self.local / "completions" / f"{sid}.json", child)
-            self._save_practice(parent)
-            atomic_json(self.local / "last-completion.json", receipt)
-            if publish:
-                result = self.publish(parent["practice_id"], include_saved=True)
-                receipt.update(published=result["status"] == "synced", message=result["message"])
+        paths = [path, *parent["repair_paths"]]
+        for sid in parent["receipts"]:
+            child = self._read_local("completions/" + sid)
+            if child:
+                paths.extend(child["paths"])
+        receipt = self._read_local("completions/" + parent["practice_id"]) or {
+            "session_id": parent["practice_id"],
+            "problem_id": main_receipt["problem_id"],
+            "event_id": parent["practice_id"],
+            "status": "saved",
+            "published": False,
+            "paths": list(dict.fromkeys(paths)),
+            "child_receipts": parent["receipts"],
+            "message": "Your complete practice session is saved locally.",
+        }
+        atomic_json(self.local / "completions" / f"{parent['practice_id']}.json", receipt)
+        for sid in parent["receipts"]:
+            child = self._read_local("completions/" + sid)
+            if child:
+                child["grouped_into"] = parent["practice_id"]
+                atomic_json(self.local / "completions" / f"{sid}.json", child)
+        self._save_practice(parent)
+        atomic_json(self.local / "last-completion.json", receipt)
+        (self.local / "practice-completion.json").unlink(missing_ok=True)
+        return receipt
+
+    def practice_finish(
+        self,
+        session_id,
+        rating,
+        takeaway,
+        explained=False,
+        constraints_met=False,
+        minutes=None,
+        publish=False,
+        revision=None,
+        stopped=False,
+    ):
+        with self.lock:
+            self._recover_completed()
+            parent = self._practice()
+            if not parent:
+                return self.finish(
+                    session_id,
+                    rating,
+                    takeaway,
+                    explained,
+                    constraints_met,
+                    minutes,
+                    publish,
+                    revision,
+                    stopped,
+                )
+            if parent["status"] == "completed":
+                receipt = self._read_local("completions/" + parent["practice_id"])
+            else:
+                stage = parent["stages"][parent["index"]]
+                if stage["type"] != "main":
+                    raise RuntimeError("Continue or skip the supporting activity first.")
+                if minutes is not None and not 0 < minutes <= 1440:
+                    raise RuntimeError("Minutes must be positive and at most 1440.")
+                if self._session(revision)["session_id"] != session_id:
+                    from study.service import Conflict
+
+                    raise Conflict("The active session changed; refresh before completion.")
+                intent = {"parent": parent, "session_id": session_id, "minutes": minutes}
+                atomic_json(self.local / "practice-completion.json", intent)
+                self.finish(
+                    session_id,
+                    rating,
+                    takeaway,
+                    explained,
+                    constraints_met,
+                    None,
+                    False,
+                    revision,
+                    stopped,
+                )
+                receipt = self._complete_practice(intent)
+            if publish and not receipt["published"]:
+                self.publish(parent["practice_id"], include_saved=True)
+                receipt = self._read_local("completions/" + parent["practice_id"])
             return receipt
 
     def convert_to_practice(self, revision=None):

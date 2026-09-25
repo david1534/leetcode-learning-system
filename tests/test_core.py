@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import json
+import shutil
 from datetime import UTC, datetime, timedelta
+
+import pytest
 
 from study.core import (
     MAX_ACTIVE_SEGMENT_SECONDS,
@@ -72,12 +75,26 @@ def test_catalog_contains_diagnostic_and_complete_first_module(repo_root):
     assert all(example["explanation"] for problem in problems for example in problem["examples"])
 
 
-def test_published_rating_corrections_preserve_history_and_new_reviews(repo_root):
-    effective = effective_events(repo_root)
+@pytest.mark.parametrize("future_rating", ["again", "hard", "easy"])
+def test_published_rating_corrections_preserve_history_and_new_reviews(
+    repo_root, tmp_path, future_rating
+):
+    shutil.copytree(repo_root / "progress", tmp_path / "progress")
+    previous = effective_events(tmp_path)
+    record_review(
+        tmp_path,
+        problem_by_id(repo_root, "arrays-001-pair-sum"),
+        future_rating,
+        20,
+        True,
+        0,
+        True,
+        recall_quality="complete",
+        reviewed_at=datetime.fromisoformat(previous[-1]["reviewed_at"]) + timedelta(days=1),
+    )
+    effective = effective_events(tmp_path)
     by_event_id = {event["event_id"]: event for event in effective}
-    pair_sum_history = [
-        event for event in effective if event["problem_id"] == "arrays-001-pair-sum"
-    ]
+    later_pair_sum = by_event_id["26d4acc2b1ab4ca5a993346d3866c6ae"]
     anagram = next(
         event for event in effective if event["problem_id"] == "arrays-002-anagram-groups"
     )
@@ -85,8 +102,8 @@ def test_published_rating_corrections_preserve_history_and_new_reviews(repo_root
     corrected_pair_sum = by_event_id["91305de82f294291b7bd2d2c46cf30af"]
     assert corrected_pair_sum["original_rating"] == "hard"
     assert corrected_pair_sum["rating"] == "again"
-    assert pair_sum_history[-1]["rating"] == "good"
-    assert "rating_correction" not in pair_sum_history[-1]
+    assert later_pair_sum["rating"] == "good"
+    assert "rating_correction" not in later_pair_sum
     assert anagram["original_rating"] == "hard"
     assert anagram["rating"] == "again"
 

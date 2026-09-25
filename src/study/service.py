@@ -48,6 +48,7 @@ class StudyService(GuidedSession):
             receipt = self._read_local("completions/" + session["session_id"])
             if receipt:
                 self._close_attempt(receipt)
+        self._recover_practice_completion()
 
     def _close_attempt(self, receipt):
         active = self.root / "attempt"
@@ -203,12 +204,17 @@ class StudyService(GuidedSession):
             }
 
     def plan(self, include_new=False, minutes=None):
-        result = policy.queue(self.root, include_new=include_new, minutes=minutes)
-        for key in ("due", "postponed", "short_recall", "support"):
-            result[key] = [self._public_problem(p, key == "support") for p in result[key]]
-        if result["main"]:
-            result["main"] = self._public_problem(result["main"])
-        return result
+        with self.lock:
+            result = policy.queue(self.root, include_new=include_new, minutes=minutes)
+            for key in ("due", "postponed", "short_recall", "support"):
+                result[key] = [self._public_problem(p, key == "support") for p in result[key]]
+            if result["main"]:
+                result["main"] = self._public_problem(result["main"])
+            return result
+
+    def progress(self):
+        with self.lock:
+            return policy.metrics(self.root)
 
     def _set_sync(self, status, message):
         result = {"status": status, "message": message}
@@ -696,10 +702,47 @@ class StudyService(GuidedSession):
                 )
             return self.state()
 
+    def _check_public_paths(self, paths):
+        def sensitive(value):
+            if isinstance(value, str):
+                if core.public_learning_text_errors(value):
+                    return True
+                # Portable supporting artifacts can themselves contain serialized JSON.
+                if value.lstrip().startswith(("{", "[")):
+                    try:
+                        return sensitive(json.loads(value))
+                    except json.JSONDecodeError:
+                        pass
+            elif isinstance(value, dict):
+                return any(sensitive(k) or sensitive(v) for k, v in value.items())
+            elif isinstance(value, list):
+                return any(sensitive(item) for item in value)
+            return False
+
+        for relative in paths:
+            path = self.root / relative
+            for file in path.rglob("*") if path.is_dir() else [path]:
+                if not file.is_file() or "__pycache__" in file.parts or file.suffix == ".pyc":
+                    continue
+                try:
+                    text = file.read_text(encoding="utf-8")
+                except UnicodeDecodeError as exc:
+                    raise gitflow.GitFlowError(
+                        f"Cannot check {file.relative_to(self.root)} for public content. "
+                        "Keep it local before synchronizing."
+                    ) from exc
+                if sensitive(text):
+                    raise gitflow.GitFlowError(
+                        "Public-content check found sensitive text in "
+                        f"{file.relative_to(self.root)}. Keep it local and edit it before "
+                        "publication."
+                    )
+
     def _publish_paths(self, paths, problem_id, complete=False):
         if not (self.root / ".git").exists():
             return self._set_sync("local", "Saved locally. This folder has no Git remote.")
         try:
+            self._check_public_paths(paths)
             paths = [
                 p
                 for p in paths
@@ -802,7 +845,7 @@ class StudyService(GuidedSession):
                 raise RuntimeError("Preserve and finish the current session before switching.")
             gitflow.switch_to_remote_attempt(self.root, branch)
             atomic_json(self.local / "remote-attempts.json", [])
-            return self.start(synchronize=False)
+            return self.practice_start(synchronize=False)
 
     def finish(
         self,
@@ -1045,16 +1088,7 @@ class StudyService(GuidedSession):
                 raise RuntimeError(
                     "Pause and finish the current activity before publishing an earlier completion."
                 )
-            for relative in receipt["paths"]:
-                path = self.root / relative
-                for file in path.rglob("*") if path.is_dir() else [path]:
-                    if file.is_file() and core.public_learning_text_errors(
-                        file.read_text(encoding="utf-8")
-                    ):
-                        raise RuntimeError(
-                            "Public-content check found sensitive text. Keep these artifacts "
-                            "local and edit them before publication."
-                        )
+            self._check_public_paths(receipt["paths"])
             atomic_json(self.local / "pending.json", receipt)
             return self.sync()
 

@@ -104,9 +104,27 @@ test("explicit assessment conversion, fake coach reply and safe code preview", a
   await expect(
     page.getByRole("region", { name: "Assessment help choice" }),
   ).toBeVisible();
+  let releaseConversion!: () => void;
+  const conversion = new Promise<void>((resolve) => {
+    releaseConversion = resolve;
+  });
+  await page.route("**/api/practice/convert", async (route) => {
+    await conversion;
+    await route.continue();
+  });
   await page
     .getByRole("button", { name: "Switch to guided practice", exact: true })
     .click();
+  try {
+    await expect(
+      page.getByRole("button", { name: "Send", exact: true }),
+    ).toBeDisabled();
+  } finally {
+    releaseConversion();
+  }
+  await expect(
+    page.getByText("Guided practice", { exact: true }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Send", exact: true }).click();
   await expect(page.getByText("Preview proposed code change")).toBeVisible();
   await page.getByText("Preview proposed code change").click();
@@ -209,6 +227,9 @@ test("visual layouts, large text and lazy editor loading", async ({ page }) => {
   ).toBeVisible();
   await page.screenshot({ path: "test-results/practice-desktop.png" });
   await page.setViewportSize({ width: 1280, height: 800 });
+  await expect(
+    page.getByRole("button", { name: "Run tests", exact: true }),
+  ).toBeInViewport();
   await page.screenshot({ path: "test-results/practice-laptop.png" });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: "test-results/practice-narrow.png" });
@@ -278,14 +299,32 @@ test("malformed coaching and unsafe Markdown leave local practice available", as
     .click();
   await expect(page.getByText("Connected", { exact: true })).toBeVisible();
   await page.getByText("Coach preferences", { exact: true }).click();
+  let releasePreferences!: () => void;
+  const preferences = new Promise<void>((resolve) => {
+    releasePreferences = resolve;
+  });
+  await page.route("**/api/coach/preferences", async (route) => {
+    await preferences;
+    await route.continue();
+  });
   await page.getByLabel("Automatic practice checkpoints").uncheck();
   await page.getByText("Coach preferences", { exact: true }).click();
   await page
     .getByRole("button", { name: "Get guided help", exact: true })
     .click();
-  await page
-    .getByRole("button", { name: "Switch to guided practice", exact: true })
-    .click();
+  const switchMode = page.getByRole("button", {
+    name: "Switch to guided practice",
+    exact: true,
+  });
+  try {
+    await expect(switchMode).toBeDisabled();
+  } finally {
+    releasePreferences();
+  }
+  await switchMode.click();
+  await expect(
+    page.getByText("Guided practice", { exact: true }),
+  ).toBeVisible();
   const question = page.getByRole("textbox", {
     name: "Ask your learning coach",
   });
@@ -305,4 +344,119 @@ test("malformed coaching and unsafe Markdown leave local practice available", as
     page.getByRole("button", { name: "Run tests", exact: true }),
   ).toBeEnabled();
   expect(errors).toEqual([]);
+});
+
+test("recall selection survives a refresh but does not carry into another session", async ({
+  page,
+  request,
+}) => {
+  await page.goto("/");
+  await page.getByLabel("Allow new material on weekends").check();
+  await page
+    .getByRole("button", { name: "Start practice", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "I don\u2019t know yet", exact: true })
+    .click();
+  await page.reload();
+  await page.getByRole("button", { name: "Practice", exact: true }).click();
+  await expect(page.getByLabel("Recall self-report")).toHaveValue("failed");
+  await page.getByRole("button", { name: "Record idea & open editor" }).click();
+  const first = (await (await request.get("/api/state")).json()).session
+    .session_id;
+  await page.getByRole("button", { name: "Finish / stop for today" }).click();
+  await page
+    .getByLabel("Your takeaway")
+    .fill("Try the idea again after a break.");
+  await page
+    .getByRole("button", { name: "Finish locally", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Start practice", exact: true })
+    .click();
+  await expect(page.getByLabel("Recall self-report")).toHaveValue("complete");
+  await page
+    .getByLabel("A few plain-language sentences are enough.")
+    .fill("I independently reconstructed the approach for this attempt.");
+  await page.getByRole("button", { name: "Record idea & open editor" }).click();
+  await expect(
+    page.getByRole("textbox", { name: "Python solution editor" }),
+  ).toBeVisible();
+  const next = (await (await request.get("/api/state")).json()).session;
+  expect(next.session_id).not.toBe(first);
+  expect(next.initial_reasoning.quality).toBe("complete");
+});
+
+test("pending publication can stay local while the next practice starts", async ({
+  page,
+  request,
+}) => {
+  await start(page);
+  const first = (await (await request.get("/api/state")).json()).session
+    .session_id;
+  await page.getByRole("button", { name: "Finish / stop for today" }).click();
+  await page
+    .getByLabel("Your takeaway")
+    .fill("Preserve the attempt and return to it later.");
+  // The disposable repository has no remote, so publication remains pending.
+  await page
+    .getByRole("button", { name: "Publish & finish", exact: true })
+    .click();
+  await expect(
+    page.getByRole("region", { name: "Saved learning" }),
+  ).toBeInViewport();
+  await page
+    .getByRole("button", { name: "Start practice", exact: true })
+    .click();
+  await expect(
+    page.getByRole("alert").filter({ hasText: "Keep local and continue" }),
+  ).toBeVisible();
+  const before = await (await request.get("/api/state")).json();
+  expect(before.practice.status).toBe("completed");
+  expect(before.session).toBe(null);
+  const starting = page.waitForRequest(
+    (r) => r.url().endsWith("/api/practice/start") && r.method() === "POST",
+  );
+  await page
+    .getByRole("button", { name: "Keep local and continue", exact: true })
+    .click();
+  expect((await starting).postDataJSON().synchronize).toBe(false);
+  await expect(
+    page.getByLabel("A few plain-language sentences are enough."),
+  ).toBeVisible();
+  const resumed = await (await request.get("/api/state")).json();
+  expect(resumed.session.session_id).not.toBe(first);
+  expect(resumed.unpublished_count).toBe(1);
+  expect(
+    (await (await request.get("/__test__/records")).json()).reviews,
+  ).toHaveLength(1);
+  await page.getByRole("button", { name: "Today", exact: true }).click();
+  await expect(
+    page.getByText("Saved learning awaits publication", { exact: true }),
+  ).toBeVisible();
+});
+
+test("saved branch choices display and submit the API's branch names", async ({
+  page,
+  request,
+}) => {
+  const state = await (await request.get("/api/state")).json();
+  let branches = ["attempt/first-draft", "attempt/second-draft"];
+  let selected: unknown;
+  await page.route("**/api/state", (route) =>
+    route.fulfill({ json: { ...state, remote_attempts: branches } }),
+  );
+  await page.route("**/api/action/choose-attempt", async (route) => {
+    selected = route.request().postDataJSON();
+    branches = [];
+    await route.fulfill({ json: { ...state, remote_attempts: [] } });
+  });
+  await page.goto("/");
+  await expect(
+    page.getByRole("button", { name: "attempt/first-draft", exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "attempt/second-draft", exact: true })
+    .click();
+  await expect.poll(() => selected).toEqual({ branch: "attempt/second-draft" });
 });
