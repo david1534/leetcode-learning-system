@@ -18,7 +18,6 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from study.codex_runtime import CodexRuntime
 from study.service import Conflict
-from study.storage import atomic_json
 
 
 class Finding(BaseModel):
@@ -136,6 +135,7 @@ class CoachStatus(BaseModel):
     requests: list[CoachMessage]
     active_request: str | None
     sequence: int
+    snapshot: int = 0
 
 
 class RequestReceipt(BaseModel):
@@ -188,7 +188,7 @@ def attempted_again(context, prior):
 def allowance(result):
     buckets = result.get("rateLimitsByLimitId") or {"codex": result.get("rateLimits")}
     windows = []
-    exhausted = False
+    exhausted = result.get("ordinaryUsageAllowed") is False
     for key, bucket in buckets.items():
         if not bucket:
             continue
@@ -214,24 +214,27 @@ def allowance(result):
     }
 
 
+def runtime_home(root: Path) -> Path:
+    base = Path(
+        os.environ.get("PRACTICE_ROOM_PRIVATE_HOME")
+        or os.environ.get("LOCALAPPDATA")
+        or os.environ.get("XDG_DATA_HOME")
+        or Path.home() / ".local/share"
+    )
+    key = hashlib.sha256(str(root.resolve()).encode()).hexdigest()[:24]
+    directory = base / "PracticeRoom/coach" / key
+    if directory.resolve().is_relative_to(root.resolve()):
+        raise RuntimeError("The coach's private runtime must be outside the study repository.")
+    return directory
+
+
 class Coach:
     def __init__(self, service, runtime_factory=CodexRuntime):
         self.service = service
         self.directory = service.local / "coach"
         self.directory.mkdir(exist_ok=True)
         if runtime_factory is CodexRuntime:
-            data_home = Path(
-                os.environ.get("PRACTICE_ROOM_PRIVATE_HOME")
-                or os.environ.get("LOCALAPPDATA")
-                or os.environ.get("XDG_DATA_HOME")
-                or Path.home() / ".local/share"
-            )
-            root_key = hashlib.sha256(str(service.root).encode()).hexdigest()[:24]
-            runtime_directory = data_home / "PracticeRoom/coach" / root_key
-            if runtime_directory.resolve().is_relative_to(service.root):
-                raise RuntimeError(
-                    "The coach's private runtime must be outside the study repository."
-                )
+            runtime_directory = runtime_home(service.root)
         else:
             # Injected deterministic runtimes belong to the disposable fixture.
             runtime_directory = self.directory / "runtime"
@@ -247,7 +250,8 @@ class Coach:
         self.models = []
         self.usage = allowance({})
         self.preferences = self._load(
-            "preferences", {"automatic": True, "model": None, "effort": None}
+            "preferences",
+            {"automatic": False, "approach": False, "check": False, "model": None, "effort": None},
         )
         self.sequence = 0
         self.cancelled = set()
@@ -255,12 +259,11 @@ class Coach:
 
     def _load(self, name, default=None):
         with self.io_lock:
-            path = self.directory / f"{name}.json"
-            return json.loads(path.read_text(encoding="utf-8")) if path.exists() else default
+            return self.service._read_local("coach/" + name, default)
 
     def _save(self, name, value):
-        with self.io_lock:
-            atomic_json(self.directory / f"{name}.json", value)
+        with self.service.lock, self.io_lock:
+            self.service._write_local("coach/" + name, value)
             self.sequence += 1
 
     def _event(self, method, params):
@@ -289,8 +292,7 @@ class Coach:
 
     def _status(self, session_id):
         requests = []
-        for path in (self.directory / "requests").glob("*.json"):
-            value = self._load("requests/" + path.stem)
+        for value in self.service.store.json_documents(".study-local/coach/requests/"):
             if session_id is None or value["session_id"] == session_id:
                 # No model context, auth payloads, or raw protocol output reaches React.
                 requests.append(
@@ -319,7 +321,7 @@ class Coach:
         parent = self.service._practice()
         preferences = {**self.preferences}
         if parent and parent["status"] == "active":
-            preferences["automatic"] = parent.get("automatic_coaching", True)
+            preferences["automatic"] = parent.get("automatic_coaching", False)
             preferences.update(parent.get("coach_checkpoints", {}))
         return CoachStatus.model_validate(
             {
@@ -334,8 +336,17 @@ class Coach:
                 "requests": sorted(requests, key=lambda r: r["created_at"]),
                 "active_request": self.active,
                 "sequence": self.sequence,
+                "snapshot": time.monotonic_ns() // 1000,
             }
         ).model_dump()
+
+    def begin_connect(self):
+        if self.connection in {"connecting", "signing_in"}:
+            return self.status()
+        self.connection = "connecting"
+        self.message = "Preparing the learning coach?"
+        threading.Thread(target=self.connect, daemon=True).start()
+        return self.status()
 
     def connect(self):
         with self.lock:
@@ -352,7 +363,10 @@ class Coach:
                     self.auth_url = login["authUrl"]
                     self.login_id = login["loginId"]
                     self.connection = "signing_in"
-                    self.message = "Finish signing in in your browser, then refresh the connection."
+                    self.message = (
+                        "Finish signing in with your personal ChatGPT account. The connection "
+                        "updates automatically."
+                    )
                 else:
                     self.refresh()
                 self.reconcile()
@@ -388,7 +402,7 @@ class Coach:
         self.message = "Connected with ChatGPT. Uses your included Codex allowance."
         return self.status()
 
-    def configure(self, automatic=True, model=None, effort=None, approach=True, check=True):
+    def configure(self, automatic=False, model=None, effort=None, approach=False, check=False):
         selected = next((m for m in self.models if m["id"] == model), None)
         if model and not selected:
             raise RuntimeError("Choose an available model.")
@@ -578,10 +592,7 @@ class Coach:
                 )
             elif any(
                 current[k] != context[k] for k in ("session_id", "code_digest", "mode")
-            ) or current["revision"] not in {
-                context["revision"],
-                record.get("application_revision"),
-            }:
+            ) or current.get("reasoning") != context.get("reasoning"):
                 record.update(
                     status="stale",
                     error="Your work changed during this reply. Ask again using the saved version.",
@@ -624,7 +635,7 @@ class Coach:
                             "code_digest": context["code_digest"],
                             "request_id": record["request_id"],
                         }
-                        atomic_json(self.service.local / "repair-timer.json", timer)
+                        self.service._write_local("repair-timer", timer)
                 else:
                     code = reply.proposed_code if record["allow_code"] else None
                     level = "substantial" if code else reply.assistance
@@ -676,12 +687,12 @@ class Coach:
                     )
             self._save("requests/" + record["request_id"], record)
 
-    def apply(self, request_id, revision, kind="code"):
+    def apply(self, request_id, revision, kind="code", session_id=None):
         with self.service.lock:
             record = self._load("requests/" + request_id)
             if not record or record["status"] != "completed":
                 raise RuntimeError("No completed proposal is available.")
-            session = self.service._session(revision)
+            session = self.service._session(revision, session_id)
             if (
                 record["session_id"] != session["session_id"]
                 or record["code_digest"] != session["code_digest"]
@@ -711,8 +722,7 @@ class Coach:
         return {"message": "Stopping coaching. Your code and question are saved."}
 
     def reconcile(self):
-        for path in (self.directory / "requests").glob("*.json"):
-            record = json.loads(path.read_text(encoding="utf-8"))
+        for record in self.service.store.json_documents(".study-local/coach/requests/"):
             if record["status"] not in {"sending", "running", "uncertain", "queued"}:
                 continue
             if not record.get("thread_id"):

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "leetcode-learning-system"
-version = "0.3.0"
+version = "0.4.0"
 description = "A local, testable algorithm curriculum with adaptive spaced repetition"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -32,4 +32,4 @@ extend-exclude = ["attempt", "progress/attempts", "progress/orphan-drafts", "src
 select = ["E", "F", "I", "UP", "B"]
 
 [tool.setuptools.package-data]
-study = ["web/**/*", "web/*"]
+study = ["web/**/*", "web/*", "codex_bundle/*.json"]

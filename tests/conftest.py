@@ -39,6 +39,14 @@ def pytest_sessionstart(session):
 @pytest.fixture(autouse=True)
 def isolated_working_directory(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
+
+    def native_disabled():
+        raise RuntimeError(
+            "Native Codex is disabled in unit tests; use the isolated runtime smoke check."
+        )
+
+    monkeypatch.setattr("study.codex_runtime.ensure_codex", native_disabled)
+    monkeypatch.setenv("PRACTICE_ROOM_DATA_HOME", str(tmp_path.parent / (tmp_path.name + "-data")))
     monkeypatch.setenv(
         "PRACTICE_ROOM_PRIVATE_HOME", str(tmp_path.parent / (tmp_path.name + "-coach"))
     )

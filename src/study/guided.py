@@ -1,101 +1,37 @@
-"""Guided session operations mixed into the single StudyService boundary."""
+"""One-problem workflow, repair operations, and restricted coaching projections."""
 
 from __future__ import annotations
 
 import ast
 import hashlib
-import json
 import uuid
 from datetime import UTC, datetime
 
-from study import core, policy
-from study.storage import atomic_json, atomic_text
+from study import core
+from study.storage import atomic_text
 
 
 class GuidedSession:
     def _portable_practice(self):
-        parent = self._read_local("practice")
-        if not parent or parent["status"] != "active":
-            return
-        artifacts = {}
-        receipts = {}
-        for sid in [*parent.get("receipts", []), *parent.get("repair_receipts", [])]:
-            receipt = self._read_local("completions/" + sid)
-            if not receipt:
-                continue
-            receipts[sid] = receipt
-            for value in receipt["paths"]:
-                if value == "attempt":
-                    continue
-                path = self.root / value
-                for file in path.rglob("*") if path.is_dir() else [path]:
-                    if file.is_file():
-                        artifacts[file.relative_to(self.root).as_posix()] = file.read_text(
-                            encoding="utf-8"
-                        )
-        timer = self._read_local("repair-timer")
-        if timer:
-            for gate in core.open_repair_gates(self.root):
-                if gate["event_id"] == timer["error_id"]:
-                    # The error event is needed to restore the repair on another computer.
-                    for file in (self.root / "progress/learning-events").glob("*.json"):
-                        if (
-                            json.loads(file.read_text(encoding="utf-8"))["event_id"]
-                            == timer["error_id"]
-                        ):
-                            artifacts[file.relative_to(self.root).as_posix()] = file.read_text(
-                                encoding="utf-8"
-                            )
-        atomic_json(
-            self.root / "attempt/practice.json",
-            {"parent": parent, "repair": timer, "receipts": receipts, "artifacts": artifacts},
-        )
+        # Draft snapshots are assembled from the database by Synchronizer.
+        return None
 
     def _restore_portable_practice(self):
-        path = self.root / "attempt/practice.json"
-        if not path.exists():
-            return
-        saved = json.loads(path.read_text(encoding="utf-8"))
-        current = self._read_local("practice")
-        if current and current.get("practice_id") == saved["parent"]["practice_id"]:
-            return
-        for value, text in saved.get("artifacts", {}).items():
-            target = (self.root / value).resolve()
-            if not target.is_relative_to(self.root) or not value.startswith(
-                (
-                    "progress/reviews/",
-                    "progress/attempts/",
-                    "progress/learning-events/",
-                    "reflections/",
-                    "solutions/",
-                )
-            ):
-                raise RuntimeError(
-                    "The saved session contains an invalid artifact path. "
-                    "Keep the draft for recovery."
-                )
-            if target.exists() and target.read_text(encoding="utf-8") != text:
-                atomic_text(self.local / "conflicts" / value, text)
-                raise RuntimeError(
-                    "A supporting artifact differs on this computer. Both versions are preserved "
-                    "in local conflicts; resolve it before resuming."
-                )
-            atomic_text(target, text)
-        for sid, receipt in saved.get("receipts", {}).items():
-            if not sid.isalnum():
-                raise RuntimeError("The saved session has an invalid receipt ID.")
-            atomic_json(self.local / "completions" / f"{sid}.json", receipt)
-        atomic_json(self.local / "practice.json", saved["parent"])
-        if saved.get("repair"):
-            timer = saved["repair"]
-            timer["started_at"] = None
-            atomic_json(self.local / "repair-timer.json", timer)
+        # Legacy portable files are imported transactionally during initialization.
+        return None
 
-    def repair_draft(self, answer, revision=None):
+    def _recover_practice_completion(self):
+        return None
+
+    def repair_draft(self, answer, revision=None, session_id=None):
         with self.lock:
             timer = self._read_local("repair-timer")
             if not timer:
                 raise RuntimeError("Start an eligible repair first.")
+            if session_id is not None and session_id != timer.get("session_id"):
+                raise RuntimeError(
+                    "The active repair changed. Preserve and compare your application."
+                )
             if revision is not None and revision != timer.get("revision", 0):
                 from study.service import Conflict
 
@@ -106,16 +42,15 @@ class GuidedSession:
                 raise RuntimeError("Keep the repair application under 12,000 characters.")
             if timer.get("application") != answer:
                 if timer.get("application"):
-                    atomic_text(
-                        self.local / "repair-drafts" / f"{uuid.uuid4().hex}.txt",
-                        timer["application"],
+                    self.store.write_text(
+                        f".study-local/repair-drafts/{uuid.uuid4().hex}.txt", timer["application"]
                     )
                 timer.update(
                     application=answer,
                     revision=timer.get("revision", 0) + 1,
                     code_digest=hashlib.sha256(answer.encode()).hexdigest(),
                 )
-            atomic_json(self.local / "repair-timer.json", timer)
+            self._write_local("repair-timer", timer)
             return self.state()
 
     def check_repair(self):
@@ -136,7 +71,7 @@ class GuidedSession:
             candidate = self.local / f"repair-check-{uuid.uuid4().hex}.py"
             atomic_text(candidate, answer + "\ndef __study_result__():\n    return True\n")
             timer["check"] = {"status": "running", "code_digest": snapshot}
-            atomic_json(self.local / "repair-timer.json", timer)
+            self._write_local("repair-timer", timer)
             (self.local / "stop-repair-check").unlink(missing_ok=True)
 
         class Cancel:
@@ -171,7 +106,7 @@ class GuidedSession:
                 else "complete",
             }
             timer["check"] = result
-            atomic_json(self.local / "repair-timer.json", timer)
+            self._write_local("repair-timer", timer)
             return result
 
     def stop_repair_check(self):
@@ -190,7 +125,7 @@ class GuidedSession:
             timer = self._read_local("repair-timer")
             if timer and timer.get("started_at"):
                 timer.update(started_at=None, timing_uncertain=True)
-                atomic_json(self.local / "repair-timer.json", timer)
+                self._write_local("repair-timer", timer)
 
     def timer_checkpoint(self, pause=False):
         with self.lock:
@@ -206,6 +141,11 @@ class GuidedSession:
                     pause = True
                 else:
                     self._tick(session)
+                if (
+                    sum(session.get("timing", {}).values())
+                    >= session.get("budget_minutes", 60) * 60
+                ):
+                    pause = True
                 if pause:
                     session.update(phase_started_at=None, active_started_at=None)
                 # Timer checkpoints do not change the evidence revision.
@@ -220,61 +160,24 @@ class GuidedSession:
                 else:
                     timer["seconds"] = timer.get("seconds", 0) + max(0, elapsed)
                 timer["started_at"] = None if pause else now.isoformat()
-                atomic_json(self.local / "repair-timer.json", timer)
+                self._write_local("repair-timer", timer)
 
     def _practice(self):
-        parent = self._read_local("practice")
-        if parent:
-            completed = self.root / "progress/practice-sessions" / f"{parent['practice_id']}.json"
-            if completed.exists():
-                parent = json.loads(completed.read_text(encoding="utf-8"))
-                if self._read_local("practice") != parent:
-                    atomic_json(self.local / "practice.json", parent)
-                return parent
-        session = core.load_session(self.root)
-        if (
-            session
-            and session.get("practice")
-            and (
-                not parent
-                or parent.get("status") == "completed"
-                or parent["practice_id"] != session["practice"]["practice_id"]
-            )
-        ):
-            parent = session["practice"]
-            atomic_json(self.local / "practice.json", parent)
-        return parent
+        return self.practice_state()
 
     def _save_practice(self, parent):
-        atomic_json(self.local / "practice.json", parent)
         session = core.load_session(self.root)
         if session:
-            session["practice"] = parent
-            session["practice_session_id"] = parent["practice_id"]
-            session["workflow_version"] = 3
+            session["automatic_coaching"] = parent.get("automatic_coaching", False)
+            session["coach_checkpoints"] = parent.get("coach_checkpoints", {})
             self._save(session)
 
     def practice_state(self):
-        parent = self._practice()
-        if not parent:
-            return None
-        result = json.loads(json.dumps(parent))
-        seconds = sum(parent.get("timing", {}).values())
-        if parent["status"] != "completed":
-            for sid in parent.get("attempt_ids", []):
-                path = self.root / "progress/reviews" / f"{sid}.json"
-                if path.exists():
-                    seconds += sum(json.loads(path.read_text(encoding="utf-8"))["timing"].values())
-            for value in parent.get("repair_paths", []):
-                seconds += sum(
-                    json.loads((self.root / value).read_text(encoding="utf-8"))["timing"].values()
-                )
-            session = core.load_session(self.root)
-            if session:
-                self._tick(session)
-                seconds += sum(session.get("timing", {}).values())
-            timer = self._read_local("repair-timer", {})
-            seconds += timer.get("seconds", 0)
+        """Compatibility projection, derived from the one durable current attempt."""
+        session = core.load_session(self.root)
+        timer = self._read_local("repair-timer")
+        if timer:
+            seconds = timer.get("seconds", 0)
             if timer.get("started_at"):
                 seconds += max(
                     0,
@@ -282,350 +185,172 @@ class GuidedSession:
                         datetime.now(UTC) - datetime.fromisoformat(timer["started_at"])
                     ).total_seconds(),
                 )
-        result["elapsed_seconds"] = seconds
-        # The browser needs stage labels, not revealing assessment identifiers.
-        for stage in result["stages"]:
-            stage.pop("problem_id", None)
-        return result
-
-    def practice_start(self, minutes=60, include_new=False, synchronize=True):
-        with self.lock:
-            self._recover_completed()
-            if synchronize:
-                self._pull()
-            self._restore_portable_practice()
-            existing = self._session() if core.load_session(self.root) else None
-            if not existing and self._read_local("remote-attempts"):
-                return {**self.state(), "message": "Choose a saved attempt before starting."}
-            if not existing and self._read_local("pending"):
-                raise RuntimeError(
-                    "A completed session awaits publication. Publish it or choose "
-                    "Keep local and continue on Today."
-                )
-            parent = self._practice()
-            if parent and parent["status"] != "completed":
-                parent["include_new"] = parent["include_new"] or include_new
-                self._save_practice(parent)
-                if core.load_session(self.root):
-                    self.start(synchronize=False)
-                elif parent["stages"][parent["index"]]["type"] == "repair":
-                    self.begin_repair(parent["stages"][parent["index"]]["error_id"])
-                else:
-                    self._open_practice_stage(parent)
-                return self.state()
-            choice = self.plan(include_new, minutes)
-            stages = []
-            if existing:
-                main = {"problem_id": existing["problem_id"], "activity": existing["activity"]}
-            elif choice["main"]:
-                main = {"problem_id": choice["main"]["id"], "activity": choice["activity"]}
-                if minutes >= 45 and choice["activity"] != "transfer":
-                    gates = [g for g in choice["repairs"] if g["eligible"]]
-                    if gates:
-                        stages.append(
-                            {
-                                "type": "repair",
-                                "error_id": gates[0]["event_id"],
-                                "label": "Apply a corrected rule",
-                                "minutes": 5,
-                            }
-                        )
-                    if choice["short_recall"]:
-                        stages.append(
-                            {
-                                "type": "recall",
-                                "activity": "recall",
-                                "problem_id": choice["short_recall"][0]["id"],
-                                "label": "Brief retrieval",
-                                "minutes": 5,
-                            }
-                        )
-            elif any(g["eligible"] for g in choice["repairs"]):
-                gate = next(g for g in choice["repairs"] if g["eligible"])
-                stages.append(
-                    {
-                        "type": "repair",
-                        "error_id": gate["event_id"],
-                        "label": "Apply a corrected rule",
-                        "minutes": min(5, minutes),
-                    }
-                )
-                main = {"problem_id": None, "activity": "implement"}
-            else:
-                return {**self.state(), "message": choice["reason"]}
-            stages.append({"type": "main", **main, "label": "Main activity", "minutes": minutes})
-            parent = {
-                "practice_id": uuid.uuid4().hex,
-                "workflow_version": 3,
-                "started_at": datetime.now(UTC).isoformat(),
-                "budget_minutes": minutes,
-                "include_new": include_new,
+            return {
+                "practice_id": timer.get("session_id", timer["error_id"]),
+                "workflow_version": 4,
                 "status": "active",
                 "index": 0,
-                "stages": [{**s, "status": "pending"} for s in stages],
-                "attempt_ids": [],
-                "repair_paths": [],
-                "timing": {},
-                "receipts": [],
-                "automatic_coaching": True,
-                "main_was_new": main["problem_id"] not in policy.exposures(self.root)
-                if not existing
-                else existing.get("unseen", False),
+                "budget_minutes": timer.get("budget_minutes", 15),
+                "elapsed_seconds": seconds,
+                "stages": [
+                    {
+                        "type": "repair",
+                        "label": "Apply a corrected rule",
+                        "status": "active",
+                        "error_id": timer["error_id"],
+                    }
+                ],
             }
-            self._save_practice(parent)
-            if existing:
-                parent["stages"][0]["status"] = "active"
-                self._save_practice(parent)
-                self.start(synchronize=False)
-            else:
-                self._open_practice_stage(parent)
-            return self.state()
+        if not session:
+            return None
+        self._tick(session)
+        return {
+            "practice_id": session["session_id"],
+            "workflow_version": 4,
+            "status": "active",
+            "index": 0,
+            "budget_minutes": session["budget_minutes"],
+            "elapsed_seconds": sum(session.get("timing", {}).values()),
+            "automatic_coaching": session.get("automatic_coaching", False),
+            "coach_checkpoints": session.get("coach_checkpoints", {}),
+            "stages": [{"type": "main", "label": "Current problem", "status": "active"}],
+        }
 
-    def _open_practice_stage(self, parent):
-        stage = parent["stages"][parent["index"]]
-        if stage["type"] == "repair":
-            self.begin_repair(stage["error_id"])
-        else:
-            if not stage.get("problem_id"):
-                choice = self.plan(parent["include_new"], parent["budget_minutes"])
-                if not choice["main"]:
-                    stage["status"] = "pending"
-                    self._save_practice(parent)
-                    return
-                stage.update(problem_id=choice["main"]["id"], activity=choice["activity"])
-                parent["main_was_new"] = stage["problem_id"] not in policy.exposures(self.root)
-            self.start(
-                stage["problem_id"],
-                activity=stage["activity"],
-                include_new=parent["include_new"],
-                minutes=parent["budget_minutes"],
-                synchronize=False,
-            )
-            session = self._session()
-            session["assessment_mode"] = (
-                "practice" if session["activity"] == "learn" else "independent"
-            )
-            self._save(session)
-        stage["status"] = "active"
-        self._save_practice(parent)
-
-    def practice_advance(
-        self,
-        answer="",
-        quality="complete",
-        skip=False,
-        passed=False,
-        assistance="none",
-        revision=None,
-    ):
-        with self.lock:
-            parent = self._practice()
-            if not parent or parent["status"] == "completed":
-                raise RuntimeError("Start a guided session first.")
-            stage = parent["stages"][parent["index"]]
-            if stage["type"] == "main":
-                raise RuntimeError("Finish the main activity through its review summary.")
-            if stage["type"] == "repair":
-                if skip:
-                    self.cancel_repair(answer)
-                    timer = self._read_local("repair-timer", {})
-                    parent["timing"]["repair"] = parent["timing"].get("repair", 0) + timer.get(
-                        "seconds", 0
-                    )
-                    # Draft remains recoverable; this session resumes its main activity.
-                    atomic_json(self.local / "skipped-repair.json", timer)
-                    (self.local / "repair-timer.json").unlink(missing_ok=True)
-                else:
-                    result = self.repair(stage["error_id"], answer, passed, assistance)
-                    parent["repair_paths"].append(result["event_path"])
-                    parent["repair_receipts"] = [
-                        *parent.get("repair_receipts", []),
-                        result["event_id"],
-                    ]
-            else:
-                session = self._session(revision)
-                if not skip and not session.get("initial_reasoning"):
-                    self.reasoning(answer, quality)
-                facts = self.evaluate()
-                receipt = self.finish(
-                    session["session_id"],
-                    facts["recommended_rating"],
-                    answer or "Supporting retrieval skipped.",
-                    stopped=True,
-                )
-                parent["attempt_ids"].append(receipt["session_id"])
-                parent["receipts"].append(receipt["session_id"])
-            stage["status"] = "skipped" if skip else "completed"
-            parent["index"] += 1
-            self._save_practice(parent)
-            self._open_practice_stage(parent)
-            return self.state()
-
-    def practice_pause(self):
-        with self.lock:
-            if core.load_session(self.root):
-                self.pause(synchronize=False)
-                self._portable_practice()
-                return self.pause()
-            self.cancel_repair(self._read_local("repair-timer", {}).get("application", ""))
-            self._portable_practice()
-            parent = self._practice()
-            if parent:
-                self._publish_paths(["attempt"], "guided-session")
-            return self.state()
-
-    def _recover_practice_completion(self):
-        intent = self._read_local("practice-completion")
-        if not intent:
-            return
-        if self._read_local("completions/" + intent["session_id"]):
-            self._complete_practice(intent)
-        else:
-            # No durable child completion: preserve the still-active attempt.
-            (self.local / "practice-completion.json").unlink(missing_ok=True)
-
-    def _complete_practice(self, intent):
-        parent = intent["parent"]
-        session_id = intent["session_id"]
-        main_receipt = self._read_local("completions/" + session_id)
-        path = f"progress/practice-sessions/{parent['practice_id']}.json"
-        if (self.root / path).exists():
-            # A restart after this write must not add the children's time twice.
-            parent = json.loads((self.root / path).read_text(encoding="utf-8"))
-        else:
-            parent["attempt_ids"] = list(dict.fromkeys([*parent["attempt_ids"], session_id]))
-            parent["receipts"] = list(dict.fromkeys([*parent["receipts"], session_id]))
-            main_event = json.loads(
-                (self.root / "progress/reviews" / f"{session_id}.json").read_text(encoding="utf-8")
-            )
-            parent.update(status="completed", completed_at=main_event["reviewed_at"])
-            stage = parent["stages"][parent["index"]]
-            stage["status"] = "completed"
-            for sid in parent["receipts"]:
-                event = json.loads(
-                    (self.root / "progress/reviews" / f"{sid}.json").read_text(encoding="utf-8")
-                )
-                for phase, seconds in event.get("timing", {}).items():
-                    parent["timing"][phase] = parent["timing"].get(phase, 0) + seconds
-            for repair_path in parent["repair_paths"]:
-                event = json.loads((self.root / repair_path).read_text(encoding="utf-8"))
-                for phase, seconds in event.get("timing", {}).items():
-                    parent["timing"][phase] = parent["timing"].get(phase, 0) + seconds
-            parent["receipts"] = list(
-                dict.fromkeys([*parent["receipts"], *parent.get("repair_receipts", [])])
-            )
-            parent["minutes"] = sum(parent["timing"].values()) / 60
-            if intent["minutes"] is not None:
-                parent["reported_minutes"] = intent["minutes"]
-                parent["timing"]["unclassified_adjustment"] = (
-                    intent["minutes"] - parent["minutes"]
-                ) * 60
-                parent["minutes"] = intent["minutes"]
-            parent["main_attempt_id"] = session_id
-            parent["main_activity"] = stage["activity"]
-            requests = [
-                json.loads(p.read_text(encoding="utf-8"))
-                for p in (self.local / "coach/requests").glob("*.json")
-            ]
-            requests = [r for r in requests if r["session_id"] in parent["attempt_ids"]]
-            parent["coaching"] = {
-                "turns": sum(r.get("turn_id") is not None for r in requests),
-                "interruptions": sum(r["status"] in {"interrupted", "uncertain"} for r in requests),
+    def _session_summary(self, session, event):
+        sid = event["event_id"]
+        requests = [
+            r
+            for r in self.store.json_documents(".study-local/coach/requests/")
+            if r.get("session_id") == session["session_id"]
+        ]
+        return {
+            "practice_id": sid,
+            "workflow_version": 4,
+            "status": "completed",
+            "completed_at": event.get("reviewed_at", event.get("recorded_at")),
+            "started_at": session.get("started_at"),
+            "minutes": event["minutes"],
+            "timing": event["timing"],
+            "attempt_ids": [sid],
+            "main_attempt_id": sid,
+            "main_activity": event.get("activity", "repair"),
+            "main_was_new": session.get("unseen", False),
+            "coaching": {
+                "turns": sum(bool(r.get("turn_id")) for r in requests),
+                "interruptions": sum(
+                    r.get("status") in {"interrupted", "uncertain"} for r in requests
+                ),
                 "latency_seconds": [
                     r["latency_seconds"] for r in requests if "latency_seconds" in r
                 ],
                 "escalations": sum(
                     r.get("assistance") in {"guided", "substantial"} for r in requests
                 ),
-            }
-            atomic_json(self.root / path, parent)
-        paths = [path, *parent["repair_paths"]]
-        for sid in parent["receipts"]:
-            child = self._read_local("completions/" + sid)
-            if child:
-                paths.extend(child["paths"])
-        receipt = self._read_local("completions/" + parent["practice_id"]) or {
-            "session_id": parent["practice_id"],
-            "problem_id": main_receipt["problem_id"],
-            "event_id": parent["practice_id"],
-            "status": "saved",
-            "published": False,
-            "paths": list(dict.fromkeys(paths)),
-            "child_receipts": parent["receipts"],
-            "message": "Your complete practice session is saved locally.",
+            },
         }
-        atomic_json(self.local / "completions" / f"{parent['practice_id']}.json", receipt)
-        for sid in parent["receipts"]:
-            child = self._read_local("completions/" + sid)
-            if child:
-                child["grouped_into"] = parent["practice_id"]
-                atomic_json(self.local / "completions" / f"{sid}.json", child)
-        self._save_practice(parent)
-        atomic_json(self.local / "last-completion.json", receipt)
-        (self.local / "practice-completion.json").unlink(missing_ok=True)
-        return receipt
+
+    def practice_start(self, minutes=60, include_new=False, synchronize=True):
+        timer = self._read_local("repair-timer")
+        if timer:
+            self.begin_repair(timer["error_id"])
+            return self.state()
+        with self.lock:
+            if not core.load_session(self.root):
+                queued = self.store.paths(".study-local/queued-attempts/", ".json")
+                if queued:
+                    saved = self.store.read_json(queued[0])
+                    for path, text in saved.get("artifacts", {}).items():
+                        self.store.write_text(path, text)
+                    self.store.write_json("attempt/session.json", saved["session"])
+                    self.store.write_text("attempt/current.py", saved["code"])
+                    self.store.delete(queued[0])
+        result = self.start(minutes=minutes, include_new=include_new, synchronize=synchronize)
+        if (
+            not result["session"]
+            and not result["remote_attempts"]
+            and result["sync"]["status"] not in {"checking", "pending", "choice"}
+        ):
+            eligible = [g for g in self.plan(include_new, minutes)["repairs"] if g["eligible"]]
+            if eligible:
+                self.begin_repair(eligible[0]["event_id"])
+                return self.state()
+        return result
+
+    def practice_advance(
+        self,
+        answer="",
+        quality="unknown",
+        skip=False,
+        passed=False,
+        assistance="none",
+        revision=None,
+        session_id=None,
+    ):
+        timer = self._read_local("repair-timer")
+        if session_id and self._read_local("completions/" + session_id):
+            return self.state()
+        if timer:
+            self.repair_draft(answer, revision, session_id)
+            if skip:
+                with self.lock:
+                    self.cancel_repair(answer)
+                    self._write_local(
+                        "repair-drafts/" + uuid.uuid4().hex, self._read_local("repair-timer")
+                    )
+                    self._delete_local("repair-timer")
+            else:
+                self.repair(timer["error_id"], answer, passed, assistance)
+            return self.state()
+        session = self._session(revision, session_id)
+        if session["activity"] != "recall":
+            raise RuntimeError("Finish this problem from its completion summary.")
+        if not skip and not session.get("initial_reasoning"):
+            self.reasoning(answer, quality)
+        self.finish(
+            session["session_id"], self.evaluate()["recommended_rating"], answer, stopped=True
+        )
+        return self.state()
+
+    def practice_pause(self):
+        with self.lock:
+            if core.load_session(self.root):
+                self.pause(synchronize=False)
+            else:
+                self.cancel_repair(self._read_local("repair-timer", {}).get("application", ""))
+        self.synchronizer.enqueue_draft()
+        return self.state()
 
     def practice_finish(
         self,
         session_id,
         rating,
-        takeaway,
+        takeaway="",
         explained=False,
         constraints_met=False,
         minutes=None,
         publish=False,
         revision=None,
         stopped=False,
+        recall_confirmed=False,
+        expected_session_ids=None,
     ):
-        with self.lock:
-            self._recover_completed()
-            parent = self._practice()
-            if not parent:
-                return self.finish(
-                    session_id,
-                    rating,
-                    takeaway,
-                    explained,
-                    constraints_met,
-                    minutes,
-                    publish,
-                    revision,
-                    stopped,
-                )
-            if parent["status"] == "completed":
-                receipt = self._read_local("completions/" + parent["practice_id"])
-            else:
-                stage = parent["stages"][parent["index"]]
-                if stage["type"] != "main":
-                    raise RuntimeError("Continue or skip the supporting activity first.")
-                if minutes is not None and not 0 < minutes <= 1440:
-                    raise RuntimeError("Minutes must be positive and at most 1440.")
-                if self._session(revision)["session_id"] != session_id:
-                    from study.service import Conflict
+        return self.finish(
+            session_id,
+            rating,
+            takeaway,
+            explained,
+            constraints_met,
+            minutes,
+            publish,
+            revision,
+            stopped,
+            recall_confirmed,
+            expected_session_ids,
+        )
 
-                    raise Conflict("The active session changed; refresh before completion.")
-                intent = {"parent": parent, "session_id": session_id, "minutes": minutes}
-                atomic_json(self.local / "practice-completion.json", intent)
-                self.finish(
-                    session_id,
-                    rating,
-                    takeaway,
-                    explained,
-                    constraints_met,
-                    None,
-                    False,
-                    revision,
-                    stopped,
-                )
-                receipt = self._complete_practice(intent)
-            if publish and not receipt["published"]:
-                self.publish(parent["practice_id"], include_saved=True)
-                receipt = self._read_local("completions/" + parent["practice_id"])
-            return receipt
-
-    def convert_to_practice(self, revision=None):
+    def convert_to_practice(self, revision=None, session_id=None):
         with self.lock:
-            session = self._session(revision)
+            session = self._session(revision, session_id)
             if session.get("assessment_mode") == "practice":
                 return self.state()
             if not session.get("initial_reasoning"):
@@ -641,19 +366,16 @@ class GuidedSession:
                 "latest_checkpoint": session.get("latest_checkpoint"),
                 "timing": dict(session["timing"]),
             }
-            atomic_text(
-                self.root / "attempt/assessment.py",
-                (self.root / "attempt/current.py").read_text(encoding="utf-8"),
-            )
+            self.store.write_text("attempt/assessment.py", self._code())
             session.update(assessment_mode="practice", activity="learn", phase="learning")
             self._save(session)
             return self.state()
 
-    def record_retry(self, answer, revision=None):
+    def record_retry(self, answer, revision=None, session_id=None):
         if len(answer.strip()) < 12:
             raise RuntimeError("Record the new reasoning you tried, in a short sentence.")
         with self.lock:
-            session = self._session(revision)
+            session = self._session(revision, session_id)
             previous = session.get("reasoning_retries", [])
             if previous and previous[-1]["answer"] == answer.strip():
                 raise RuntimeError("Describe a new attempt rather than repeating the last one.")
@@ -663,9 +385,9 @@ class GuidedSession:
             self._save(session)
             return self.state()
 
-    def evidence(self, findings, revision=None):
+    def evidence(self, findings, revision=None, session_id=None):
         with self.lock:
-            session = self._session(revision)
+            session = self._session(revision, session_id)
             allowed = {"recall", "explanation", "constraints", "misconception"}
             for finding in findings:
                 if finding.get("dimension") not in allowed or finding.get("value") not in {
@@ -700,8 +422,8 @@ class GuidedSession:
                 if not gate:
                     raise RuntimeError("This repair is no longer open.")
                 return {
-                    "session_id": "repair"
-                    + hashlib.sha256(timer["error_id"].encode()).hexdigest()[:24],
+                    "session_id": timer.get("session_id")
+                    or ("repair" + hashlib.sha256(timer["error_id"].encode()).hexdigest()[:24]),
                     "revision": timer.get("revision", 0),
                     "code_digest": timer.get("code_digest", ""),
                     "mode": "repair",
@@ -754,8 +476,9 @@ class GuidedSession:
                         == core.problem_by_id(self.root, session["problem_id"])["topic"]
                     ):
                         path = self.root / "progress/attempts" / event["event_id"] / "reflection.md"
-                        if path.exists():
-                            memory.append(path.read_text(encoding="utf-8")[:1000])
+                        text = core.artifact_text(self.root, path)
+                        if text:
+                            memory.append(text[:1000])
             return {
                 "session_id": session["session_id"],
                 "revision": session["revision"],

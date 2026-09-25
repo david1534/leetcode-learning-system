@@ -19,6 +19,8 @@ from zoneinfo import ZoneInfo
 
 from fsrs import Card, Rating, Scheduler
 
+from study.database import existing_store
+
 EASTERN = ZoneInfo("America/New_York")
 RATINGS = {
     "again": Rating.Again,
@@ -27,7 +29,7 @@ RATINGS = {
     "easy": Rating.Easy,
 }
 ASSISTANCE_LEVELS = ("none", "minor", "guided", "substantial")
-RECALL_QUALITIES = ("novel", "complete", "partial", "failed")
+RECALL_QUALITIES = ("novel", "complete", "partial", "failed", "unknown")
 ERROR_CATEGORIES = (
     "problem-modeling",
     "pattern-selection",
@@ -72,23 +74,57 @@ def problem_by_id(root: Path, problem_id: str) -> dict[str, Any]:
     raise KeyError(f"Unknown problem ID: {problem_id}")
 
 
+def artifact_paths(root: Path, prefix: str, suffix: str = "") -> list[Path]:
+    store = existing_store(root)
+    if store:
+        return [root / name for name in store.paths(prefix, suffix)]
+    directory = root / prefix.rstrip("/")
+    return sorted(p for p in directory.rglob("*") if p.is_file() and p.name.endswith(suffix))
+
+
+def artifact_text(root: Path, path: Path | str, default=None):
+    relative = path.relative_to(root).as_posix() if isinstance(path, Path) else path
+    store = existing_store(root)
+    if store:
+        return store.read_text(relative, default)
+    file = root / relative
+    return file.read_text(encoding="utf-8") if file.exists() else default
+
+
+def artifact_json(root: Path, path: Path | str, default=None):
+    text = artifact_text(root, path)
+    return json.loads(text) if text is not None else default
+
+
+def write_artifact(root: Path, path: Path | str, value, *, text=False):
+    relative = path.relative_to(root).as_posix() if isinstance(path, Path) else path
+    store = existing_store(root)
+    if store:
+        (store.write_text if text else store.write_json)(relative, value)
+    else:
+        from study.storage import atomic_json, atomic_text
+
+        (atomic_text if text else atomic_json)(root / relative, value)
+    return root / relative
+
+
 def event_files(root: Path) -> list[Path]:
-    return sorted((root / "progress" / "reviews").glob("*.json"))
+    return artifact_paths(root, "progress/reviews/", ".json")
 
 
 def load_events(root: Path) -> list[dict[str, Any]]:
-    events = [json.loads(path.read_text(encoding="utf-8")) for path in event_files(root)]
+    events = [artifact_json(root, path) for path in event_files(root)]
     return sorted(events, key=lambda event: (event["reviewed_at"], event["event_id"]))
 
 
 def correction_files(root: Path) -> list[Path]:
-    return sorted((root / "progress" / "corrections").glob("*.json"))
+    return artifact_paths(root, "progress/corrections/", ".json")
 
 
 def load_corrections(root: Path) -> dict[str, dict[str, Any]]:
     corrections: dict[str, dict[str, Any]] = {}
     for path in correction_files(root):
-        correction = json.loads(path.read_text(encoding="utf-8"))
+        correction = artifact_json(root, path)
         required = {
             "correction_id",
             "target_event_id",
@@ -208,11 +244,11 @@ def is_review_attempt(root: Path, problem_id: str) -> bool:
 
 
 def learning_event_files(root: Path) -> list[Path]:
-    return sorted((root / "progress" / "learning-events").glob("*.json"))
+    return artifact_paths(root, "progress/learning-events/", ".json")
 
 
 def load_learning_events(root: Path) -> list[dict[str, Any]]:
-    events = [json.loads(path.read_text(encoding="utf-8")) for path in learning_event_files(root)]
+    events = [artifact_json(root, path) for path in learning_event_files(root)]
     return sorted(events, key=lambda event: (event["recorded_at"], event["event_id"]))
 
 
@@ -220,7 +256,7 @@ def _write_learning_event(
     root: Path, event: dict[str, Any], recorded_at: datetime | None = None
 ) -> Path:
     recorded_at = (recorded_at or datetime.now(UTC)).astimezone(UTC)
-    event_id = uuid.uuid4().hex
+    event_id = event.get("event_id") or uuid.uuid4().hex
     payload = {
         "schema_version": 1,
         "event_id": event_id,
@@ -228,16 +264,13 @@ def _write_learning_event(
         **event,
     }
     directory = root / "progress" / "learning-events"
-    directory.mkdir(parents=True, exist_ok=True)
     name = recorded_at.strftime("%Y%m%dT%H%M%S%fZ") + f"-{event['event_type']}-{event_id[:8]}.json"
     path = directory / name
-    from study.storage import atomic_json
-
     if payload.get("skill"):
         from study.policy import skill_id
 
         payload["skill_id"] = skill_id(payload["skill"])
-    atomic_json(path, payload)
+    write_artifact(root, path, payload)
     return path
 
 
@@ -445,6 +478,8 @@ def record_repair(
     passed: bool,
     assistance: str = "none",
     recorded_at: datetime | None = None,
+    *,
+    event_id: str | None = None,
 ) -> Path:
     if assistance not in ASSISTANCE_LEVELS:
         raise RuntimeError(f"Unknown assistance level: {assistance}.")
@@ -484,6 +519,7 @@ def record_repair(
         root,
         {
             "event_type": "repair",
+            **({"event_id": event_id} if event_id else {}),
             "problem_id": target["problem_id"],
             "skill": target["skill"],
             "category": target["category"],
@@ -506,12 +542,18 @@ def session_path(root: Path) -> Path:
 
 
 def candidate_path(root: Path) -> Path:
+    store = existing_store(root)
+    if store:
+        return store.directory / "editor/current.py"
     tracked = root / "attempt" / "current.py"
     legacy = root / ".practice" / "current.py"
     return tracked if tracked.exists() or not legacy.exists() else legacy
 
 
 def load_session(root: Path) -> dict[str, Any] | None:
+    store = existing_store(root)
+    if store:
+        return store.read_json("attempt/session.json")
     path = session_path(root)
     return json.loads(path.read_text(encoding="utf-8")) if path.exists() else None
 
@@ -541,6 +583,10 @@ def _modern_session(session: dict[str, Any], now: datetime | None = None) -> dic
 
 
 def save_session(root: Path, session: dict[str, Any]) -> Path:
+    store = existing_store(root)
+    if store:
+        store.write_json("attempt/session.json", session)
+        return root / "attempt/session.json"
     legacy_checkpoints = root / "attempt" / "checkpoints"
     legacy_files = sorted(legacy_checkpoints.glob("*.json"))
     if "latest_checkpoint" not in session and legacy_files:
@@ -871,9 +917,8 @@ def start_problem(root: Path, problem_id: str, now: datetime | None = None) -> P
     problem = problem_by_id(root, problem_id)
     now = (now or datetime.now(UTC)).astimezone(UTC)
     practice = root / "attempt"
-    practice.mkdir(parents=True, exist_ok=True)
     current = practice / "current.py"
-    current.write_text(render_template(problem), encoding="utf-8")
+    write_artifact(root, current, render_template(problem), text=True)
     session = {
         "schema_version": 5,
         "problem_id": problem_id,
@@ -948,10 +993,9 @@ def record_review(
         "tests_passed": passed,
     }
     reviews = root / "progress" / "reviews"
-    reviews.mkdir(parents=True, exist_ok=True)
     filename = reviewed_at.strftime("%Y%m%dT%H%M%S%fZ") + f"-{problem['id']}-{event_id[:8]}.json"
     path = reviews / filename
-    path.write_text(json.dumps(event, indent=2) + "\n", encoding="utf-8")
+    write_artifact(root, path, event)
     return path
 
 

@@ -10,7 +10,6 @@ from fastapi.testclient import TestClient
 from study import core, policy
 from study.app import create_app
 from study.service import Conflict, StudyService
-from study.storage import atomic_json
 
 ROOT = Path(__file__).parents[1]
 PAIR = "arrays-001-pair-sum"
@@ -25,7 +24,9 @@ def service(tmp_path):
 
 def prepared(service, problem=PAIR, activity="implement"):
     service.start(problem, activity, synchronize=False, include_new=True)
-    service.reasoning("Map prior values to indices; check the complement before insertion.")
+    service.reasoning(
+        "Map prior values to indices; check the complement before insertion.", quality="complete"
+    )
     state = service.state()["session"]
     return service.save_code(REFERENCE[problem]["reference"], state["revision"])["session"]
 
@@ -50,7 +51,8 @@ def test_same_service_browser_and_coach_revisions(service):
     assert "coach edit" in service.state()["session"]["code"]
     # Direct file edits also invalidate the previously observed session revision.
     s = service.state()["session"]
-    (service.root / "attempt/current.py").write_text("# external editor", encoding="utf-8")
+    service.export_editor().write_text("# external editor", encoding="utf-8")
+    service.import_editor()
     with pytest.raises(Conflict):
         coach.save_code("overwritten", s["revision"])
 
@@ -63,8 +65,8 @@ def test_checked_revision_cannot_authorize_later_code(service):
     with pytest.raises(RuntimeError, match="current passing check"):
         finish(service)
     receipt = finish(service, stopped=True)
-    assert (service.root / "progress/attempts" / receipt["session_id"] / "candidate.py").exists()
-    assert not (service.root / "solutions" / f"{PAIR}.py").exists()
+    assert service.store.exists(f"progress/attempts/{receipt['session_id']}/candidate.py")
+    assert not service.store.exists(f"solutions/{PAIR}.py")
 
 
 @pytest.mark.parametrize("minutes", [None, 12.5])
@@ -119,6 +121,9 @@ def test_minor_hint_does_not_supply_algorithm_or_count_as_failure(service):
 
 def test_guided_recall_requires_again_but_preserves_correct_implementation(service):
     prepared(service)
+    session = service._session()
+    session["assessment_mode"] = "independent"
+    service._save(session)
     service.convert_to_practice()
     service.assistance(
         "guided", "Supplied the missing complement lookup reasoning.", supplied_missing_recall=True
@@ -193,7 +198,7 @@ def evidence(service, problem, when, **changes):
         unseen=False,
     )
     event.update(changes)
-    atomic_json(service.root / "progress/reviews" / f"{event['event_id']}.json", event)
+    core.write_artifact(service.root, f"progress/reviews/{event['event_id']}.json", event)
 
 
 def test_spacing_and_prerequisites_are_elapsed_time_rules(service):
@@ -297,7 +302,9 @@ def test_fifth_main_session_prefers_unseen_transfer(service):
 
 def test_generic_formal_hint_keeps_independent_recall(service):
     service.start("diagnostic-001-frequency", synchronize=False, include_new=True)
-    service.reasoning("Count frequencies, then scan first appearances to resolve ties.")
+    service.reasoning(
+        "Count frequencies, then scan first appearances to resolve ties.", quality="complete"
+    )
     service.convert_to_practice()
     assert service.hint()["level"] == "minor"
     assert service.state()["session"]["hints_used"] == 1

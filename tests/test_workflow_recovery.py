@@ -1,114 +1,144 @@
-import json
+"""Behavioral recovery checks for the SQLite service and its HTTP boundary."""
+
+import subprocess
+import sys
+import time
 from datetime import UTC, datetime
 from unittest.mock import Mock
 
 import pytest
 from fastapi.testclient import TestClient
 
-from study import core, gitflow, policy
+from study import core, policy
 from study.app import create_app
 from study.cli import main
 from study.service import Conflict, StudyService
-from study.storage import atomic_json
 
 
-@pytest.mark.parametrize(
-    "failure_at", ["parent_event", "parent_receipt", "grouping", "last_receipt"]
-)
-def test_grouped_completion_recovers_one_review_and_one_budget(guided, monkeypatch, failure_at):
-    state = guided.practice_start(minutes=30, include_new=True, synchronize=False)
+def test_storage_failure_is_json_and_completion_rolls_back(guided, monkeypatch):
+    state = guided.practice_start(include_new=True, synchronize=False)
     sid = state["session"]["session_id"]
-    pid = state["practice"]["practice_id"]
-    original = atomic_json
+    app = create_app(guided.root)
+    original = app.state.service.store.write_json
 
-    def interrupted(path, value):
-        relative = path.relative_to(guided.root).as_posix()
-        if (
-            failure_at == "parent_event"
-            and relative == f"progress/practice-sessions/{pid}.json"
-            or failure_at == "parent_receipt"
-            and relative == f".study-local/completions/{pid}.json"
-            or failure_at == "grouping"
-            and value.get("grouped_into") == pid
-            or failure_at == "last_receipt"
-            and relative == ".study-local/last-completion.json"
-            and value.get("session_id") == pid
-        ):
-            raise PermissionError("Interrupted completion write")
+    def full_disk(path, value):
+        if path == ".study-local/last-completion.json":
+            raise OSError("Simulated full disk")
         original(path, value)
 
-    with monkeypatch.context() as patch:
-        patch.setattr("study.guided.atomic_json", interrupted)
-        with pytest.raises(PermissionError, match="Interrupted"):
-            guided.practice_finish(
-                sid, "unknown", "Stopped before an approach.", minutes=25, stopped=True
-            )
-    review = guided.root / "progress/reviews" / f"{sid}.json"
-    recorded = review.read_bytes()
-    restarted = StudyService(guided.root)
-    recovered = restarted.state()
-    assert recovered["session"] is None
-    assert recovered["practice"]["status"] == "completed"
-    assert recovered["completion"]["session_id"] == pid
-    assert recovered["unpublished_count"] == 1
-    assert review.read_bytes() == recorded
-    parents = policy.practice_sessions(guided.root)
-    assert len(parents) == 1
-    assert parents[0]["minutes"] == 25
-    assert sum(parents[0]["timing"].values()) / 60 == pytest.approx(25)
-    assert len(core.load_events(guided.root)) == 1
-    assert restarted.practice_finish(sid, "unknown", "Retry", stopped=True)["session_id"] == pid
-    assert restarted.state()["completion"] == recovered["completion"]
-    assert not (guided.local / "practice-completion.json").exists()
+    monkeypatch.setattr(app.state.service.store, "write_json", full_disk)
+    with TestClient(app, base_url="http://127.0.0.1") as client:
+        response = client.post(
+            "/api/practice/finish",
+            headers={"X-Study-Request": "1"},
+            json={
+                "session_id": sid,
+                "revision": guided._session()["revision"],
+                "rating": "unknown",
+                "stopped": True,
+            },
+        )
+        assert response.status_code == 503
+        assert response.headers["content-type"].startswith("application/json")
+        assert response.json()["code"] == "storage_unavailable"
+        assert response.json()["diagnostic_id"]
+    assert core.load_session(guided.root)["session_id"] == sid
+    assert core.load_events(guided.root) == []
 
 
-def test_rejected_completion_keeps_the_active_parent(guided):
-    state = guided.practice_start(include_new=True, synchronize=False)
-    sid = state["session"]["session_id"]
-    guided.reasoning("Try a direct comparison.")
-    with pytest.raises(RuntimeError, match="current passing check"):
-        guided.practice_finish(sid, "good", "Keep a useful lesson.")
-    assert guided.state()["session"]["session_id"] == sid
-    assert not core.load_events(guided.root)
-    assert not (guided.local / "practice-completion.json").exists()
-
-
-def test_old_completion_cannot_close_another_active_session(guided):
+def test_late_save_cannot_write_to_a_different_attempt(guided):
     first = guided.practice_start(include_new=True, synchronize=False)["session"]["session_id"]
-    guided.practice_finish(first, "unknown", "Stopped early.", stopped=True)
-    second = guided.practice_start(include_new=True, synchronize=False)["session"]["session_id"]
-    with pytest.raises(Conflict, match="active session changed"):
-        guided.practice_finish(first, "unknown", "Stale finish.", stopped=True)
-    assert guided.state()["session"]["session_id"] == second
+    guided.finish(first, "unknown", "", stopped=True)
+    second = guided.practice_start(include_new=True, synchronize=False)["session"]
+    guided.reasoning("A compact first idea.")
+    current = guided.state()["session"]
+    with pytest.raises(Conflict, match="active problem changed"):
+        guided.save_code("lost old draft", current["revision"], current["code_digest"], first)
+    assert guided._code() == current["code"]
+    assert guided._session()["session_id"] == second["session_id"]
 
 
-def test_pending_publication_can_be_deferred_before_local_continuation(guided, monkeypatch):
+def test_check_remains_available_after_metadata_changes(guided):
+    guided.practice_start(include_new=True, synchronize=False)
+    guided.reasoning("Try all distinct pairs and compare with the target.")
+    observed = guided.state()["session"]
+    guided.assistance("minor", "Clarified the meaning of a Python return statement.")
+    result = guided.check(
+        observed["revision"], session_id=observed["session_id"], code_digest=observed["code_digest"]
+    )
+    assert result["status"] == "complete"
+    assert result["code_digest"] == observed["code_digest"]
+
+
+def test_changed_browser_build_is_rejected_before_mutation(guided):
+    app = create_app(guided.root)
+    client = TestClient(app, base_url="http://127.0.0.1")
+    response = client.post(
+        "/api/practice/start",
+        headers={"X-Study-Request": "1", "X-Study-Build": "stale-page"},
+        json={"include_new": True, "synchronize": False},
+    )
+    assert response.status_code == 409
+    assert response.json()["code"] == "client_outdated"
+    assert guided.state()["session"] is None
+
+
+def test_real_process_interruption_leaves_the_prior_transaction_intact(guided, tmp_path):
+    state = guided.practice_start(include_new=True, synchronize=False)
+    old_code = guided._code()
+    ready = tmp_path / "transaction-ready"
+    program = """
+import sys,time
+from pathlib import Path
+from study.database import StudyStore
+store=StudyStore(Path(sys.argv[1])).initialize()
+with store.transaction():
+    store.write_text('attempt/current.py', '# uncommitted candidate')
+    store.write_json('progress/reviews/interrupted.json', {'event_id':'interrupted'})
+    Path(sys.argv[2]).write_text('ready')
+    time.sleep(30)
+"""
+    child = subprocess.Popen(
+        [sys.executable, "-c", program, str(guided.root), str(ready)],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+    )
+    try:
+        deadline = time.monotonic() + 8
+        while not ready.exists() and child.poll() is None and time.monotonic() < deadline:
+            time.sleep(0.02)
+        assert ready.exists(), child.communicate(timeout=2)
+        child.terminate()  # Only the process created for this disposable transaction.
+        child.wait(timeout=5)
+    finally:
+        if child.poll() is None:
+            child.kill()
+            child.wait(timeout=5)
+    restarted = StudyService(guided.root)
+    assert restarted._code() == old_code
+    assert restarted._session()["session_id"] == state["session"]["session_id"]
+    assert core.load_events(guided.root) == []
+
+
+def test_pending_publication_does_not_require_defer_before_local_continuation(guided, monkeypatch):
     state = guided.practice_start(include_new=True, synchronize=False)
     sid = state["session"]["session_id"]
-    guided.practice_finish(sid, "unknown", "Stopped early.", stopped=True, publish=True)
-    # A folder without a remote retains the same pending publication as an offline push.
-    assert (guided.local / "pending.json").exists()
-    parent = guided.state()["practice"]
-    with pytest.raises(RuntimeError, match="Keep local and continue"):
-        guided.practice_start(include_new=True, synchronize=False)
-    assert guided.state()["practice"] == parent
-    guided.keep_local()
+    guided.practice_finish(sid, "unknown", "", stopped=True, publish=True)
     pull = Mock(side_effect=AssertionError("Local continuation must not contact GitHub"))
     monkeypatch.setattr(guided, "_pull", pull)
-    resumed = guided.practice_start(include_new=True, synchronize=False)
-    assert resumed["session"]["session_id"] != sid
-    assert resumed["unpublished_count"] == 1
-    assert len(core.load_events(guided.root)) == 1
+    next_state = guided.practice_start(include_new=True, synchronize=False)
+    assert next_state["session"]["session_id"] != sid
+    assert next_state["unpublished_count"] == 1
     pull.assert_not_called()
 
 
-def test_multiple_remote_attempts_do_not_create_a_parent(guided):
+def test_multiple_remote_attempts_require_a_choice(guided):
     branches = ["attempt/first", "attempt/second"]
-    atomic_json(guided.local / "remote-attempts.json", branches)
+    guided._write_local("remote-attempts", branches)
     state = guided.practice_start(include_new=True, synchronize=False)
     assert state["remote_attempts"] == branches
     assert state["session"] is None and state["practice"] is None
-    assert not (guided.local / "practice.json").exists()
 
 
 def test_api_supports_explicit_local_start(guided, monkeypatch):
@@ -121,8 +151,7 @@ def test_api_supports_explicit_local_start(guided, monkeypatch):
             headers={"X-Study-Request": "1"},
             json={"synchronize": False, "include_new": True},
         )
-        assert response.status_code == 200
-        assert response.json()["session"]
+        assert response.status_code == 200 and response.json()["session"]
     pull.assert_not_called()
 
 
@@ -137,104 +166,48 @@ def test_cli_migrates_schema_five_before_resuming(guided, monkeypatch):
         assistance_log=[{"level": "guided", "summary": "Original help."}],
     )
     core.save_session(guided.root, session)
-    candidate = guided.root / "attempt/current.py"
-    original = candidate.read_bytes()
+    code = guided._code()
     monkeypatch.chdir(guided.root)
     assert main(["practice", "--no-sync"]) == 0
     resumed = guided.state()["session"]
-    assert resumed["schema_version"] == 6
+    assert resumed["schema_version"] == 7
     assert resumed["initial_reasoning"] == session["initial_reasoning"]
     assert resumed["assistance_log"] == session["assistance_log"]
-    assert resumed["hints_used"] == 1
     assert resumed["timing"]["unclassified"] == 240
-    assert candidate.read_bytes() == original
+    assert guided._code() == code
 
 
-def test_unknown_recall_remains_available_for_implementation_on_weekends(guided):
+def test_unknown_recall_stays_available_for_a_weekend_implementation(guided):
     state = guided.practice_start(include_new=True, synchronize=False)
-    sid, pid = state["session"]["session_id"], state["session"]["problem_id"]
-    guided.practice_finish(sid, "unknown", "Stopped early.", stopped=True)
+    pid = state["session"]["problem_id"]
+    guided.finish(state["session"]["session_id"], "unknown", "", stopped=True)
     sunday = datetime(2026, 10, 4, 14, tzinfo=UTC)
     choice = policy.queue(guided.root, now=sunday, minutes=60)
     assert choice["main"]["id"] == pid and choice["activity"] == "implement"
     assert core.rebuild_cards(guided.root) == {}
-    assert core.load_events(guided.root)[0]["rating"] == "unknown"
     assert policy.queue(guided.root, now=sunday, minutes=5)["main"] is None
-    resumed = guided.practice_start(include_new=True, synchronize=False)
-    assert not resumed["session"]["unseen"]
 
 
-def test_unassessed_retry_respects_prerequisites_and_repairs(guided):
-    state = guided.practice_start(include_new=True, synchronize=False)
-    pid = state["session"]["problem_id"]
-    problem = core.problem_by_id(guided.root, pid)
-    core.record_learning_error(
-        guided.root,
-        problem["skill_ids"][0],
-        "invariant",
-        "misconception",
-        "blocking",
-        "A missing condition.",
-        "Recognize a boundary.",
-        "Check the boundary.",
-        "Apply the rule to a fresh example.",
-    )
-    guided.practice_finish(state["session"]["session_id"], "unknown", "Stopped.", stopped=True)
-    choice = policy.queue(guided.root, include_new=True)
-    assert choice["main"] is None or choice["main"]["id"] != pid
-    catalog_path = guided.root / "curriculum/problems.json"
-    catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
-    next(p for p in catalog["problems"] if p["id"] == pid)["prerequisites"] = [
-        "unmet-fixture-anchor"
-    ]
-    # Remove only this fixture's error to isolate the prerequisite rule.
-    for path in (guided.root / "progress/learning-events").glob("*.json"):
-        if json.loads(path.read_text(encoding="utf-8"))["event_type"] == "error":
-            path.unlink()
-    atomic_json(catalog_path, catalog)
-    choice = policy.queue(guided.root, include_new=True)
-    assert choice["main"] is None or choice["main"]["id"] != pid
-
-
-@pytest.mark.parametrize("operation", ["pause", "sync"])
 @pytest.mark.parametrize("content", ["Fixture token=not-a-secret", r"C:\Users\fixture\notes"])
-def test_draft_sync_checks_content_before_git(guided, monkeypatch, operation, content):
+def test_draft_content_rejection_happens_before_git(guided, monkeypatch, content):
     guided.practice_start(include_new=True, synchronize=False)
     guided.reasoning(content)
-    (guided.root / ".git").mkdir()
-    commit, push = Mock(), Mock()
-    monkeypatch.setattr(gitflow, "commit_paths", commit)
-    monkeypatch.setattr(gitflow, "push_current", push)
-    result = getattr(guided, operation)()
-    sync = result["sync"] if operation == "pause" else result
-    assert sync["status"] == "pending"
-    assert "Public-content check" in sync["message"]
-    assert core.load_session(guided.root)["initial_reasoning"]["approach"] == content
-    commit.assert_not_called()
-    push.assert_not_called()
-
-
-def test_portable_draft_checks_embedded_supporting_artifacts(guided, monkeypatch):
-    guided.practice_start(include_new=True, synchronize=False)
-    guided.reasoning("A safe recorded answer.")
-    portable = {
-        "parent": guided._practice(),
-        "repair": None,
-        "receipts": {},
-        "artifacts": {
-            "progress/attempts/fixture/session.json": json.dumps(
-                {"approach": r"C:\Users\fixture\private-notes"}
-            )
-        },
-    }
-    atomic_json(guided.root / "attempt/practice.json", portable)
-    (guided.root / ".git").mkdir()
-    commit, push = Mock(), Mock()
-    monkeypatch.setattr(gitflow, "commit_paths", commit)
-    monkeypatch.setattr(gitflow, "push_current", push)
-    result = guided.pause()
+    prepare = Mock(side_effect=AssertionError("Sensitive drafts must stay local"))
+    monkeypatch.setattr(guided.synchronizer, "prepare", prepare)
+    result = guided.practice_pause()
     assert result["sync"]["status"] == "pending"
-    assert "practice.json" in result["sync"]["message"]
-    assert (guided.root / "attempt/practice.json").exists()
-    commit.assert_not_called()
-    push.assert_not_called()
+    assert "Public-content check" in result["sync"]["message"]
+    assert guided._session()["initial_reasoning"]["approach"] == content
+    assert guided.store.json_documents(".study-local/outbox/") == []
+    prepare.assert_not_called()
+
+
+def test_recall_confirmation_cannot_erase_an_initial_failure(guided):
+    state = guided.practice_start(include_new=True, synchronize=False)
+    guided.reasoning("I don't know the approach yet.", quality="failed")
+    with pytest.raises(RuntimeError, match="Again"):
+        guided.finish(
+            state["session"]["session_id"], "good", "", stopped=True, recall_confirmed=True
+        )
+    assert core.load_events(guided.root) == []
+    assert guided.evaluate()["recall_outcome"] == "failure"

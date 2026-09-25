@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-import json
 import subprocess
 from argparse import Namespace
 from pathlib import Path
 
+from study import core
 from study.cli import cmd_finalize, main
+from study.service import StudyService
 
 
 def git(root: Path, *args: str) -> str:
@@ -54,7 +55,7 @@ def test_attempt_moves_between_laptops_and_merges_to_main(monkeypatch, tmp_path,
     assert main(["practice", "--include-new"]) == 0
     assert git(laptop_a, "branch", "--show-current") == "main"
 
-    candidate = laptop_a / "attempt" / "current.py"
+    candidate = None
     assert (
         main(
             [
@@ -70,11 +71,10 @@ def test_attempt_moves_between_laptops_and_merges_to_main(monkeypatch, tmp_path,
         )
         == 0
     )
+    candidate = StudyService(laptop_a).export_editor()
     candidate.write_text("def pair_sum_indices(nums, target):\n    return [0, 1]\n")
     assert main(["checkpoint"]) == 0
-    checkpoint = json.loads((laptop_a / "attempt" / "session.json").read_text(encoding="utf-8"))[
-        "latest_checkpoint"
-    ]
+    checkpoint = core.load_session(laptop_a)["latest_checkpoint"]
     assert set(checkpoint) == {
         "attempt",
         "checked_at",
@@ -93,8 +93,8 @@ def test_attempt_moves_between_laptops_and_merges_to_main(monkeypatch, tmp_path,
     laptop_b = clone(remote, tmp_path / "laptop-b")
     monkeypatch.chdir(laptop_b)
     assert main(["practice", "--include-new"]) == 0
-    assert git(laptop_b, "branch", "--show-current") == "attempt/arrays-001-pair-sum"
-    (laptop_b / "attempt" / "current.py").write_text(
+    assert git(laptop_b, "branch", "--show-current") == "main"
+    StudyService(laptop_b).export_editor().write_text(
         "def pair_sum_indices(nums, target):\n"
         "    seen = {}\n"
         "    for i, value in enumerate(nums):\n"
@@ -119,9 +119,9 @@ def test_attempt_moves_between_laptops_and_merges_to_main(monkeypatch, tmp_path,
     assert cmd_finalize(laptop_b, args) == 0
     capsys.readouterr()
     assert git(laptop_b, "branch", "--show-current") == "main"
-    assert not git(laptop_b, "branch", "-r", "--list", "origin/attempt/*")
+    assert core.load_session(laptop_b) is None
 
     monkeypatch.chdir(laptop_a)
     assert main(["practice", "--include-new"]) == 0
     assert git(laptop_a, "branch", "--show-current") == "main"
-    assert "arrays-002" in (laptop_a / "attempt/session.json").read_text()
+    assert "arrays-002" in core.load_session(laptop_a)["problem_id"]

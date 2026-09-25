@@ -6,12 +6,20 @@ from test_cross_device import clone, seed_remote
 
 from study import core, gitflow, policy
 from study.service import StudyService
+from study.synchronization import Synchronizer
+
+
+@pytest.fixture(autouse=True)
+def controlled_sync(monkeypatch):
+    monkeypatch.setattr(Synchronizer, "wake", lambda self, pull=False: None)
 
 
 def prepare_service(root, repo_root):
     service = StudyService(root)
     service.start("arrays-001-pair-sum", synchronize=False, include_new=True)
-    service.reasoning("Map prior values to their indices; look up the complement first.")
+    service.reasoning(
+        "Map prior values to their indices; look up the complement first.", quality="complete"
+    )
     reference = json.loads((repo_root / "curriculum/validation.json").read_text(encoding="utf-8"))
     session = service.state()["session"]
     service.save_code(reference[session["problem_id"]]["reference"], session["revision"])
@@ -37,12 +45,13 @@ def test_offline_completion_retry_has_one_review(monkeypatch, tmp_path, repo_roo
         def offline(*args, **kwargs):
             raise gitflow.GitFlowError("Simulated connection loss")
 
-        context.setattr(gitflow, "push_current", offline)
+        context.setattr(service.synchronizer, "prepare", offline)
         result = service.finish(sid, "good", "Check before insertion.", True, True, publish=True)
+        assert service.sync(wait=True)["status"] == "pending"
         assert not result["published"]
         assert service.state()["session"] is None
         assert len(core.load_events(laptop)) == 1
-    assert service.publish(sid)["status"] == "synced"
+    assert service.publish(sid, wait=True)["status"] == "synced"
     assert service.publish(sid)["published"]
     other = clone(remote, tmp_path / "after-publication")
     assert len(core.load_events(other)) == 1
@@ -53,28 +62,32 @@ def test_divergent_drafts_are_preserved_on_separate_branches(tmp_path, repo_root
     remote, _ = seed_remote(tmp_path, repo_root)
     a = clone(remote, tmp_path / "device-a")
     first = prepare_service(a, repo_root)
-    assert first.pause()["sync"]["status"] == "synced"
+    first.pause(synchronize=False)
+    assert first.sync(wait=True)["status"] == "synced"
     b = clone(remote, tmp_path / "device-b")
     second = StudyService(b)
     second.start()
     state = second.state()["session"]
     second.save_code(state["code"] + "\n# Device B\n", state["revision"])
-    assert second.pause()["sync"]["status"] == "synced"
+    second.pause(synchronize=False)
+    assert second.sync(wait=True)["status"] == "synced"
+    original_branch = second._session()["sync_branch"]
     state = first.start(synchronize=False)["session"]
     first.save_code(state["code"] + "\n# Device A\n", state["revision"])
-    assert first.pause()["sync"]["status"] == "pending"
-    assert "Device A" in (a / "attempt/current.py").read_text()
+    first.pause(synchronize=False)
+    assert first.sync(wait=True)["status"] == "pending"
+    assert "Device A" in first._code()
     first.recover()
-    assert first.sync()["status"] == "synced"
+    assert first.sync(wait=True)["status"] == "synced"
     observer = clone(remote, tmp_path / "observer")
     observer_service = StudyService(observer)
     choice = observer_service.practice_start(include_new=True)
     assert choice["session"] is None
     assert choice["practice"] is None
     assert len(choice["remote_attempts"]) == 2
-    selected = observer_service.choose_attempt("attempt/arrays-001-pair-sum")
+    selected = observer_service.choose_attempt(original_branch)
     assert "Device B" in selected["session"]["code"]
-    assert list((a / ".study-local/recovery").glob("*/current.py"))
+    assert first.store.paths(".study-local/recovery/", ".json")
 
 
 def test_multiple_local_sessions_keep_individual_reflections(tmp_path, repo_root):
@@ -88,9 +101,7 @@ def test_multiple_local_sessions_keep_individual_reflections(tmp_path, repo_root
     service.check()
     second = service.state()["session"]["session_id"]
     service.finish(second, "good", "Second takeaway.", True, True)
-    with pytest.raises(RuntimeError, match="Several sessions"):
-        service.publish(second)
-    assert service.publish(second, include_saved=True)["status"] == "synced"
+    assert service.publish(second, include_saved=True, wait=True)["status"] == "synced"
     after = clone(remote, tmp_path / "series-published")
     assert len(core.load_events(after)) == 2
     assert "First takeaway." in (after / "progress/attempts" / first / "reflection.md").read_text()

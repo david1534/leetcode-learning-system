@@ -5,15 +5,16 @@ from __future__ import annotations
 import json
 import os
 import queue
-import shutil
 import subprocess
 import threading
 import time
 from pathlib import Path
 
+from study.build import VERSION
+from study.managed_codex import CODEX_VERSION, ensure_codex, installed_codex
 from study.storage import atomic_text
 
-SUPPORTED_VERSIONS = {"0.153.4", "0.154.0-alpha.6.2"}
+SUPPORTED_VERSIONS = {CODEX_VERSION}
 CONFIG = """forced_login_method = "chatgpt"
 model_provider = "openai"
 sandbox_mode = "read-only"
@@ -58,38 +59,8 @@ enabled = false
 
 
 def find_codex() -> str | None:
-    """Find a user-installed CLI or the latest Windows desktop-bundled CLI."""
-    executable = shutil.which("codex")
-    if executable:
-        return executable
-
-    install_dir = os.environ.get("CODEX_INSTALL_DIR")
-    if install_dir:
-        configured = Path(install_dir) / "codex.exe"
-        if configured.is_file():
-            return str(configured)
-
-    local_app_data = os.environ.get("LOCALAPPDATA")
-    if not local_app_data:
-        return None
-
-    local_root = Path(local_app_data)
-    standalone = local_root / "Programs/OpenAI/Codex/bin/codex.exe"
-    if standalone.is_file():
-        return str(standalone)
-
-    desktop_bin = local_root / "OpenAI/Codex/bin"
-    candidates = [path for path in desktop_bin.glob("*/codex.exe") if path.is_file()]
-    if not candidates:
-        return None
-
-    def modified(path: Path) -> int:
-        try:
-            return path.stat().st_mtime_ns
-        except OSError:
-            return -1
-
-    return str(max(candidates, key=lambda path: (modified(path), str(path))))
+    """Return only the app-managed installation; user PATH is never a coach dependency."""
+    return installed_codex()
 
 
 class CodexRuntime:
@@ -117,9 +88,7 @@ class CodexRuntime:
         atomic_text(home / "config.toml", CONFIG)
         cmd = self.command
         if cmd is None:
-            executable = find_codex()
-            if not executable:
-                raise RuntimeError("Codex CLI was not found. Install Codex, then reconnect.")
+            executable = ensure_codex()
             result = subprocess.run(
                 [executable, "--version"],
                 capture_output=True,
@@ -161,7 +130,7 @@ class CodexRuntime:
         self.call(
             "initialize",
             {
-                "clientInfo": {"name": "practice_room", "version": "0.3.0"},
+                "clientInfo": {"name": "practice_room", "version": VERSION},
                 "capabilities": {"experimentalApi": False},
             },
         )

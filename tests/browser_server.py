@@ -1,6 +1,7 @@
 """Disposable browser fixture. Never serves a learner repository or consumes allowance."""
 
 import argparse
+import os
 import shutil
 import sys
 import tempfile
@@ -19,7 +20,9 @@ def main():
     args = parser.parse_args()
     source = Path(__file__).resolve().parents[1]
     with tempfile.TemporaryDirectory(prefix="practice-browser-") as directory:
-        root = Path(directory).resolve()
+        root = Path(directory).resolve() / "repository"
+        root.mkdir()
+        os.environ["PRACTICE_ROOM_DATA_HOME"] = str(Path(directory) / "private")
 
         def seed():
             shutil.copytree(source / "curriculum", root / "curriculum")
@@ -41,19 +44,14 @@ def main():
         def reset():
             app.state.coach.disconnect()
             with app.state.service.lock:
-                for name in ("attempt", "progress", "solutions", "reflections"):
-                    target = (root / name).resolve()
-                    assert target.is_relative_to(root) and target != root
-                    if target.exists():
-                        shutil.rmtree(target)
-                for path in (root / ".study-local").glob("*"):
-                    if path.name == "session.lock":
-                        continue
-                    if path.is_dir():
-                        shutil.rmtree(path)
-                    else:
-                        path.unlink()
-                app.state.coach.directory.mkdir(exist_ok=True)
+                app.state.service.store.delete_tree("")
+                app.state.coach.preferences = {
+                    "automatic": False,
+                    "approach": False,
+                    "check": False,
+                    "model": None,
+                    "effort": None,
+                }
             return {"reset": True}
 
         @app.get("/__test__/records")
@@ -95,6 +93,55 @@ def main():
                 stopped=True,
             )
             return {"seeded": True}
+
+        @app.post("/__test__/assessment")
+        def assessment():
+            with app.state.service.lock:
+                session = app.state.service._session()
+                session["assessment_mode"] = "independent"
+                app.state.service._save(session)
+            return {"assessment": True}
+
+        @app.post("/__test__/return-after-days")
+        def return_after_days():
+            from datetime import UTC, datetime, timedelta
+
+            from study import core
+
+            with app.state.service.lock:
+                session = app.state.service._session()
+                session["phase_started_at"] = (datetime.now(UTC) - timedelta(days=7)).isoformat()
+                session["saved_at"] = session["phase_started_at"]
+                core.save_session(root, session)
+                app.state.service.timer_checkpoint()
+            return {"paused": True}
+
+        @app.post("/__test__/recall")
+        def recall():
+            from datetime import UTC, datetime, timedelta
+
+            from study import core
+
+            problem = core.problem_by_id(root, "arrays-001-pair-sum")
+            core.record_review(
+                root,
+                problem,
+                "good",
+                20,
+                True,
+                0,
+                True,
+                reviewed_at=datetime.now(UTC) - timedelta(days=8),
+            )
+            app.state.service.start(problem["id"], "recall", include_new=True, synchronize=False)
+            return {"recall": True}
+
+        @app.post("/__test__/coach-expired")
+        def coach_expired():
+            app.state.coach.connection = "signed_out"
+            app.state.coach.message = "Your coaching sign-in expired. Reconnect to sign in again."
+            app.state.coach.sequence += 1
+            return {"expired": True}
 
         # The app's static UI catch-all must stay after these fixture-only routes.
         from starlette.routing import Mount

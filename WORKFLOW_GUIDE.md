@@ -2,111 +2,105 @@
 
 ## Open and resume
 
-Open **Start Study.cmd** or run `study app`. Today has one Start / Resume action, a time budget, the selection reason, waiting reviews, and synchronization status. In VS Code, Ctrl+Shift+B opens the app. Dark mode is the default; Settings also offers Light and System. Codex can coach in the Practice panel after ChatGPT sign-in. You can also use desktop Codex in this repository: `study coach-context` supplies its restricted context without opening hidden assessment cases. Commands outside the repository need `study --root <path> ...`.
+Open **Start Study.cmd**, run `study app` in the installed environment, or use VS Code's **Study: Start or Resume** task. The launcher opens the browser when the app is ready. Its terminal can close while practice continues. Reopening the launcher reuses the correct server or restarts an outdated one safely. For the first upgrade from version 0.3, close the old foreground server terminal first.
 
-After updating the repository, close the running app terminal and relaunch **Start Study.cmd** so the service and interface use the same update. Preserve any unfinished attempt when updating or switching branches.
+A saved attempt opens with its full problem, constraints, function signature, and public examples. Resume that attempt before starting another. Returning after several days does not create a new review or require repeating an already recorded initial idea. Restart or a long sleep gap pauses uncertain timing so you can correct it at completion.
 
-The default budget is 60 active minutes: up to 10 for retrieval and one repair, about 40 for the main problem, seven for tests and explanation, and three for finishing. These are adjustable defaults. Choose a shorter session when needed. A break is suggested at 45 minutes; reaching a boundary preserves your work. Browser focus never pauses the timer because conversations with Codex count as study. Use the phase menu when switching to explanation or other work. Pause stops the timer. If you leave the timer running, correct total minutes in the completion preview.
+Each session contains **one problem or repair**. There is no automatic sequence of warm-up, repair, recall, and main activity. Finish returns to Today; another problem starts only when you choose it. The scheduler continues to balance eligible implementation reviews, new material, and unfamiliar transfer. A short Recall session does not replace a full implementation review.
 
-Weekdays allow new material. Weekends default to reviews, with an explicit override on Today. When reviews are waiting, every third main opportunity protects eligible new work. Every fifth main opportunity prefers a never-exposed transfer variant. If no full task fits, a short Recall can revisit an approach while the full implementation remains due. Waiting and postponed reviews are shown honestly. Prerequisite anchors and relevant repair gates determine eligibility; unrelated branches can continue.
+The default time budget is 60 active minutes. A break is suggested at 45 minutes. Pause when stepping away. Browser focus alone is not an activity sensor because coaching time also counts. At the budget boundary, work is preserved and timing pauses; a short explicit extension is available. Correct measured minutes in the completion summary when necessary.
 
-Start / Resume restores a whole guided session: supporting retrieval and at most one repair, the main task, and one completion summary. Sessions shorter than 45 minutes omit supporting work when a main task is available. If an eligible repair is the only next step, Start opens that repair before selecting the main task. Unused supporting time remains available to the main activity. Transfer comes first without related warm-up or repair. Completed guided sessions drive rotation; supporting attempts do not inflate the count. An unavailable transfer opportunity stays due until eligible content fits.
+## Work on the problem
 
-## Connect Codex when useful
+The problem remains beside your work on laptop screens and above it on narrow screens. Previous completed answers and hints are not shown automatically.
 
-Select **Connect Codex**, then **Sign in with ChatGPT**. After signing in, refresh the connection. This app has its own managed login; it never copies desktop credentials. It currently validates CLI versions 0.153.4 and 0.154.0-alpha.6.2. On Windows it can find a CLI on the normal command path, in the standalone install location, or inside the current Codex Desktop installation. An incompatible or missing CLI, login problem, or lost connection leaves the editor and local completion available. **Stop coach** and **Stop tests** control separate processes.
+Start with a few sentences: what you would try, why it fits, and an important condition or edge case. Plain language is enough. **I don't know yet** is a valid initial attempt. The app records the actual answer; it does not assume complete recall. Confirm recall once when finishing.
 
-The allowance display is shared with your other Codex use. Automatic checkpoints pause at 20% remaining; manual questions remain possible. Unknown or exhausted allowance requires a successful refresh before another turn. This integration does not use API billing, buy credits, or redeem resets. OpenAI controls plan allowances and account credits.
+Write code in the editor. **Saved on this computer** means the database acknowledged the save. **Saved in browser** means the edit is recoverable in this browser but has not been confirmed by the app. If browser storage is unavailable too, keep the page open and use **Download work**.
 
-In guided practice, one brief checkpoint follows your initial idea and another follows a meaningful check. Coach preferences can disable these for the current session. Feedback does not run on every keystroke. Model and reasoning-effort selection are advanced preferences; leaving them blank uses Codex defaults. Questions persist across refreshes. Reconnect reconciles an uncertain request instead of automatically sending it twice.
+**Check solution** runs public and assessment cases against a fixed saved candidate. Public-example failures are shown; hidden-case details stay out of coaching context. A timeout or **Stop tests** is distinct from an incorrect answer. Editing the candidate invalidates earlier test evidence; run the check again before treating it as correct.
 
-Approach and test-result checkpoints can be disabled separately in Coach preferences.
+Two windows cannot silently overwrite conflicting drafts. Compare their versions, then deliberately keep your draft or use the other saved version. A changed active problem also rejects an old tab's write. Earlier unsent text is retained in browser recovery.
 
-## Practice without a paperwork ritual
+## Ask for help when needed
 
-Read the prompt, constraints, signature, and public examples. Record a few sentences: your approach, why it fits, and one correctness condition or important edge case. “I don’t know yet” is a valid initial attempt. Plain language is sufficient. Codex should follow up only on an important missing or incorrect idea.
+Ordinary practice offers help directly after your initial attempt. Use **Ask coach**, **Give me a hint**, or **Study a worked example**. Assistance is recorded according to what it supplied. Try the reasoning or code again before requesting another step of help.
 
-Your answer and recall self-report are saved for that attempt. Reloading or resuming restores them; a new attempt starts with its own recall selection.
+An explicit independent assessment is different: conceptual help first offers **Continue independently** or **Switch to guided practice**. Switching preserves the original assessment and pre-help candidate. Assisted completion cannot become an unseen independent transfer pass.
 
-Before that initial answer, topic labels, revealing links, and candidate code are hidden. For Transfer, avoid opening the repository catalog, reference files, or topic links before committing to your approach. After exposure, the same variant becomes ordinary practice, even if you stopped without solving it.
+A worked example preserves your candidate and marks assisted learning. Trace it, explain a step, and then attempt an incomplete example or fresh implementation. A proposed code change is previewed; applying it requires **Apply this change** and a new test run.
 
-Write code in the local editor. Save status appears above it; unsaved text is also recoverable from browser storage. Check solution runs public and assessment cases against a fixed copy of your saved code. Public-example failures are shown; hidden-case details are excluded from the coach summary. Run tests and Stop tests sit beside the save status above the editor, including at laptop widths. A timeout or Stop is distinct from an incorrect answer. If the code changes, rerun the check before successful completion.
+Choose **Connect Codex** and follow **Sign in with ChatGPT** using your personal subscription. Sign-in completion updates the connection automatically. Practice Room owns a tested CLI installation and private login; it neither copies desktop credentials nor changes global Codex configuration. Missing installation, expired sign-in, a disconnected coach, or unknown/exhausted allowance does not block local practice. **Stop coach** and **Stop tests** control separate processes.
 
-During an independent assessment, choose **Continue independently** or **Switch to guided practice** before conceptual help. Switching freezes your pre-help code and evidence, then continues with your draft. Send is temporarily disabled until the switch is confirmed; your question remains in the composer. The original assessment remains ended for help; a successful continuation cannot become an unseen transfer pass. Procedural clarification and neutral acknowledgements do not imply missing recall.
+Automatic coaching is off by default. Advanced coach preferences can enable approach and test-result checkpoints separately. Automatic checkpoints conserve allowance at 20% remaining. Reconnection reconciles an uncertain request instead of sending it twice. Full conversations remain private on this computer.
 
-Hints reveal one step at a time. Save a fresh reasoning retry or change your code before another hint. Assistance is classified by what it supplied: minor syntax or generic prompting, guided missing reasoning, or substantial algorithm construction. Hint count alone does not set a rating. A proposed code change counts as help when shown; applying it requires **Apply this change** and a new test run. Desktop coaching follows the same conversion and revision rules.
+## Finish once, publish deliberately
 
-If the concept is unfamiliar and you stall, choose **study a worked example** or ask Codex for one. This changes the activity to Learn and records substantial help. Trace the example, explain a step, then try a faded example or a fresh implementation. Your own candidate is preserved.
+**Finish** opens one summary. Review the latest test status, recall, assistance, explanation and complexity evidence, and active minutes. The learning question is **What would you recognize or do differently next time?** A brief takeaway is optional; unsupported details remain unrecorded.
 
-## Four activities and clear ratings
+- **Again:** the target reasoning could not be reconstructed without help supplying it.
+- **Hard:** successful independent recall with substantial effort.
+- **Good:** ordinary independent recall.
+- **Easy:** fluent independent recall.
+- **Unknown:** recall was not established or remains disputed; the scheduling interval stays unchanged.
 
-| Activity | What it measures |
-| --- | --- |
-| Learn | Exposure and assisted understanding; does not reschedule implementation |
-| Recall | Reconstructing the outline; does not reschedule implementation |
-| Implement | Coding and debugging from a blank editor |
-| Transfer | First-exposure selection and application on an unfamiliar problem |
+Correctness, explanation, effort, and assistance remain separate. Speed or a passing check does not establish recall. Material help that supplied missing target reasoning requires Again. A stopped attempt before an initial answer does not automatically become failed recall. Reviewed disagreements remain unknown rather than qualifying as independent success.
 
-Again means the target reasoning could not be reconstructed without help supplying missing reasoning. Hard means successful independent recall with substantial effort. Good means ordinary effort. Easy means fluent independent recall. Correctness, explanation, time/space assessment, and assistance remain separate fields. Faster typing or fewer tests do not determine the recall rating. A generic prompt does not automatically imply algorithmic help.
+**Finish locally** commits the candidate, evidence, reflection, completion receipt, and closed status together. A failed or unfinished attempt is retained too. Only current passing implementation code is promoted to a solution artifact. Retrying a completion returns its original receipt instead of adding another review. Local completion does not wait for coaching, GitHub, exported files, or deletion of an old attempt directory.
 
-FSRS remains pinned at 6.3.2, retention 0.9, without coding-specific parameter fitting. New evidence records this configuration. Historical review IDs, ratings, correction records, and solutions are retained; missing legacy evidence stays unknown.
+**Publish & finish** is the explicit public action after the summary. **Review & publish** on Today previews saved sessions, destination, and files before publication. When several sessions await publication, choose the sessions to publish in the preview. Others can stay local. The selected records supply their own archived code and reflections. A changed batch requires a fresh preview. Publication failure means the session remains saved locally; the next local session is still available.
 
-When recall has not been established or remains disputed, it stays unknown and the scheduling interval does not change. Stopping before recording an approach does not automatically mean failed recall. Previously exposed core exercises without an implementation scheduling record remain available as implementation retries before unseen core work. They respect prerequisites, relevant repairs, and the time budget, and can be retried on weekends. Existing FSRS cards keep their scheduled dates.
+Publication includes the scoped candidate/solution, reviewed learning evidence, and reflection. It excludes full chats, authentication, runtime logs, and unrelated source files. A shared public-content check also applies to draft synchronization. Rejected text stays local with the affected path identified.
 
-Ready to advance requires independent anchor exercises. Retained requires two qualifying independent implementations at least seven elapsed days apart on every core exercise, plus an unseen transfer pass for the topic. Same-day practice or crossing midnight cannot establish retention. A later lapse changes current readiness for affected prerequisites; it does not erase learning history or block unrelated topics.
+## Repairs between sessions
 
-## Finish, stop, or pause
+A repair is one fresh application of a corrected rule. It becomes eligible after at least 24 elapsed hours and affects relevant skills rather than unrelated topics. A conceptual error may need an explanation; a repeated implementation slip can use a small debugging example.
 
-Finish asks one learning question: **What would you recognize or do differently next time?** Codex may draft the durable record from your answer and actual session evidence. No invented reflections or mandatory multi-part essay is needed. Check the recall rating, whether the explanation and constraints were established, and the measured minutes. Leave minutes blank to use the live timer, including completion administration.
+Write the application, save it, and optionally run your assertions. Passing learner-written assertions alone does not establish conceptual correctness. **Check application with Codex** supplies a labeled judgment; review it before confirming success. An external coach's judgment can be recorded when offline. Unknown, failed, or disputed evidence leaves the repair open.
 
-Finish locally saves the candidate, evidence, and brief reflection. A failed or unfinished attempt is archived too. Only a current passing implementation is promoted to `solutions/`. Cancel restores the previous stage and retains the reflection draft. Repeating completion uses the same event ID and does not create another review. Coach findings are drafts: review them once, leave unsupported evidence unknown, and mark disagreements as disputed. A disputed explanation or complexity finding cannot silently qualify as an independent pass.
+A repair ends with its own saved session. If an older workflow left a paused main problem behind it, that problem resumes on the next Start action. Repair time includes work with the coach and is counted once.
 
-**Publish & finish** is the explicit public action. Review the destination and evidence first: github.com/david1534/leetcode-learning-system. It publishes scoped learning artifacts, never raw chat transcripts. If you finish several sessions offline, the preview shows the number of saved sessions and publishes them together; each keeps its own review ID and archived reflection. A locally finished session can be published later from its completion card or `study publish <session-id>`. `study complete` provides the same workflow in the terminal; type YES, LOCAL, or cancel at the final prompt.
+## Synchronization and two computers
 
-Pause saves locally and attempts to synchronize the scoped draft to its attempt branch. It does not merge the completed history. Pause, Sync, and completion publication use the same public-content check; rejected text stays local and the message names the file to review. “Saved locally; sync pending” means you can continue working on this computer. Network failure never discards a completed attempt. The saved-learning card appears above the dashboard cards. Choose **Keep local and continue** to defer publication and start or resume without contacting GitHub. The saved evidence remains available for later publication, with a reminder on Today. In the terminal, use `study keep-local` followed by `study practice --no-sync`.
+Saving and synchronization are separate. Pause saves locally and queues a scoped draft backup. Sync retries requested work. Check the result before changing computers. On the other computer, Start fetches the saved draft and restores the same durable attempt. Multiple saved attempts require an explicit choice; divergent drafts are preserved instead of overwritten.
 
-## Small, relevant repairs
+When GitHub cannot be checked, **Continue locally** uses saved work on this computer. Locally completed sessions and pending publication do not force you to publish before continuing. The synchronization message describes the requested backup or publication; the editor's save indicator describes the current draft.
 
-A conceptual misconception calls for one fresh application of the corrected rule and a brief explanation if needed. A repeated implementation slip usually calls for a small debugging exercise. Codex records stable skill IDs; known historical aliases merge into one skill gate. At least 24 elapsed hours must pass before a delayed repair. A repair affects relevant skills rather than all new work.
+Git works in a private export checkout. Practice does not switch the source repository's branch or commit its unrelated changes. Existing public review IDs and artifact formats are retained. A successful remote acknowledgment is required before the service reports synchronization success.
 
-An eligible repair can be a supporting stage. Its timer includes Codex work. For a small coding repair, write a fresh example with assertions and use **Run repair assertions**; Stop and the ten-second limit preserve the draft. These learner-authored checks do not by themselves prove the corrected rule. **Check application with Codex** produces a labeled judgment of the fresh application. Review it before confirming success. An unknown or failed coach judgment leaves the repair open. You can record an external coach’s assessment when offline. Continuing resumes the main activity and shared timer; skipping preserves the draft. Supporting repairs belong to the guided session’s single publication.
+## Recovery and storage
 
-## Recovery and two computers
+The local database is outside the checkout: `%LOCALAPPDATA%\PracticeRoom\workspaces\<workspace-id>\practice.sqlite3` on Windows. Codex owns authentication separately under application data. Linux uses `$XDG_DATA_HOME/PracticeRoom` or `~/.local/share/PracticeRoom`.
 
-Pause and sync before moving computers. On the other computer, Start / Resume fetches the saved attempt and resumes the same durable session. Check the synchronization message before assuming that another computer has received your work.
+The first launch imports legacy `attempt/`, `.practice/`, `.study-local/`, and published learning artifacts. Original files remain untouched. Old grouped completions recover their original IDs and minutes; completed supporting work is not counted again. Unfinished work becomes a single current activity, with other saved work retained for later. Conflicting records remain available in recovery rather than choosing an arbitrary winner.
 
-The scoped pause snapshot includes the parent session, repair draft, supporting artifacts, and pre-help code. It excludes conversations and authentication. Approved learning summaries supply coaching memory across computers after synchronization; full conversations remain local. Timer checkpoints count active work without observing browser focus. Restart or a long sleep gap pauses the timer and marks uncertain time for correction in the completion summary.
+After import, editing the old repository `attempt/current.py` does not edit the current browser attempt. Use the browser or the revision-checked CLI. An explicitly opened VS Code candidate is a private editor copy; checkpoint/pause/completion imports its edits only when they do not conflict with the saved candidate.
 
-If the app and Codex edit the same code, the older save is rejected. Both texts remain available. Compare them, then choose the saved version or deliberately save your draft. Codex must use `study save --file <draft> --revision <observed-revision> --digest <observed-digest>` for candidate edits. A direct external edit also invalidates the next revision check.
+Settings provides restart and private diagnostics. If the local server is unreachable, reopen **Start Study.cmd**, keep the browser draft open, and retry. Download work when a save cannot be confirmed. Database schema upgrades require a verified backup; do not copy an active SQLite file without its transaction state or delete application-data recovery files while work is pending.
 
-If computers diverge, Git refuses to overwrite a branch. **Preserve divergent draft** (or `study recover`) backs up this computer’s attempt under `.study-local/recovery/` and creates a distinct attempt branch. Both Git versions remain available. Resume the desired version; Git branch selection is an advanced recovery step. Multiple remote attempts are shown by branch name and require choosing one explicitly before the app creates a session. Choosing one restores its guided session. Older schema-5 attempts are migrated before resuming, preserving their code, reasoning, assistance, and recorded time. The app never chooses an arbitrary winner or force-pushes.
+## Useful commands
 
-Sessionless candidate files are preserved. Recover draft archives them under `progress/orphan-drafts/` before a fresh start. Completion receipts also cover the whole guided session. If the program stops between saving the main review and finishing the parent record, reopening recovers one completed session, its original review IDs, and the corrected total minutes. It does not reopen the finished exercise as a new attempt. Recovered learning remains local until publication is requested or retried.
+Use the installed interpreter, for example `.venv\Scripts\python.exe -m study <command>`. Outside the checkout, provide `--root <path>` before the command. Browser and terminal commands use the same service and database.
 
-Local browser drafts, check jobs, repair timers, locks, and publication receipts live in ignored `.study-local/` or browser storage. They are not a replacement for pausing and syncing before moving computers. Do not delete these recovery files while publication is pending.
-
-## Useful coach commands
-
-| Action | Command |
-| --- | --- |
-| Open the app | `study app` |
-| Start / resume offline | `study practice --no-sync` |
-| Read the shared state | `study summary` |
-| Read restricted coaching context | `study coach-context` |
-| Switch an assessment to guided practice | `study guided` |
-| Save a reasoning retry | `study retry "..."` |
-| Continue or skip supporting work | `study advance --answer "..."` / `study advance --skip` |
-| Record a compact answer | `study note reasoning --approach "..." --quality complete` |
-| Record help | `study note assistance --level minor --summary "..."` |
-| Check / stop code | `study checkpoint --json` / `study stop` |
-| Change timing phase | `study phase explanation` |
-| Study a worked solution | `study learn-example` |
-| Finish with prompts | `study complete` |
-| Finish locally | `study finish --rating good --takeaway "..." --explained --constraints-met` |
-| Preserve an unsuccessful attempt | `study finish --rating again --stopped --takeaway "..."` |
+| Task | Command |
+|---|---|
+| Open the browser app | `study app` |
+| Restart the owned app | `study app --restart` |
+| Start / resume locally | `study practice --no-sync` |
+| Restricted coaching context | `study coach-context` |
+| Record the initial answer | `study note reasoning --approach "..."` |
+| Open an editor after the answer | Add `--open` to the reasoning command |
+| Save a proposed candidate | `study save --file <draft> --session-id <id> --revision <n> --digest <digest>` |
+| Record help | `study note assistance --level <minor|guided|substantial> --summary "..."` |
+| Check / interrupt code | `study checkpoint --json` / `study stop` |
+| Independent assessment to guided | `study guided` |
+| Record a reasoning retry | `study retry "..."` |
+| Pause / retry synchronization | `study pause` / `study sync` |
+| Finish through a summary | `study complete` |
+| Finish locally | `study finish --rating <again|hard|good|easy|unknown> --takeaway "..."` |
 | Publish saved evidence | `study publish <session-id>` |
-| Pause / retry sync | `study pause` / `study sync` |
-| Defer pending publication | `study keep-local`, then `study practice --no-sync` |
-| Report progress | `study insights --json` |
+| Preserve a divergent draft | `study recover` |
+| Extend planned time | `study continue --minutes 10` |
+| Review evidence and progress | `study insights` |
 
-The next 12 completed guided sessions in workflow version 3 establish a separate baseline of delayed implementation, unseen transfer (including attempts ended for help), and completion administration. Progress shows counts alongside rates, assistance levels, coaching interruptions, response latency, and help escalation. Coaching response time is part of study time, not extra time added again. Median administration of three minutes or less is the initial target. These descriptive results cannot establish a causal learning improvement, and the older history lacks a comparable transfer baseline.
+Keep the initial independent attempt and assistance record honest. Passing once does not prove retained mastery. Workflow version 4's next 12 one-problem sessions form a separate descriptive baseline; older grouped history remains available and continues to schedule reviews.

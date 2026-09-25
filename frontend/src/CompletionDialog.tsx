@@ -10,6 +10,7 @@ export interface CompletionValues {
   minutes: number | null;
   findings: Finding[];
   publish: boolean;
+  recallConfirmed: boolean;
 }
 interface Props {
   session: Session;
@@ -24,12 +25,16 @@ interface Props {
   onFinish: (values: CompletionValues) => void;
 }
 
-function Dialog({
+export function Dialog({
   children,
   cancel,
+  titleId = "finish-title",
+  closeLabel = "Cancel completion",
 }: {
   children: React.ReactNode;
   cancel: () => void;
+  titleId?: string;
+  closeLabel?: string;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -39,7 +44,7 @@ function Dialog({
   return (
     <dialog
       ref={ref}
-      aria-labelledby="finish-title"
+      aria-labelledby={titleId}
       onCancel={(e) => {
         e.preventDefault();
         cancel();
@@ -47,7 +52,7 @@ function Dialog({
     >
       <button
         className="icon-button dialog-close"
-        aria-label="Cancel completion"
+        aria-label={closeLabel}
         onClick={cancel}
       >
         <X />
@@ -100,13 +105,14 @@ export default function CompletionDialog({
       minutes: actualMinutes ? Number(actualMinutes) : null,
       findings: finishFindings,
       publish,
+      recallConfirmed: rating !== "unknown" && !!session.initial_reasoning,
     });
   return (
     <Dialog cancel={cancel}>
-      <span className="eyebrow">KEEP THE USEFUL PART</span>
-      <h2 id="finish-title">What will you take forward?</h2>
+      <span className="eyebrow">Save this practice</span>
+      <h2 id="finish-title">What will you remember next time?</h2>
       <p>What would you recognize or do differently next time?</p>
-      <label htmlFor="takeaway">Your takeaway</label>
+      <label htmlFor="takeaway">A short takeaway (optional)</label>
       <textarea
         id="takeaway"
         rows={3}
@@ -163,28 +169,24 @@ export default function CompletionDialog({
         />
         Time and space requirements were checked
       </label>
-      <details>
-        <summary>Review ratings, evidence, and time</summary>
+      <section>
         <label>
           Recall rating
-          <select
-            value={rating}
-            disabled={facts.recall_outcome === "unknown"}
-            onChange={(e) => setRating(e.target.value)}
-          >
+          <select value={rating} onChange={(e) => setRating(e.target.value)}>
             {facts.recall_outcome === "unknown" && (
               <option value="unknown">Unknown · scheduling unchanged</option>
             )}
             <option value="again">Again · specified recall was missing</option>
-            {facts.recall_outcome === "success" && (
-              <>
-                <option value="hard">
-                  Hard · recalled with substantial effort
-                </option>
-                <option value="good">Good · ordinary effort</option>
-                <option value="easy">Easy · fluent recall</option>
-              </>
-            )}
+            {facts.recall_outcome !== "failure" &&
+              session.initial_reasoning && (
+                <>
+                  <option value="hard">
+                    Hard · recalled with substantial effort
+                  </option>
+                  <option value="good">Good · ordinary effort</option>
+                  <option value="easy">Easy · fluent recall</option>
+                </>
+              )}
           </select>
         </label>
         <p className="muted">{facts.rating_rationale}</p>
@@ -228,7 +230,7 @@ export default function CompletionDialog({
             {f.evidence && <blockquote>{f.evidence}</blockquote>}
           </div>
         ))}
-      </details>
+      </section>
       <p className="muted">
         Publication includes your code, reviewed learning evidence, and brief
         takeaway. Full coach conversations stay private.{" "}
@@ -241,15 +243,15 @@ export default function CompletionDialog({
       </p>
       <div className="button-row">
         <button
-          className="secondary"
-          disabled={busy || !takeaway.trim()}
+          className="primary"
+          disabled={busy}
           onClick={() => submit(false)}
         >
           Finish locally
         </button>
         <button
-          className="primary"
-          disabled={busy || !takeaway.trim()}
+          className="secondary"
+          disabled={busy}
           onClick={() => submit(true)}
         >
           Publish & finish
