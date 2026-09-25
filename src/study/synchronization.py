@@ -121,7 +121,9 @@ class Synchronizer:
                     continue
                 stream = archive.extractfile(member)
                 if stream:
-                    documents[name] = stream.read().decode("utf-8-sig")
+                    documents[name] = (
+                        stream.read().decode("utf-8-sig").replace("\r\n", "\n").replace("\r", "\n")
+                    )
         return documents
 
     def _set(self, status, message):

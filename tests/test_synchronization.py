@@ -149,3 +149,18 @@ def test_rejected_publication_is_not_reported_as_a_successful_pull(tmp_path, rep
     assert service._read_local("completions/" + sid)["published"] is False
     observer = clone(remote, tmp_path / "private-observer")
     assert core.load_events(observer) == []
+
+
+def test_git_archive_line_endings_do_not_change_the_saved_candidate(tmp_path, repo_root):
+    remote, _ = seed_remote(tmp_path, repo_root)
+    a = clone(remote, tmp_path / "crlf-a")
+    first = prepared(a, repo_root)
+    first.pause(synchronize=False)
+    assert first.sync(wait=True)["status"] == "synced"
+    b = clone(remote, tmp_path / "crlf-b")
+    second = StudyService(b)
+    second.synchronizer.prepare()
+    second.synchronizer.git("config", "core.autocrlf", "true")
+    restored = second.start()["session"]
+    assert restored["code"] == first._code()
+    assert restored["code_digest"] == first._session()["code_digest"]
