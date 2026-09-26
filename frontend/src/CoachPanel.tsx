@@ -40,9 +40,9 @@ export default function CoachPanel({
   const [sending, setSending] = useState(false);
   const [conversion, setConversion] = useState(false);
   const [preferencesOpen, setPreferencesOpen] = useState(false);
-  const [auto, setAuto] = useState(status?.preferences.automatic ?? true);
+  const [auto, setAuto] = useState(status?.preferences.automatic ?? false);
   useEffect(
-    () => setAuto(status?.preferences.automatic ?? true),
+    () => setAuto(status?.preferences.automatic ?? false),
     [status?.preferences.automatic],
   );
   const messages =
@@ -73,9 +73,9 @@ export default function CoachPanel({
   const savePreferences = (changes: Partial<CoachStatus["preferences"]>) =>
     act(() =>
       operate("coach/preferences", {
-        automatic: status?.preferences.automatic ?? true,
-        approach: status?.preferences.approach ?? true,
-        check: status?.preferences.check ?? true,
+        automatic: status?.preferences.automatic ?? false,
+        approach: status?.preferences.approach ?? false,
+        check: status?.preferences.check ?? false,
         model: status?.preferences.model ?? null,
         effort: status?.preferences.effort ?? null,
         ...changes,
@@ -148,10 +148,20 @@ export default function CoachPanel({
         </div>
       </header>
       {status?.connection === "connected" ? (
-        status.usage.conserving && (
-          <div className="coach-usage-warning warning-text">
-            Automatic checkpoints are paused to conserve allowance.
+        status.usage.blocked ? (
+          <div className="coach-usage-warning warning-text" role="status">
+            {status.usage.known
+              ? "Your Codex allowance is exhausted."
+              : "Your Codex allowance could not be checked."}{" "}
+            Refresh the connection before sending another question. Your
+            practice can continue locally.
           </div>
+        ) : (
+          status.usage.conserving && (
+            <div className="coach-usage-warning warning-text">
+              Automatic checkpoints are paused to conserve allowance.
+            </div>
+          )
         )
       ) : (
         <div className="coach-connection">
@@ -161,11 +171,17 @@ export default function CoachPanel({
           <div className="button-row">
             <button
               className="secondary small"
-              disabled={busy}
+              disabled={
+                busy ||
+                status?.connection === "connecting" ||
+                status?.connection === "signing_in"
+              }
               onClick={() => void act(() => operate("coach/connect", {}))}
             >
               <Plug size={15} />
-              Connect Codex
+              {status?.connection === "connecting"
+                ? "Preparing coach?"
+                : "Connect Codex"}
             </button>
             {status?.auth_url && (
               <a
@@ -407,7 +423,7 @@ export default function CoachPanel({
             <label className="checkbox" key={kind}>
               <input
                 type="checkbox"
-                checked={status?.preferences[kind] ?? true}
+                checked={status?.preferences[kind] ?? false}
                 disabled={busy}
                 onChange={(e) =>
                   void savePreferences({ [kind]: e.target.checked })

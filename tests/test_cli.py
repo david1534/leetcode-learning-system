@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from study import core
 from study.cli import (
     main,
     mastery,
@@ -22,7 +23,26 @@ from study.core import (
     render_template,
     save_session,
 )
+from study.database import existing_store
 from study.gitflow import GitFlowError, cleanup_stale_completed_attempt
+
+
+def save_cli_draft(root):
+    session = core.load_session(root)
+    assert (
+        main(
+            [
+                "save",
+                "--file",
+                str(root / "candidate-draft.py"),
+                "--revision",
+                str(session["revision"]),
+                "--digest",
+                session["code_digest"],
+            ]
+        )
+        == 0
+    )
 
 
 def test_stale_completed_attempt_cleanup_is_narrow_and_safe(monkeypatch, tmp_path):
@@ -119,7 +139,7 @@ def test_start_hint_and_test_lifecycle(monkeypatch, tmp_path, capsys):
     (root / "pyproject.toml").write_text("[project]\nname='x'\n")
     monkeypatch.chdir(root)
     assert main(["start", "arrays-001-pair-sum", "--include-new"]) == 0
-    assert (root / "attempt" / "session.json").exists()
+    assert core.load_session(root) is not None
     assert (
         main(
             [
@@ -135,11 +155,9 @@ def test_start_hint_and_test_lifecycle(monkeypatch, tmp_path, capsys):
         )
         == 0
     )
-    assert main(["hint"]) == 2
-    assert main(["guided"]) == 0
     assert main(["hint"]) == 0
     assert "Hint:" in capsys.readouterr().out
-    session = json.loads((root / "attempt" / "session.json").read_text())
+    session = core.load_session(root)
     assert session["assistance_log"][0]["level"] == "guided"
     assert session["assistance_log"][0]["source"] == "formal_hint"
     assert main(["hint"]) == 2
@@ -187,7 +205,7 @@ def test_note_records_initial_reasoning_and_conversational_help(monkeypatch, tmp
         == 0
     )
     capsys.readouterr()
-    session = json.loads((root / "attempt" / "session.json").read_text())
+    session = core.load_session(root)
     assert session["initial_reasoning"]["approach"] == "Use opposite-direction pointers."
     assert session["assistance_log"][0]["level"] == "substantial"
 
@@ -221,7 +239,7 @@ def test_checkpoint_saves_one_local_summary_and_supports_json(monkeypatch, tmp_p
     capsys.readouterr()
     assert main(["checkpoint", "--json"]) == 0
     result = json.loads(capsys.readouterr().out)
-    session = json.loads((root / "attempt" / "session.json").read_text(encoding="utf-8"))
+    session = core.load_session(root)
 
     assert result["problem_id"] == "arrays-001-pair-sum"
     assert result["checkpoint_count"] == 1
@@ -249,7 +267,7 @@ def test_practice_starts_next_problem_then_resumes(monkeypatch, tmp_path, capsys
     assert "Example 1" in started_output
     assert "What value would complete" not in started_output
     assert "def pair_sum_indices" not in started_output
-    session = (root / "attempt" / "session.json").read_text(encoding="utf-8")
+    session = json.dumps(core.load_session(root))
     assert "arrays-001-pair-sum" in session
 
     assert main(["practice", "--no-sync", "--include-new"]) == 0
@@ -393,7 +411,7 @@ def test_passing_finish_promotes_solution_and_records_event(monkeypatch, tmp_pat
     monkeypatch.chdir(root)
 
     assert main(["start", "arrays-001-pair-sum", "--include-new"]) == 0
-    (root / "attempt" / "current.py").write_text(
+    (root / "candidate-draft.py").write_text(
         "def pair_sum_indices(nums, target):\n"
         "    seen = {}\n"
         "    for index, value in enumerate(nums):\n"
@@ -417,10 +435,11 @@ def test_passing_finish_promotes_solution_and_records_event(monkeypatch, tmp_pat
         )
         == 0
     )
+    save_cli_draft(root)
     assert main(["finish", "--rating", "good", "--minutes", "20", "--explained"]) == 0
-    assert (root / "solutions" / "arrays-001-pair-sum.py").exists()
-    assert len(list((root / "progress" / "reviews").glob("*.json"))) == 1
-    assert not (root / "attempt" / "session.json").exists()
+    assert core.artifact_text(root, "solutions/arrays-001-pair-sum.py") is not None
+    assert len(core.load_events(root)) == 1
+    assert core.load_session(root) is None
 
 
 def test_rating_recommendation_uses_observable_session_data():
@@ -591,7 +610,7 @@ def test_finalize_rejects_rating_above_substantial_help(monkeypatch, tmp_path, c
     monkeypatch.chdir(root)
     problem = problem_by_id(root, "arrays-001-pair-sum")
     assert main(["start", problem["id"], "--include-new"]) == 0
-    (root / "attempt" / "current.py").write_text(
+    (root / "candidate-draft.py").write_text(
         render_template(problem).replace(
             "    raise NotImplementedError",
             "    seen = {}\n"
@@ -647,6 +666,7 @@ def test_finalize_rejects_rating_above_substantial_help(monkeypatch, tmp_path, c
     )
     capsys.readouterr()
 
+    save_cli_draft(root)
     assert (
         main(
             [
@@ -662,7 +682,7 @@ def test_finalize_rejects_rating_above_substantial_help(monkeypatch, tmp_path, c
         == 2
     )
     assert "Again records the missing independent recall" in capsys.readouterr().err
-    assert (root / "attempt" / "session.json").exists()
+    assert core.load_session(root) is not None
 
 
 def test_finalize_publication_failure_saves_locally_without_touching_unrelated_files(
@@ -678,7 +698,7 @@ def test_finalize_publication_failure_saves_locally_without_touching_unrelated_f
     monkeypatch.chdir(root)
     problem = problem_by_id(root, "arrays-001-pair-sum")
     assert main(["start", problem["id"], "--include-new"]) == 0
-    candidate = root / "attempt" / "current.py"
+    candidate = root / "candidate-draft.py"
     candidate.write_text(
         render_template(problem).replace(
             "    raise NotImplementedError",
@@ -720,6 +740,7 @@ def test_finalize_publication_failure_saves_locally_without_touching_unrelated_f
         ),
         encoding="utf-8",
     )
+    save_cli_draft(root)
     command = [
         "finalize",
         "--rating",
@@ -744,13 +765,14 @@ def test_finalize_publication_failure_saves_locally_without_touching_unrelated_f
         },
     )
     assert main([*command, "--sync"]) == 0
-    assert not candidate.exists()
-    reviews = list((root / "progress/reviews").glob("*.json"))
+    assert candidate.exists()  # The source draft is never deleted by local completion.
+    assert core.load_session(root) is None
+    reviews = core.event_files(root)
     assert len(reviews) == 1
-    event = json.loads(reviews[0].read_text(encoding="utf-8"))
-    assert (root / "progress/attempts" / event["event_id"] / "candidate.py").exists()
+    event = core.artifact_json(root, reviews[0])
+    assert core.artifact_text(root, f"progress/attempts/{event['event_id']}/candidate.py")
     assert (root / "README.md").read_text() == "Unrelated draft"
-    assert (root / ".study-local/pending.json").exists()
+    assert existing_store(root).json_documents(".study-local/outbox/")
 
 
 def test_reflection_embeds_initial_reasoning_help_and_rating_evidence():

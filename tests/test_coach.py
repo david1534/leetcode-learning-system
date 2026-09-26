@@ -1,5 +1,4 @@
 import json
-import os
 import sys
 import threading
 import time
@@ -11,7 +10,7 @@ from fastapi.testclient import TestClient
 
 from study.app import create_app
 from study.coach import Coach, CoachRequest, allowance
-from study.codex_runtime import CONFIG, SUPPORTED_VERSIONS, CodexRuntime, find_codex
+from study.codex_runtime import CONFIG, SUPPORTED_VERSIONS, CodexRuntime
 from study.service import Conflict
 
 FAKE = Path(__file__).with_name("fake_codex.py")
@@ -51,6 +50,9 @@ def wait(coach):
 
 
 def test_assessment_does_not_call_model_or_reveal_help(coach):
+    session = coach.service._session()
+    session["assessment_mode"] = "independent"
+    coach.service._save(session)
     result = coach.submit(request(coach))
     assert result["status"] == "conversion_required"
     assert coach.runtime.process is None
@@ -69,7 +71,7 @@ def test_jsonl_auth_reply_and_duplicate_request(coach):
     coach.submit(sent)
     session = coach.service.state()["session"]
     assert len(session["assistance_log"]) == 1
-    assert coach.service.evaluate()["recall_outcome"] == "success"
+    assert coach.service.evaluate()["recall_outcome"] == "unknown"
     assert "context" not in result
 
 
@@ -101,7 +103,7 @@ def test_interruption_does_not_stop_code_runner_or_lose_question(coach):
     coach.interrupt()
     assert wait(coach)["status"] == "interrupted"
     assert not (coach.service.local / "stop-check").exists()
-    assert (coach.service.root / "attempt/current.py").exists()
+    assert coach.service.store.exists("attempt/current.py")
 
 
 def test_malformed_reply_is_not_displayed_or_recorded_as_assistance(coach):
@@ -144,29 +146,17 @@ def test_config_does_not_expose_execution_or_api_fallback():
     assert config["apps"]["_default"]["enabled"] is False
 
 
-def test_codex_discovery_uses_standalone_then_latest_desktop(tmp_path, monkeypatch):
-    import study.codex_runtime as runtime
+def test_codex_discovery_uses_only_the_owned_installation(tmp_path, monkeypatch):
+    from study.codex_runtime import find_codex
+    from study.managed_codex import runtime_directory
 
-    monkeypatch.setattr(runtime.shutil, "which", lambda _: None)
-    monkeypatch.delenv("CODEX_INSTALL_DIR", raising=False)
-    local = tmp_path / "LocalAppData"
-    monkeypatch.setenv("LOCALAPPDATA", str(local))
-
-    standalone = local / "Programs/OpenAI/Codex/bin/codex.exe"
-    standalone.parent.mkdir(parents=True)
-    standalone.touch()
-    assert find_codex() == str(standalone)
-
-    standalone.unlink()
-    older = local / "OpenAI/Codex/bin/older/codex.exe"
-    newer = local / "OpenAI/Codex/bin/newer/codex.exe"
-    older.parent.mkdir(parents=True)
-    newer.parent.mkdir(parents=True)
-    older.touch()
-    newer.touch()
-    os.utime(older, (1, 1))
-    os.utime(newer, (2, 2))
-    assert find_codex() == str(newer)
+    monkeypatch.setenv("PATH", str(tmp_path / "unrelated-cli"))
+    assert find_codex() is None
+    name = "codex.exe" if sys.platform == "win32" else "codex"
+    owned = runtime_directory() / "node_modules/@openai/native/vendor/platform/bin" / name
+    owned.parent.mkdir(parents=True)
+    owned.write_text("native fixture")
+    assert find_codex() == str(owned)
 
 
 def test_typed_api_and_origin_guards(guided):
@@ -190,11 +180,15 @@ def test_missing_and_incompatible_cli_disable_coaching(guided, monkeypatch):
 
     import study.codex_runtime as runtime
 
-    monkeypatch.setattr(runtime, "find_codex", lambda: None)
+    monkeypatch.setattr(
+        runtime,
+        "ensure_codex",
+        lambda: (_ for _ in ()).throw(RuntimeError("Runtime installation unavailable")),
+    )
     value = Coach(guided)
     assert not value.runtime.directory.is_relative_to(guided.root)
     assert value.connect()["connection"] == "unavailable"
-    monkeypatch.setattr(runtime, "find_codex", lambda: "codex")
+    monkeypatch.setattr(runtime, "ensure_codex", lambda: "codex")
     monkeypatch.setattr(
         runtime.subprocess, "run", lambda *a, **k: SimpleNamespace(stdout="codex-cli 0.999.0")
     )
@@ -203,7 +197,7 @@ def test_missing_and_incompatible_cli_disable_coaching(guided, monkeypatch):
 
 
 def test_current_windows_desktop_cli_is_validated():
-    assert "0.154.0-alpha.6.2" in SUPPORTED_VERSIONS
+    assert SUPPORTED_VERSIONS == {"0.157.0"}
 
 
 def test_unknown_and_exhausted_allowance_never_start_a_turn(coach, monkeypatch):
@@ -218,6 +212,7 @@ def test_unknown_and_exhausted_allowance_never_start_a_turn(coach, monkeypatch):
 
 
 def test_duplicate_id_with_different_content_is_rejected(coach):
+    coach.connect()
     sent = request(coach)
     coach.submit(sent)
     altered = sent.model_copy(update={"message": "A different question"})
@@ -279,29 +274,27 @@ def test_login_cancel_and_api_key_session_remain_optional(coach, monkeypatch):
 def test_checkpoint_preferences_are_independent(coach):
     coach.connect()
     coach.service.convert_to_practice()
-    coach.configure(approach=False, check=True)
+    coach.configure(automatic=True, approach=False, check=True)
     assert coach.submit(request(coach, kind="approach"))["status"] == "skipped"
     assert coach.active is None
     assert coach.submit(request(coach, kind="check"))["status"] == "queued"
     assert wait(coach)["status"] == "completed"
 
 
-def test_launcher_reuses_only_the_same_workspace(guided, monkeypatch):
-    import io
+def test_launcher_health_identity_does_not_disclose_owner_token(guided):
+    from fastapi.testclient import TestClient
 
-    import study.app as app
+    from study.app import create_app
 
-    client = TestClient(create_app(guided.root, coach_factory=factory), base_url="http://127.0.0.1")
-    health = client.get("/api/health").json()
-    monkeypatch.setattr(
-        app.urllib.request, "urlopen", lambda *a, **k: io.StringIO(json.dumps(health))
-    )
-    opened = []
-    monkeypatch.setattr(app.webbrowser, "open", opened.append)
-    app.launch(guided.root)
-    assert opened == ["http://127.0.0.1:8765"]
-    with pytest.raises(RuntimeError, match="Another workspace"):
-        app.launch(guided.root.parent)
+    app = create_app(guided.root)
+    app.state.owner = "private-owner-fixture"
+    app.state.instance_id = "public-instance-fixture"
+    with TestClient(app, base_url="http://127.0.0.1") as client:
+        value = client.get("/api/health").json()
+        assert value["instance_id"] == "public-instance-fixture"
+        assert "private-owner-fixture" not in json.dumps(value)
+        response = client.post("/api/app/shutdown", headers={"X-Study-Request": "1"}, json={})
+        assert response.status_code == 403
 
 
 def test_status_observes_the_completed_session_update(coach):
@@ -324,3 +317,19 @@ def test_status_observes_the_completed_session_update(coach):
     reader.join(2)
     assert not reader.is_alive()
     assert result["preferences"]["automatic"] is False
+
+
+def test_owned_runtime_manifest_is_portable_and_contains_no_registry_credentials():
+    from urllib.parse import urlparse
+
+    import study.codex_runtime as runtime
+
+    bundle = Path(runtime.__file__).with_name("codex_bundle")
+    manifest = json.loads((bundle / "package.json").read_text())
+    lock = json.loads((bundle / "package-lock.json").read_text())
+    assert manifest["dependencies"]["@openai/codex"] == "0.157.0"
+    for item in lock["packages"].values():
+        if "resolved" in item:
+            url = urlparse(item["resolved"])
+            assert url.hostname == "registry.npmjs.org"
+            assert not url.username and not url.password

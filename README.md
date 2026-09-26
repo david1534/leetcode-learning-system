@@ -1,46 +1,53 @@
 # Practice Room
 
-A local Python practice app for learning algorithms with Codex coaching. Start with an independent idea, write and test code, and keep a small amount of useful evidence. Practice Room uses the existing Git history and FSRS scheduler.
+A local browser app for daily algorithm practice. Work on one problem, reconstruct an idea, write and test code, and save a brief record. Reviews use the existing FSRS schedule. Coaching is optional and uses your personal ChatGPT subscription.
 
 ## Start on Windows
 
-Install Python 3.11 or newer and Git. A source checkout also needs Node.js 22.12 or newer for its first interface build. Open **Start Study.cmd** in this repository. It prepares a local environment and opens `http://127.0.0.1:8765`. Keep its terminal open while practicing; closing it stops the app. Subsequent launches work offline once dependencies and the interface are installed.
+Install Python 3.11+, Git, and Node.js 22.12+ (LTS). Open **Start Study.cmd**. The launcher prepares the environment and interface, starts the app in the background, and opens the browser after the server is ready. You can close the launcher window. Subsequent launches reuse the running app or restart an outdated instance while preserving saved work. Another application's occupied port is left alone.
 
-You can also use `python -m pip install -e ".[dev]"`, build the interface with `npm ci` and `npm run build` inside `frontend`, then run `study app`. The interface and API share one loopback origin. Outside this repository, use `study --root <repository> app`; discovery never falls back to an installed checkout.
+After pulling an update, reopen **Start Study.cmd**. For the first upgrade from version 0.3, close the old Practice Room terminal before launching version 0.4.
 
-If publication is unavailable, **Keep local and continue** starts the next practice without contacting GitHub. Saved learning stays visible on Today for later publication. Branch choices and interrupted grouped completions preserve the existing attempt and review records.
+The daily workflow and recovery instructions are in [WORKFLOW_GUIDE.md](WORKFLOW_GUIDE.md).
 
-After pulling an update, close the running Practice Room terminal and reopen **Start Study.cmd**. This reloads the Python service and rebuilds the interface when needed; refreshing an existing browser tab alone does not restart the service.
+## A simpler daily session
 
-Dark mode is the first-launch default. Settings offer Dark, Light, and System. Monaco loads when you open the editor. Interface assets are local, including fonts and the editor worker.
+- **Start / Resume** opens one problem or repair. Reviews happen between sessions.
+- The prompt, function, constraints, and public examples stay alongside your work on a laptop and above it on narrow screens.
+- Record one short initial idea. “I don't know yet” is valid. Ask for help when you need it; assistance is recorded. Explicit independent assessments preserve the pre-help attempt before conceptual help.
+- **Check solution** tests a fixed copy of the saved code. **Stop tests** and **Stop coach** are separate controls.
+- **Finish locally** saves the session in one transaction. A short takeaway is optional. Confirm recall once in the completion summary; unknown recall does not change the scheduling interval.
+- **Publish & finish**, or **Review & publish** later, explicitly publishes the displayed learning artifacts. A pending publication does not prevent the next local practice.
+
+## Saved on this computer
+
+Version 0.4 stores practice in SQLite under `%LOCALAPPDATA%\PracticeRoom\workspaces\<workspace-id>\practice.sqlite3`, outside the repository and OneDrive. On Linux it uses `$XDG_DATA_HOME/PracticeRoom` or `~/.local/share/PracticeRoom`.
+
+Existing attempts, public history, corrections, and interrupted grouped sessions are imported without deleting their original files. Conflicting versions are retained for recovery. Historical IDs and scheduling evidence stay intact. The repository's `attempt/` files become legacy import material; current practice lives in the local database.
+
+Git exports run in a separate application-data checkout. Saving does not depend on GitHub, changing the source branch, deleting an attempt directory, or receiving a coach response. Pause or Sync backs up the scoped draft for another computer. Check the synchronization result before changing computers. Browser recovery protects unsent edits and offers a download when a save cannot be confirmed.
 
 ## Connect coaching
 
-Choose **Connect Codex**, follow **Sign in with ChatGPT**, then refresh the connection. Practice Room uses its own Codex-managed login and private working directory. It does not copy desktop credentials or change global Codex settings. The adapter currently supports **Codex CLI 0.153.4 and 0.154.0-alpha.6.2**. On Windows it checks the normal command path, the standalone install location, and then the newest CLI bundled with Codex Desktop. Other versions disable coaching until validated; saving and practice continue.
+Choose **Connect Codex**, then **Sign in with ChatGPT** using your personal account. The connection updates when sign-in finishes. Each computer has its own Codex-managed sign-in; credentials are not copied between applications or published.
 
-Coaching uses your ChatGPT plan’s included Codex allowance, shared with other Codex use. At 20% remaining, automatic checkpoints pause; manual questions remain available. Exhausted or unknown allowance blocks new turns until refreshed. The integration never invokes API billing, purchases credits, or redeems resets. OpenAI controls account credits and allowances, so this is not an unlimited-free-use guarantee. See [authentication](https://learn.chatgpt.com/docs/auth), [App Server](https://learn.chatgpt.com/docs/app-server), and [usage](https://learn.chatgpt.com/docs/pricing).
+The app installs its own pinned **Codex CLI 0.157.0** from the official npm package and validates its restricted configuration. It does not depend on whichever Codex executable happens to be on PATH and does not change desktop or company Codex settings. Installation, login, connection, or allowance failures leave local practice available.
 
-The coach receives a restricted session projection and returns validated proposals. Shell execution, file edits, browsers, connectors, personal memory, and delegation are disabled and checked at connection. During assessment, conceptual help requires **Switch to guided practice**. Proposed code requires a preview and **Apply**. App conversations stay in `.study-local/coach`; Codex-managed authentication and its working folder live outside the repository under the computer's application-data folder (`PracticeRoom/coach`). Only reviewed learning artifacts are published.
+Coaching uses the ChatGPT plan's included Codex allowance, shared with other Codex use. Automatic checkpoints are off by default. Unknown or exhausted allowance blocks new turns until refreshed; the integration does not use API-key billing, purchase credits, or redeem resets. See the official [App Server](https://developers.openai.com/codex/app-server) and [authentication](https://developers.openai.com/codex/auth) documentation.
 
-[Read the daily workflow and recovery guide](WORKFLOW_GUIDE.md). [Coach instructions](AGENTS.md) use the same session operations.
+The coach receives the problem, your recorded idea, current code, and limited check results. Tools and direct file access are disabled. Proposed code needs a preview and **Apply**. Conversations, runtime logs, and authentication stay private; publication includes only the reviewed learning artifacts.
 
-## Foundation release
+## Learning evidence
 
-38 original exercises: five diagnostics; seven Arrays & Hashing core exercises, three transfer variants, and two optional warm-ups; seven items each for Two Pointers, Stack, and Binary Search. Each new topic includes a worked example, incomplete example, three core exercises, and two assessment variants. Later roadmap topics are marked planned.
+The foundation contains 38 original exercises across diagnostics, Arrays & Hashing, Two Pointers, Stack, and Binary Search. Later topics remain planned. Existing curriculum, prerequisites, repair delays, and FSRS parameters are preserved.
 
-Every exercise has public examples, edge cases, a reference solution, known-wrong implementations, a hint ladder, prerequisites, stable skills, and a rubric. References and hidden cases are authoring material; Codex should use `study coach-context` during assessment.
-
-## Evidence that means something
-
-Learn, Recall, Implement, and Transfer are separate activities. Outline recall never extends a full implementation interval. Ready to advance requires independent anchor implementations. Retained requires two independent implementations at least seven elapsed days apart on every core exercise, plus an unseen transfer pass. Assisted and unsuccessful work remain valuable study time without becoming independent success evidence.
-
-The next 12 completed guided sessions in workflow version 3 establish a separate prospective baseline. Supporting exercises and retries do not inflate it. Progress shows sample counts, assistance levels, delayed implementation after at least 24 hours, unseen transfer, time by phase, and coaching latency and interruptions. Routine completion aims for a median of no more than three minutes. These are descriptive measurements and product targets, not proof of improved learning.
+Passing tests establishes tested correctness. Recall, explanation, complexity, and assistance are recorded separately. Retention and unfamiliar transfer require repeated evidence. Workflow version 4 tracks one-problem sessions separately from historical grouped sessions; its descriptive metrics do not establish a causal learning improvement.
 
 ## Development
 
-- Python: `python -m pytest` and `python -m ruff check --no-cache .`
-- Interface, in `frontend`: `npm ci`, `npm test`, `npm run build`, `npm run format:check`
-- Browser journeys: `npx playwright install chromium`, then `npm run test:browser`. They use disposable repositories and a deterministic fake Codex process, with no account or model allowance.
-- Windows and Linux checks are configured in `.github/workflows/quality.yml`.
-- Candidate checks run in a separate process with a ten-second limit and a Stop control. This is interruption protection, not an operating-system security sandbox; run your own practice code.
-- See [implementation and validation notes](docs/RELEASE_NOTES.md) for schema and migration details.
+- Python: `python -m pip install -e ".[dev]"`, `python -m pytest`, `python -m ruff check --no-cache .`.
+- Interface: in `frontend`, run `npm ci`, `npm test`, `npm run build`, and `npm run format:check`.
+- Browser journeys: `npx playwright install chromium`, then `npm run test:browser` in `frontend`.
+- Tests use disposable repositories and private data directories. Ordinary tests disable the native coach and use a deterministic JSONL fake. Real launcher tests start and stop only their own local server processes.
+
+See [architecture and validation](docs/architecture.md) for persistence, migration, API, synchronization, and release checks. A personal-account coaching smoke check on the Yoga is a separate release acceptance step; mocked coaching and an unauthenticated protocol probe do not establish that it passed.

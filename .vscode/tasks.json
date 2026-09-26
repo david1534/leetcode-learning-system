@@ -136,20 +136,6 @@
       "problemMatcher": []
     },
     {
-      "label": "Study: Advance Supporting Activity",
-      "type": "shell",
-      "command": "powershell.exe",
-      "args": [
-        "-NoProfile",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-File",
-        "${workspaceFolder}\\scripts\\study.ps1",
-        "advance"
-      ],
-      "problemMatcher": []
-    },
-    {
       "label": "Quality: Full Suite",
       "type": "shell",
       "command": "powershell.exe",
@@ -162,6 +148,21 @@
         "_quality"
       ],
       "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "Study: Restart App",
+      "type": "shell",
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}\\scripts\\study.ps1",
+        "app",
+        "--restart"
+      ],
       "problemMatcher": []
     }
   ]

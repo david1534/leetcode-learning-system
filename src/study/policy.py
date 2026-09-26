@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import statistics
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -190,8 +189,8 @@ def queue(
 def practice_sessions(root: Path) -> list[dict]:
     return sorted(
         (
-            json.loads(p.read_text(encoding="utf-8"))
-            for p in (root / "progress/practice-sessions").glob("*.json")
+            core.artifact_json(root, p)
+            for p in core.artifact_paths(root, "progress/practice-sessions/", ".json")
         ),
         key=lambda e: e["completed_at"],
     )
@@ -217,7 +216,7 @@ def topic_progress(root: Path) -> list[dict]:
         retained = []
         for p in core_problems:
             days = [
-                datetime.fromisoformat(e["reviewed_at"])
+                datetime.fromisoformat(e.get("recall_at") or e["reviewed_at"])
                 for e in events
                 if e["problem_id"] == p["id"] and independent(e)
             ]
@@ -275,11 +274,11 @@ def metrics(root: Path) -> dict:
     previous = {}
     delayed = []
     for event in core.effective_events(root):
-        when = datetime.fromisoformat(event["reviewed_at"])
+        when = datetime.fromisoformat(event.get("recall_at") or event["reviewed_at"])
         prior = previous.get(event["problem_id"])
         if event in attempts and prior and when - prior >= timedelta(hours=24):
             delayed.append(event)
-        previous[event["problem_id"]] = when
+        previous[event["problem_id"]] = datetime.fromisoformat(event["reviewed_at"])
     unseen = [e for e in attempts if e.get("unseen") and e.get("activity") == "transfer"]
 
     def rate(items):
@@ -312,7 +311,7 @@ def metrics(root: Path) -> dict:
         for level in core.ASSISTANCE_LEVELS
     }
     guided = practice_sessions(root)
-    cohort = guided[:12]
+    cohort = [p for p in guided if p.get("workflow_version") == 4][:12]
     child_ids = {sid for parent in guided for sid in parent.get("attempt_ids", [])}
     parent_repairs = {Path(p).stem for parent in guided for p in parent.get("repair_paths", [])}
     remaining = [
@@ -331,7 +330,7 @@ def metrics(root: Path) -> dict:
     if cohort:
         admin = [p["timing"].get("administration", 0) / 60 for p in cohort]
     return {
-        "workflow_version": 3,
+        "workflow_version": 4,
         "guided_sessions": len(guided),
         "cohort": {
             "delayed": rate(cohort_delayed),

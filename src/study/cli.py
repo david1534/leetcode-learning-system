@@ -69,9 +69,12 @@ def print_module_map(root: Path) -> None:
 
 
 def open_candidate(root: Path) -> None:
+    from study.service import StudyService
+
+    candidate = StudyService(root).export_editor()
     code = shutil.which("code")
     if code:
-        subprocess.run([code, "-r", str(candidate_path(root))], check=False)
+        subprocess.run([code, "-r", str(candidate)], check=False)
 
 
 def require_reasoning(root: Path) -> dict:
@@ -470,6 +473,8 @@ def build_parser() -> argparse.ArgumentParser:
     app = commands.add_parser("app", help="open the local practice app")
     app.add_argument("--port", type=int, default=8765)
     app.add_argument("--no-open", action="store_true")
+    app.add_argument("--restart", action="store_true")
+    app.add_argument("--serve", action="store_true", help=argparse.SUPPRESS)
     commands.add_parser("summary", help="JSON session summary for Codex")
     commands.add_parser(
         "coach-context", help="Restricted context for coaching the current activity"
@@ -490,6 +495,7 @@ def build_parser() -> argparse.ArgumentParser:
     save.add_argument("--file", required=True)
     save.add_argument("--revision", type=int, required=True)
     save.add_argument("--digest")
+    save.add_argument("--session-id")
     phase = commands.add_parser("phase", help="record the current study phase")
     phase.add_argument(
         "phase",
@@ -524,7 +530,7 @@ def build_parser() -> argparse.ArgumentParser:
     reasoning.add_argument("--complexity")
     reasoning.add_argument("--why", default=None)
     reasoning.add_argument("--edge-case", default=None)
-    reasoning.add_argument("--quality", choices=RECALL_QUALITIES, default="novel")
+    reasoning.add_argument("--quality", choices=RECALL_QUALITIES, default="unknown")
     reasoning.add_argument("--open", action="store_true")
     reasoning.add_argument("--json", action="store_true")
     assistance = note_subcommands.add_parser("assistance", help="record coaching assistance")
@@ -567,7 +573,7 @@ def build_parser() -> argparse.ArgumentParser:
     evaluate = commands.add_parser("evaluate", help="show completion facts and rating guidance")
     evaluate.add_argument("--json", action="store_true")
     finish = commands.add_parser("finish", help="record a review and close the active attempt")
-    finish.add_argument("--rating", required=True, choices=RATINGS)
+    finish.add_argument("--rating", required=True, choices=(*RATINGS, "unknown"))
     finish.add_argument("--minutes", type=float)
     finish.add_argument("--takeaway")
     finish.add_argument("--constraints-met", action="store_true")
@@ -578,7 +584,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="confirm you explained the approach and time/space complexity",
     )
     finalize = commands.add_parser("finalize", help="publish reflection and finish an attempt")
-    finalize.add_argument("--rating", required=True, choices=RATINGS)
+    finalize.add_argument("--rating", required=True, choices=(*RATINGS, "unknown"))
     finalize.add_argument("--minutes", type=int)
     finalize.add_argument("--reflection-file")
     finalize.add_argument("--approach")

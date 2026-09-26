@@ -8,21 +8,32 @@ export function useWorkspace(minutes: number, includeNew: boolean) {
   const [queue, setQueue] = useState<Queue | null>(null);
   const [progress, setProgress] = useState<Progress | null>(null);
   const [coach, setCoach] = useState<CoachStatus | null>(null);
+  const applyCoach = (incoming: CoachStatus) =>
+    setCoach((previous) =>
+      previous && incoming.snapshot < previous.snapshot ? previous : incoming,
+    );
   const [error, setError] = useState("");
   const [connectionError, setConnectionError] = useState("");
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState("");
-  const [saveStatus, setSaveStatus] = useState("Saved locally");
+  const [saveStatus, setSaveStatus] = useState("Saved on this computer");
   const [conflict, setConflict] = useState(false);
   const [storageError, setStorageError] = useState(false);
+  const [recoveredDrafts, setRecoveredDrafts] = useState(() =>
+    readStored<
+      { id: string; sessionId: string; code: string; dismissed?: boolean }[]
+    >("recovered-drafts", []),
+  );
   const latest = useRef<StudyState | null>(null);
   const text = useRef("");
   const dirty = useRef(false);
+  const browserRecovery = useRef(false);
   const activeId = useRef("");
   const base = useRef({ revision: 0, digest: "" });
   const saving = useRef<Promise<void> | null>(null);
   const conflictRef = useRef(false);
   const apply = (next: StudyState) => {
+    if (latest.current && next.snapshot < latest.current.snapshot) return;
     const s = next.session;
     const previous = latest.current?.session;
     if (
@@ -31,6 +42,26 @@ export function useWorkspace(minutes: number, includeNew: boolean) {
       s.revision < previous.revision
     )
       return;
+    if (
+      activeId.current &&
+      activeId.current !== s?.session_id &&
+      dirty.current
+    ) {
+      const recovered = {
+        id: crypto.randomUUID(),
+        sessionId: activeId.current,
+        code: text.current,
+      };
+      setRecoveredDrafts((previous) => {
+        const drafts = [...previous, recovered];
+        storeDraft("recovered-drafts", drafts);
+        return drafts;
+      });
+      dirty.current = false;
+      conflictRef.current = false;
+      setConflict(false);
+      activeId.current = "";
+    }
     latest.current = next;
     setState(next);
     if (!s || s.code === null) return;
@@ -41,6 +72,7 @@ export function useWorkspace(minutes: number, includeNew: boolean) {
         null,
       );
       dirty.current = Boolean(saved && saved.code !== s.code);
+      browserRecovery.current = Boolean(saved);
       text.current = dirty.current ? saved!.code : s.code;
       base.current = {
         revision: s.revision,
@@ -51,7 +83,7 @@ export function useWorkspace(minutes: number, includeNew: boolean) {
       setConflict(conflictRef.current);
       setDraft(text.current);
       setSaveStatus(
-        dirty.current ? "Recovered browser draft" : "Saved locally",
+        dirty.current ? "Recovered browser draft" : "Saved on this computer",
       );
     } else if (dirty.current) {
       if (base.current.digest !== s.code_digest) {
@@ -71,11 +103,19 @@ export function useWorkspace(minutes: number, includeNew: boolean) {
       api<Progress>("progress"),
     ]);
     if (results[0].status === "fulfilled") {
+      if (results[0].value.api_version !== 2) {
+        setConnectionError(
+          "This page needs the updated app. Open Start Study to restart it, then reload this page.",
+        );
+        return;
+      }
       apply(results[0].value);
       setConnectionError("");
     } else {
       setConnectionError(
-        "The local app is unreachable. Keep this window open; your browser draft is preserved.",
+        results[0].reason instanceof Error
+          ? results[0].reason.message
+          : "The app connection was interrupted. Reopen Start Study to reconnect.",
       );
     }
     if (results[1].status === "fulfilled") setQueue(results[1].value);
@@ -91,9 +131,11 @@ export function useWorkspace(minutes: number, includeNew: boolean) {
           apply(s);
           setConnectionError("");
         })
-        .catch(() =>
+        .catch((error) =>
           setConnectionError(
-            "Connection lost. Your browser draft is preserved; retry the connection.",
+            error instanceof Error
+              ? error.message
+              : "The app connection was interrupted.",
           ),
         );
     }, 2000);
@@ -128,7 +170,7 @@ export function useWorkspace(minutes: number, includeNew: boolean) {
         ) {
           apply(await api<StudyState>("state"));
         }
-        setCoach(incoming);
+        applyCoach(incoming);
       } catch {
         setError("Coach status could not be read. Reconnect coaching.");
       }
@@ -165,6 +207,7 @@ export function useWorkspace(minutes: number, includeNew: boolean) {
       try {
         setSaveStatus("Saving…");
         const response = await api<StudyState>("action/save", {
+          session_id: s.session_id,
           code: candidate,
           revision: base.current.revision,
           code_digest: base.current.digest,
@@ -175,13 +218,24 @@ export function useWorkspace(minutes: number, includeNew: boolean) {
         };
         dirty.current = text.current !== candidate;
         apply(response);
-        storeDraft("code-" + s.session_id, {
-          code: text.current,
-          digest: base.current.digest,
-        });
-        setSaveStatus(dirty.current ? "Unsaved changes" : "Saved locally");
+        browserRecovery.current = storeDraft(
+          "code-" + s.session_id,
+          dirty.current
+            ? {
+                code: text.current,
+                digest: base.current.digest,
+              }
+            : null,
+        );
+        setSaveStatus(
+          dirty.current ? "Unsaved changes" : "Saved on this computer",
+        );
       } catch (e) {
-        setSaveStatus("Saved in browser");
+        setSaveStatus(
+          browserRecovery.current
+            ? "Saved in browser"
+            : "Not saved ? download your work",
+        );
         if (e instanceof ApiError && e.status === 409) {
           conflictRef.current = true;
           setConflict(true);
@@ -204,7 +258,7 @@ export function useWorkspace(minutes: number, includeNew: boolean) {
     dirty.current = true;
     setDraft(value);
     setSaveStatus("Unsaved changes");
-    storeDraft("code-" + activeId.current, {
+    browserRecovery.current = storeDraft("code-" + activeId.current, {
       code: value,
       digest: base.current.digest,
     });
@@ -221,7 +275,8 @@ export function useWorkspace(minutes: number, includeNew: boolean) {
     path: string,
     data: unknown = {},
   ): Promise<T> => {
-    setBusy(true);
+    const blocksEditing = !path.startsWith("coach/");
+    if (blocksEditing) setBusy(true);
     setError("");
     try {
       if (
@@ -230,7 +285,7 @@ export function useWorkspace(minutes: number, includeNew: boolean) {
         await save();
       const result = await api<T>(path, data);
       if (result && typeof result === "object" && "connection" in result)
-        setCoach(result as unknown as CoachStatus);
+        applyCoach(result as unknown as CoachStatus);
       if (result && typeof result === "object" && "session" in result)
         apply(result as unknown as StudyState);
       await refresh();
@@ -239,17 +294,26 @@ export function useWorkspace(minutes: number, includeNew: boolean) {
       setError((e as Error).message);
       throw e;
     } finally {
-      setBusy(false);
+      if (blocksEditing) setBusy(false);
     }
   };
   const mutate = async <T = unknown>(
     path: string,
     data: Record<string, unknown> = {},
   ): Promise<T> => {
+    const sessionId = latest.current?.session?.session_id;
     await save();
+    if (sessionId !== latest.current?.session?.session_id)
+      throw new Error(
+        "The active problem changed. Review the current problem before continuing.",
+      );
     return operate<T>(path, {
       ...data,
       revision: latest.current?.session?.revision,
+      session_id: data.session_id ?? sessionId,
+      ...(path === "action/check"
+        ? { code_digest: latest.current?.session?.code_digest }
+        : {}),
     });
   };
   const send = async (
@@ -320,10 +384,15 @@ export function useWorkspace(minutes: number, includeNew: boolean) {
     base.current = { revision: s.revision, digest: s.code_digest };
     conflictRef.current = false;
     setConflict(false);
-    storeDraft("code-" + s.session_id, {
-      code: text.current,
-      digest: s.code_digest,
-    });
+    browserRecovery.current = storeDraft(
+      "code-" + s.session_id,
+      keepDraft
+        ? {
+            code: text.current,
+            digest: s.code_digest,
+          }
+        : null,
+    );
     await save();
   };
   return {
@@ -340,6 +409,15 @@ export function useWorkspace(minutes: number, includeNew: boolean) {
     saveStatus,
     conflict,
     storageError,
+    recoveredDrafts,
+    dismissRecovered: (id: string) =>
+      setRecoveredDrafts((previous) => {
+        const drafts = previous.map((item) =>
+          item.id === id ? { ...item, dismissed: true } : item,
+        );
+        storeDraft("recovered-drafts", drafts);
+        return drafts;
+      }),
     refresh,
     operate,
     mutate,

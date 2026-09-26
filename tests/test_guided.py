@@ -1,18 +1,19 @@
 import json
-import shutil
 from datetime import UTC, datetime, timedelta
 
 import pytest
 
 from study import core, policy
-from study.service import StudyService
 
 
 def test_parent_session_and_conversion_preserve_original_assessment(guided):
     state = guided.practice_start(minutes=60, include_new=True, synchronize=False)
     sid = state["session"]["session_id"]
     guided.reasoning("I don't know the approach yet.", "failed")
-    before = (guided.root / "attempt/current.py").read_text()
+    session = guided._session()
+    session["assessment_mode"] = "independent"
+    guided._save(session)
+    before = guided._code()
     with pytest.raises(RuntimeError, match="Switch"):
         guided.hint()
     guided.convert_to_practice()
@@ -27,7 +28,7 @@ def test_parent_session_and_conversion_preserve_original_assessment(guided):
     assert events[0]["assessment"]["status"] == "ended_for_help"
     assert events[0]["activity"] == "implement"
     assert not policy.independent(events[0])
-    assert (guided.root / "progress/attempts" / sid / "assessment.py").read_text() == before
+    assert guided.store.read_text(f"progress/attempts/{sid}/assessment.py") == before
     assert len(policy.practice_sessions(guided.root)) == 1
     assert guided.practice_finish(sid, "again", "retry")["session_id"] == receipt["session_id"]
     assert len(guided._unpublished()) == 1
@@ -36,6 +37,9 @@ def test_parent_session_and_conversion_preserve_original_assessment(guided):
 def test_context_excludes_assessment_cues_and_hidden_cases(guided):
     guided.practice_start(include_new=True, synchronize=False)
     guided.reasoning("Try each pair and compare its sum to the target.")
+    session = guided._session()
+    session["assessment_mode"] = "independent"
+    guided._save(session)
     context = guided.coach_context()
     text = json.dumps(context)
     for prohibited in ("arrays-001", "skill_ids", "hashmap", "reference", "cases", "related_url"):
@@ -75,61 +79,29 @@ def test_substantive_help_does_not_automatically_mean_missing_recall(guided):
     assert guided.evaluate()["recommended_rating"] == "good"
 
 
-def test_supporting_recall_transitions_to_main_without_inflating_sessions(guided, monkeypatch):
+def test_recall_is_a_whole_session_without_an_automatic_main_problem(guided):
+    state = guided.start("arrays-001-pair-sum", "recall", include_new=True, synchronize=False)
+    guided.reasoning("Track a count or mapping and explain the invariant.", quality="complete")
+    guided.practice_finish(state["session"]["session_id"], "good", "A short reconstruction.")
+    assert guided.state()["session"] is None
+    assert len(core.load_events(guided.root)) == 1
+    assert policy.metrics(guided.root)["baseline_sessions"] == 1
+    assert core.rebuild_cards(guided.root) == {}
+
+
+def test_scheduled_supporting_items_are_not_prepended_to_a_problem(guided, monkeypatch):
     original = guided.plan
 
     def plan(*args, **kwargs):
         result = original(*args, **kwargs)
-        other = next(p for p in core.load_problems(guided.root) if p["id"] != result["main"]["id"])
-        result["short_recall"] = [other]
+        result["short_recall"] = [core.problem_by_id(guided.root, "diagnostic-001-frequency")]
         return result
 
     monkeypatch.setattr(guided, "plan", plan)
     state = guided.practice_start(include_new=True, synchronize=False)
-    assert state["practice"]["stages"][0]["type"] == "recall"
-    guided.practice_advance(answer="Use a count for each distinct value.")
-    state = guided.state()
-    assert state["practice"]["index"] == 1
+    assert len(state["practice"]["stages"]) == 1
     assert state["session"]["activity"] == "implement"
-    assert policy.metrics(guided.root)["baseline_sessions"] == 0
-    guided.reasoning("I don't know yet.", "failed")
-    guided.practice_finish(
-        state["session"]["session_id"], "again", "Keep prior state.", stopped=True
-    )
-    assert len(core.load_events(guided.root)) == 2
-    assert policy.metrics(guided.root)["baseline_sessions"] == 1
-
-
-def test_portable_pause_restores_supporting_work_on_another_computer(guided, monkeypatch, tmp_path):
-    plan = guided.plan
-
-    def with_recall(*args, **kwargs):
-        value = plan(*args, **kwargs)
-        value["short_recall"] = [core.problem_by_id(guided.root, "diagnostic-001-frequency")]
-        return value
-
-    monkeypatch.setattr(guided, "plan", with_recall)
-    guided.practice_start(include_new=True, synchronize=False)
-    guided.practice_advance(answer="Count each distinct value before comparing frequencies.")
-    guided.reasoning("I don't know yet.", "failed")
-    guided.convert_to_practice()
-    guided.practice_pause()
-    other = tmp_path / "another-computer"
-    other.mkdir()
-    for name in ("curriculum", "attempt"):
-        shutil.copytree(guided.root / name, other / name)
-    shutil.copy2(guided.root / "pyproject.toml", other / "pyproject.toml")
-    restored = StudyService(other)
-    state = restored.practice_start(synchronize=False)
-    assert len(core.load_events(other)) == 1
-    assert state["practice"]["index"] == 1
-    assert state["session"]["assessment_before_help"]["status"] == "ended_for_help"
-    restored.practice_finish(
-        state["session"]["session_id"], "again", "Restore all supporting evidence.", stopped=True
-    )
-    assert len(core.load_events(other)) == 2
-    assert len(policy.practice_sessions(other)) == 1
-    assert len(restored._unpublished()) == 1
+    assert core.load_events(guided.root) == []
 
 
 def repair_setup(service):
@@ -147,7 +119,7 @@ def repair_setup(service):
         "Append a fresh third value and check all three remain.",
         datetime.now(UTC) - timedelta(days=2),
     )
-    error = json.loads(path.read_text())
+    error = core.artifact_json(service.root, path)
     service.begin_repair(error["event_id"])
     return error["event_id"]
 
@@ -158,8 +130,9 @@ def test_small_coding_repair_uses_interruptible_runner_and_preserves_draft(guide
     guided.repair_draft(code)
     assert guided.check_repair()["all_passed"]
     guided.repair(error, code, True)
-    assert guided.state()["session"]["phase_started_at"]
+    assert guided.state()["session"] is None
     assert not core.open_repair_gates(guided.root)
+    assert guided.practice_start(synchronize=False)["session"]["phase_started_at"]
 
 
 def test_disputed_constraint_cannot_become_an_independent_pass(guided):
@@ -193,25 +166,15 @@ def test_stopping_before_recall_is_recorded_does_not_invent_a_failure(guided):
     assert not policy.independent(event)
 
 
-def test_repair_can_unblock_a_session_when_no_main_is_available(guided, monkeypatch):
+def test_repair_finishes_before_the_saved_problem_resumes(guided):
     repair_setup(guided)
-    session = guided.state()["session"]
-    guided.cancel_repair()
-    guided.finish(session["session_id"], "good", "Keep earlier values.", stopped=True)
-    original = guided.plan
-
-    def blocked_plan(*args, **kwargs):
-        result = original(*args, **kwargs)
-        if core.open_repair_gates(guided.root):
-            result["main"] = None
-        return result
-
-    monkeypatch.setattr(guided, "plan", blocked_plan)
-    state = guided.practice_start(include_new=True, synchronize=False)
-    assert state["practice"]["stages"][0]["type"] == "repair"
+    assert guided.state()["session"] is None
+    assert guided.state()["repair"]
     result = guided.practice_advance(
         answer="items=[4,5]; items.append(6); assert items==[4,5,6]", passed=True
     )
-    assert result["session"] is not None
-    assert result["practice"]["stages"][result["practice"]["index"]]["type"] == "main"
-    assert len(policy.practice_sessions(guided.root)) == 0
+    assert result["session"] is None and result["repair"] is None
+    assert len(policy.practice_sessions(guided.root)) == 1
+    resumed = guided.practice_start(include_new=True, synchronize=False)
+    assert resumed["session"] is not None
+    assert len(core.load_events(guided.root)) == 0

@@ -31,6 +31,9 @@ export interface Session {
   initial_reasoning?: { approach: string; quality: string };
   code: string | null;
   problem: Problem;
+  saved_at?: string;
+  started_at?: string;
+  previous_phase?: string;
   phase: string;
   phase_started_at: string | null;
   elapsed_seconds: number;
@@ -53,6 +56,7 @@ export interface Practice {
 }
 export interface CheckResult {
   status: string;
+  session_id?: string;
   code_digest?: string;
   all_passed?: boolean;
   passed_cases?: number;
@@ -62,15 +66,23 @@ export interface CheckResult {
   public_failures?: { example: number; error: string }[];
 }
 export interface StudyState {
+  snapshot: number;
   session: Session | null;
+  api_version?: number;
+  local_save: { status: string; saved_at?: string };
+  recovery: { id: string; path: string; source: string }[];
   practice: Practice | null;
   sync: { status: string; message: string };
   check: CheckResult | null;
   repair: {
+    session_id: string;
     error_id: string;
     application: string;
     started_at: string | null;
     revision?: number;
+    problem?: Problem;
+    prompt?: string;
+    corrected_rule?: string;
     check?: { status: string; message?: string };
     coach_review?: { value: string; explanation?: string };
   } | null;
@@ -148,6 +160,7 @@ export interface Evaluation {
   assistance_level: Assistance;
   rating_rationale: string;
   evidence: Finding[];
+  unpublished_session_ids?: string[];
 }
 export interface CoachMessage {
   request_id: string;
@@ -167,6 +180,7 @@ export interface CoachMessage {
   proposal_applied?: boolean;
 }
 export interface CoachStatus {
+  snapshot: number;
   connection: string;
   message: string;
   auth_url: string | null;

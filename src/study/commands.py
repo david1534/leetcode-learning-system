@@ -21,9 +21,16 @@ def dispatch(root: Path, args) -> int | None:
     if command == "app":
         from study.app import launch
 
-        launch(root, args.port, not args.no_open)
+        result = launch(root, args.port, not args.no_open, restart=args.restart, serve=args.serve)
+        if result:
+            print("Practice Room: " + result["url"])
         return 0
     service = StudyService(root)
+    if command in {"checkpoint", "test", "pause", "evaluate", "finish", "finalize", "complete"}:
+        service.import_editor()
+    if command == "continue":
+        output(service.continue_focus(args.minutes))
+        return 0
     if command in {"coach-context", "guided", "retry", "advance"}:
         if command == "coach-context":
             result = service.coach_context()
@@ -38,11 +45,19 @@ def dispatch(root: Path, args) -> int | None:
         output(result, True)
         return 0
     if command in {"practice", "start"}:
+        if not getattr(args, "no_sync", False):
+            synchronized = service.synchronizer.pull(wait=True)
+            if synchronized["status"] in {"pending", "checking"}:
+                print(synchronized["message"])
+                print(
+                    "Your local work is preserved. Use study practice --no-sync to continue here."
+                )
+                return 2
         result = (
             service.practice_start(
                 include_new=getattr(args, "include_new", False),
                 minutes=getattr(args, "minutes", None) or 60,
-                synchronize=not getattr(args, "no_sync", False),
+                synchronize=False,
             )
             if command == "practice"
             else service.start(
@@ -50,7 +65,7 @@ def dispatch(root: Path, args) -> int | None:
                 activity=getattr(args, "activity", "implement"),
                 include_new=getattr(args, "include_new", False),
                 minutes=getattr(args, "minutes", None),
-                synchronize=not getattr(args, "no_sync", False),
+                synchronize=False,
             )
         )
         session = result.get("session")
@@ -80,7 +95,10 @@ def dispatch(root: Path, args) -> int | None:
     if command == "save":
         output(
             service.save_code(
-                Path(args.file).read_text(encoding="utf-8"), args.revision, args.digest
+                Path(args.file).read_text(encoding="utf-8"),
+                args.revision,
+                args.digest,
+                args.session_id,
             ),
             True,
         )
@@ -140,7 +158,8 @@ def dispatch(root: Path, args) -> int | None:
         output(result, getattr(args, "json", False))
         return (0 if result["all_passed"] else 1) if command == "test" else 0
     if command == "pause":
-        print(service.practice_pause()["sync"]["message"])
+        service.practice_pause()
+        print(service.sync(wait=True)["message"])
         return 0
     if command == "evaluate":
         output(service.evaluate(), args.json)
@@ -206,9 +225,12 @@ def dispatch(root: Path, args) -> int | None:
             constraints,
             minutes,
             publish,
+            recall_confirmed=rating != "unknown",
             stopped=(session["activity"] in {"implement", "transfer"} and not facts["tests_passed"])
             or getattr(args, "stopped", False),
         )
+        if publish:
+            result["sync"] = service.sync(wait=True)
         output(result)
         return 0
     if command == "recover":
@@ -218,13 +240,13 @@ def dispatch(root: Path, args) -> int | None:
         output(service.worked_example())
         return 0
     if command == "publish":
-        output(service.publish(args.session_id))
+        output(service.publish(args.session_id, wait=True))
         return 0
     if command == "keep-local":
         output(service.keep_local())
         return 0
     if command == "sync":
-        output(service.sync())
+        output(service.sync(wait=True))
         return 0
     if command == "today":
         result = service.plan(args.include_new)
