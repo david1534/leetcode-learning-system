@@ -872,3 +872,218 @@ test("check solution keeps its result while progress is busy", async ({
   expect(state.check.all_passed).toBe(true);
   expect(state.session.code).toBe(candidate);
 });
+
+for (const mode of ["delayed", "lost"] as const) {
+  test(`a ${mode} save acknowledgement does not create a conflict with this tab`, async ({
+    page,
+    request,
+  }) => {
+    await start(page);
+    await idea(page);
+    let committed!: () => void;
+    const savedOnServer = new Promise<void>((resolve) => {
+      committed = resolve;
+    });
+    let release!: () => void;
+    const acknowledgement = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let first = true;
+    await page.route("**/api/action/save", async (route) => {
+      if (!first) return route.continue();
+      first = false;
+      const response = await route.fetch();
+      committed();
+      await acknowledgement;
+      if (mode === "lost") await route.abort("failed");
+      else await route.fulfill({ response });
+    });
+    const initial = solution + "\n# first edit\n";
+    const continued = solution + "\n# continued typing\n";
+    try {
+      await code(page, initial, false);
+      await savedOnServer;
+      await page.waitForResponse(
+        async (response) =>
+          response.url().endsWith("/api/state") &&
+          response.ok() &&
+          (await response.json()).session?.code === initial,
+      );
+      await code(page, continued, false);
+    } finally {
+      release();
+    }
+    await expect
+      .poll(
+        async () =>
+          (await (await request.get("/api/state")).json()).session.code,
+      )
+      .toBe(continued);
+    await expect(
+      page.getByRole("heading", {
+        name: "Two versions of your code",
+        exact: true,
+      }),
+    ).toHaveCount(0);
+    await expect(page.locator(".save-status")).toHaveText(
+      "Saved on this computer",
+    );
+  });
+}
+
+test("a late save acknowledgement cannot change the next session's draft", async ({
+  page,
+  request,
+}) => {
+  await start(page);
+  await idea(page);
+  let committed!: () => void;
+  const savedOnServer = new Promise<void>((resolve) => {
+    committed = resolve;
+  });
+  let release!: () => void;
+  const acknowledgement = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let first = true;
+  await page.route("**/api/action/save", async (route) => {
+    if (!first) return route.continue();
+    first = false;
+    const response = await route.fetch();
+    committed();
+    await acknowledgement;
+    await route.fulfill({ response });
+  });
+  const nextDraft = solution + "\n# next session draft\n";
+  let secondId = "";
+  try {
+    await code(page, solution + "\n# previous session\n", false);
+    await savedOnServer;
+    const previous = (await (await request.get("/api/state")).json()).session;
+    const finished = await request.post("/api/practice/finish", {
+      headers,
+      data: {
+        session_id: previous.session_id,
+        revision: previous.revision,
+        rating: "unknown",
+        stopped: true,
+      },
+    });
+    expect(finished.ok()).toBe(true);
+    const started = await request.post("/api/practice/start", {
+      headers,
+      data: { include_new: true, synchronize: false },
+    });
+    secondId = (await started.json()).session.session_id;
+    await request.post("/api/action/reasoning", {
+      headers,
+      data: {
+        answer:
+          "Trace earlier values and compare their complement before insertion.",
+      },
+    });
+    await expect(page.locator(".original-idea p")).toHaveText(
+      "Trace earlier values and compare their complement before insertion.",
+    );
+    await code(page, nextDraft, false);
+  } finally {
+    release();
+  }
+  await expect
+    .poll(
+      async () => (await (await request.get("/api/state")).json()).session.code,
+    )
+    .toBe(nextDraft);
+  const current = (await (await request.get("/api/state")).json()).session;
+  expect(current.session_id).toBe(secondId);
+  await expect(
+    page.getByRole("heading", {
+      name: "Two versions of your code",
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  await expect(page.locator(".save-status")).toHaveText(
+    "Saved on this computer",
+  );
+});
+
+test("a question waiting for autosave cannot move to a new session", async ({
+  page,
+  request,
+}) => {
+  const postedQuestions: unknown[] = [];
+  page.on("request", (event) => {
+    if (
+      event.url().endsWith("/api/coach/requests") &&
+      event.method() === "POST"
+    ) {
+      const payload = event.postDataJSON();
+      postedQuestions.push({
+        session_id: payload.session_id,
+        message: payload.message,
+      });
+    }
+  });
+  await start(page);
+  await idea(page);
+  await connect(page);
+  let committed!: () => void;
+  const savedOnServer = new Promise<void>((resolve) => {
+    committed = resolve;
+  });
+  let release!: () => void;
+  const acknowledgement = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let first = true;
+  await page.route("**/api/action/save", async (route) => {
+    if (!first) return route.continue();
+    first = false;
+    const response = await route.fetch();
+    committed();
+    await acknowledgement;
+    await route.fulfill({ response });
+  });
+  try {
+    await code(page, solution + "\n# old session edit\n", false);
+    await savedOnServer;
+    await page
+      .getByRole("textbox", { name: "Ask your learning coach", exact: true })
+      .fill("Question about the previous problem.");
+    await page.getByRole("button", { name: "Send", exact: true }).click();
+    const previous = (await (await request.get("/api/state")).json()).session;
+    await request.post("/api/practice/finish", {
+      headers,
+      data: {
+        session_id: previous.session_id,
+        revision: previous.revision,
+        rating: "unknown",
+        stopped: true,
+      },
+    });
+    await request.post("/api/practice/start", {
+      headers,
+      data: { include_new: true, synchronize: false },
+    });
+    await request.post("/api/action/reasoning", {
+      headers,
+      data: { answer: "A fresh idea for the new session." },
+    });
+    await expect(page.locator(".original-idea p")).toHaveText(
+      "A fresh idea for the new session.",
+    );
+  } finally {
+    release();
+  }
+  await expect(
+    page
+      .getByText(
+        "The active problem changed before sending this question. Review the current problem and ask again.",
+        { exact: true },
+      )
+      .first(),
+  ).toBeVisible();
+  expect(postedQuestions).toHaveLength(0);
+  const status = await (await request.get("/api/coach/status")).json();
+  expect(status.requests).toHaveLength(0);
+});

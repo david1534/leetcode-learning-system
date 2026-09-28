@@ -85,7 +85,10 @@ class GuidedSession:
                 cancel=Cancel(),
             )
         finally:
-            candidate.unlink(missing_ok=True)
+            try:
+                candidate.unlink(missing_ok=True)
+            except OSError:
+                pass  # A generated-file cleanup failure must not discard a completed check.
         with self.lock:
             timer = self._read_local("repair-timer")
             if not timer:
@@ -123,8 +126,15 @@ class GuidedSession:
                 session.update(phase_started_at=None, active_started_at=None)
                 self._save(session)
             timer = self._read_local("repair-timer")
-            if timer and timer.get("started_at"):
-                timer.update(started_at=None, timing_uncertain=True)
+            if timer:
+                if timer.get("started_at"):
+                    timer.update(started_at=None, timing_uncertain=True)
+                if timer.get("check", {}).get("status") == "running":
+                    timer["check"].update(
+                        status="interrupted",
+                        all_passed=False,
+                        message="The app restarted during the repair check. Run it again.",
+                    )
                 self._write_local("repair-timer", timer)
 
     def timer_checkpoint(self, pause=False):

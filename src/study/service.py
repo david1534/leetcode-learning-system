@@ -1121,6 +1121,14 @@ class StudyService(GuidedSession):
 
     def keep_local(self):
         with self.lock:
+            if any(
+                job.get("status") == "running"
+                for job in self.store.json_documents(".study-local/outbox/")
+            ):
+                raise Conflict(
+                    "Synchronization is already sending work. Wait for its result before "
+                    "deferring pending work; an in-flight publication cannot be recalled."
+                )
             for path in self.store.paths(".study-local/outbox/", ".json"):
                 job = self.store.read_json(path)
                 if job.get("status") == "pending":

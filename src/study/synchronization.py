@@ -489,6 +489,9 @@ class Synchronizer:
                         self._push(job)
                     except (RuntimeError, OSError, subprocess.SubprocessError) as exc:
                         with self.store.transaction():
+                            latest = self.service._read_local("outbox/" + job["id"], {})
+                            if latest.get("status") not in {"pending", "running"}:
+                                continue  # Keep a concurrent deferral authoritative.
                             job.update(status="pending", error=str(exc))
                             self.service._write_local("outbox/" + job["id"], job)
                             self.service._set_sync(

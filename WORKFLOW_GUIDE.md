@@ -20,7 +20,7 @@ Write code in the editor. **Saved on this computer** means the database acknowle
 
 **Check solution** runs public and assessment cases against a fixed saved candidate. Public-example failures are shown; hidden-case details stay out of coaching context. A timeout or **Stop tests** is distinct from an incorrect answer. Editing the candidate invalidates earlier test evidence; run the check again before treating it as correct. Results wait for other app requests to finish saving. If the checker itself fails, the app shows retry guidance and preserves your code and learning evidence; that failure is not counted as an incorrect solution.
 
-Two windows cannot silently overwrite conflicting drafts. Compare their versions, then deliberately keep your draft or use the other saved version. A changed active problem also rejects an old tab's write. Earlier unsent text is retained in browser recovery.
+You can continue typing while an earlier save is awaiting acknowledgement. The app recognizes its own committed save without inventing a conflict, and a late acknowledgement from an earlier session cannot change the current draft. If the active session changes while a question is waiting for a save, review the new problem and send a fresh question. Two windows cannot silently overwrite conflicting drafts. Compare their versions, then deliberately keep your draft or use the other saved version. A changed active problem also rejects an old tab's write. Earlier unsent text is retained in browser recovery.
 
 ## Ask for help when needed
 
@@ -28,7 +28,7 @@ Ordinary practice offers help directly after your initial attempt. Use **Ask coa
 
 An explicit independent assessment is different: conceptual help first offers **Continue independently** or **Switch to guided practice**. Switching preserves the original assessment and pre-help candidate. Assisted completion cannot become an unseen independent transfer pass.
 
-A worked example preserves your candidate and marks assisted learning. Trace it, explain a step, and then attempt an incomplete example or fresh implementation. A proposed code change is previewed; applying it requires **Apply this change** and a new test run.
+A worked example preserves your candidate and marks assisted learning. Trace it, explain a step, and then attempt an incomplete example or fresh implementation. A proposed code change is previewed; applying it requires **Apply this change** and a new test run. Viewing a preview, keeping the original code, or applying the proposed code unchanged does not count as a fresh learner retry before another substantive hint.
 
 Open **Settings → Coaching connection** before connecting. A new installation suggests Personal ChatGPT or Company from local configuration; review and save your choice once. Existing personal sign-in and history retain Personal. The choice and settings stay on this computer.
 
@@ -38,7 +38,7 @@ For **Company**, enter the HTTPS API base URL, default model, reasoning effort, 
 
 Practice Room owns its pinned CLI and verifies restricted personal/company configurations. It leaves global Codex settings alone. **Stop coach** and **Stop tests** control separate processes. Finish or stop a running reply before changing connections. Conversations and uncertain-request reconciliation belong to their original connection; switching preserves your code, recorded assistance, and retry requirement.
 
-Automatic coaching starts off for a new connection. Model, effort, and automatic-checkpoint preferences are saved separately for each connection. Approach and test-result checkpoints can be enabled separately. Personal automatic checkpoints conserve allowance at 20% remaining. Reconnection reconciles an uncertain request instead of sending it twice. Full conversations and all connection settings remain private on this computer. Pause/Sync transfers learning work between computers, while each uses its own saved connection.
+Automatic coaching starts off for a new connection. Model, effort, and automatic-checkpoint preferences are saved separately for each connection. Approach and test-result checkpoints can be enabled separately. Personal automatic checkpoints conserve allowance at 20% remaining. Reconnection reconciles an uncertain request instead of sending it twice. An expired personal sign-in requires signing in again before a new question is queued; late notifications from a retired coach process cannot disconnect the new connection. Full conversations and all connection settings remain private on this computer. Pause/Sync transfers learning work between computers, while each uses its own saved connection.
 
 ## Finish once, publish deliberately
 
@@ -74,6 +74,8 @@ When GitHub cannot be checked, **Continue locally** uses saved work on this comp
 
 Git works in a private export checkout. Practice does not switch the source repository's branch or commit its unrelated changes. Existing public review IDs and artifact formats are retained. A successful remote acknowledgment is required before the service reports synchronization success.
 
+`study keep-local` defers queued synchronization requests. A failed Git preparation cannot reactivate those deferred requests. Work already being sent must finish before this command can defer pending work; it does not recall an in-flight or completed publication.
+
 ## Recovery and storage
 
 The local database is outside the checkout: `%LOCALAPPDATA%\PracticeRoom\workspaces\<workspace-id>\practice.sqlite3` on Windows. Codex owns authentication separately under application data. Linux uses `$XDG_DATA_HOME/PracticeRoom` or `~/.local/share/PracticeRoom`.
@@ -83,6 +85,8 @@ The first launch imports legacy `attempt/`, `.practice/`, `.study-local/`, and p
 After import, editing the old repository `attempt/current.py` does not edit the current browser attempt. Use the browser or the revision-checked CLI. An explicitly opened VS Code candidate is a private editor copy; checkpoint/pause/completion imports its edits only when they do not conflict with the saved candidate.
 
 Settings provides restart and private diagnostics. If the local server is unreachable, reopen **Start Study.cmd**, keep the browser draft open, and retry. Download work when a save cannot be confirmed. Database schema upgrades require a verified backup; do not copy an active SQLite file without its transaction state or delete application-data recovery files while work is pending.
+
+If the app restarts during a repair assertion check, the answer is retained and the check becomes interrupted. Run the assertions again before relying on their result.
 
 ## Useful commands
 
