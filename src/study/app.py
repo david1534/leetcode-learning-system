@@ -451,7 +451,23 @@ def create_app(root: Path, coach_factory=Coach) -> FastAPI:
                 try:
                     service.check(**data)
                 except RuntimeError as exc:
-                    service._write_local("check", {"status": "error", "message": str(exc)})
+                    with service.lock:
+                        service._write_local("check", {"status": "error", "message": str(exc)})
+                except (OSError, sqlite3.Error) as exc:
+                    reference = uuid.uuid4().hex[:12]
+                    logger.error("Solution check failed %s", reference, exc_info=exc)
+                    with service.lock:
+                        service._write_local(
+                            "check",
+                            {
+                                "status": "error",
+                                "message": (
+                                    "The check could not finish. "
+                                    "Your saved code is unchanged; try again."
+                                ),
+                                "diagnostic_id": reference,
+                            },
+                        )
 
             background.add_task(run)
             return {"message": "Checking saved code…"}

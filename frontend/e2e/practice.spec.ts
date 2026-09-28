@@ -837,3 +837,38 @@ test("missing company credentials preserve configuration and local practice", as
     page.getByRole("heading", { name: "All checks passed", exact: true }),
   ).toBeVisible();
 });
+
+test("check solution keeps its result while progress is busy", async ({
+  page,
+  request,
+}) => {
+  await start(page);
+  await idea(page);
+  // Let the refresh request enter the progress calculation before the worker returns.
+  const candidate = "import time\ntime.sleep(0.5)\n" + solution;
+  await code(page, candidate);
+  await request.post("/__test__/slow-progress", { headers });
+  await page
+    .getByRole("button", { name: "Check solution", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "All checks passed", exact: true }),
+  ).toBeVisible({ timeout: 12000 });
+  let state = await (await request.get("/api/state")).json();
+  expect(state.check.status).toBe("complete");
+  expect(state.session.checkpoint_count).toBe(1);
+  expect(state.session.code).toBe(candidate);
+  await page
+    .getByRole("button", { name: "Check solution", exact: true })
+    .click();
+  await expect
+    .poll(
+      async () =>
+        (await (await request.get("/api/state")).json()).session
+          .checkpoint_count,
+    )
+    .toBe(2);
+  state = await (await request.get("/api/state")).json();
+  expect(state.check.all_passed).toBe(true);
+  expect(state.session.code).toBe(candidate);
+});

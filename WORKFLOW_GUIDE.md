@@ -18,7 +18,7 @@ Start with a few sentences: what you would try, why it fits, and an important co
 
 Write code in the editor. **Saved on this computer** means the database acknowledged the save. **Saved in browser** means the edit is recoverable in this browser but has not been confirmed by the app. If browser storage is unavailable too, keep the page open and use **Download work**.
 
-**Check solution** runs public and assessment cases against a fixed saved candidate. Public-example failures are shown; hidden-case details stay out of coaching context. A timeout or **Stop tests** is distinct from an incorrect answer. Editing the candidate invalidates earlier test evidence; run the check again before treating it as correct.
+**Check solution** runs public and assessment cases against a fixed saved candidate. Public-example failures are shown; hidden-case details stay out of coaching context. A timeout or **Stop tests** is distinct from an incorrect answer. Editing the candidate invalidates earlier test evidence; run the check again before treating it as correct. Results wait for other app requests to finish saving. If the checker itself fails, the app shows retry guidance and preserves your code and learning evidence; that failure is not counted as an incorrect solution.
 
 Two windows cannot silently overwrite conflicting drafts. Compare their versions, then deliberately keep your draft or use the other saved version. A changed active problem also rejects an old tab's write. Earlier unsent text is retained in browser recovery.
 

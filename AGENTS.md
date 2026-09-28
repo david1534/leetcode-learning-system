@@ -20,7 +20,7 @@ Embedded coaching uses an owned App Server process with a verified restricted co
 
 For unfamiliar concepts after a stall, offer a worked or incomplete example rather than repeated unsuccessful discovery. `study learn-example` reveals a reference after the initial attempt, marks substantial assistance, and changes the activity to Learn. Explain and gradually remove steps. This establishes assisted understanding, not independent assessment.
 
-Run `study checkpoint --json` for checks. Discuss one issue at a time using public failures and the learner’s code. A full pass proves tested correctness, not efficiency, explanation quality, or independence. Assess those separately. Respect the ten-second timeout; `study stop` interrupts a loop without losing the candidate. Rerun after any code change.
+Run `study checkpoint --json` for checks. Discuss one issue at a time using public failures and the learner’s code. A full pass proves tested correctness, not efficiency, explanation quality, or independence. Assess those separately. Respect the ten-second timeout; `study stop` interrupts a loop without losing the candidate. Rerun after any code change. Checker infrastructure failures must preserve the candidate and learning evidence and show retry guidance, rather than recording a failed learner checkpoint.
 
 Approach and test-result checkpoints can be disabled separately in Coach preferences.
 

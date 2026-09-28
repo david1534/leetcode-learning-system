@@ -5,6 +5,8 @@ import os
 import shutil
 import sys
 import tempfile
+import threading
+import time
 from pathlib import Path
 
 import uvicorn
@@ -42,9 +44,26 @@ def main():
             )
 
         app = create_app(root, coach_factory=factory)
+        slow_progress = threading.Event()
+        original_progress = app.state.service.progress
+
+        def progress_with_optional_delay():
+            with app.state.service.lock:
+                if slow_progress.is_set():
+                    slow_progress.clear()
+                    time.sleep(4.2)
+                return original_progress()
+
+        app.state.service.progress = progress_with_optional_delay
+
+        @app.post("/__test__/slow-progress")
+        def delay_progress():
+            slow_progress.set()
+            return {"armed": True}
 
         @app.post("/__test__/reset")
         def reset():
+            slow_progress.clear()
             app.state.coach.disconnect()
             with app.state.service.lock:
                 app.state.service.store.delete_tree("")
