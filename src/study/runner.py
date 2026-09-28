@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -48,7 +49,19 @@ def execute(
                 except subprocess.TimeoutExpired:
                     pass
             if reason:
-                process.kill()
+                if os.name == "nt":
+                    # The Windows venv launcher can own a separate interpreter.
+                    # Stop its tree so the worker cannot outlive a timeout or hold output.log.
+                    subprocess.run(
+                        ["taskkill", "/PID", str(process.pid), "/T", "/F"],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        timeout=10,
+                        creationflags=subprocess.CREATE_NO_WINDOW,
+                        check=False,
+                    )
+                if process.poll() is None:
+                    process.kill()
                 process.wait()
                 return [{"index": 0, "expected": None, "error": reason}]
         if not response.exists():

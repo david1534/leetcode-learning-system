@@ -1,4 +1,4 @@
-"""Versioned, subscription-only JSONL adapter. No agent tools are exposed."""
+"""Versioned JSONL adapter with isolated personal/company authentication and no tools."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ import time
 from pathlib import Path
 
 from study.build import VERSION
+from study.connections import CompanyConnection
 from study.managed_codex import CODEX_VERSION, ensure_codex, installed_codex
 from study.storage import atomic_text
 
@@ -64,9 +65,19 @@ def find_codex() -> str | None:
 
 
 class CodexRuntime:
-    def __init__(self, directory: Path, command: list[str] | None = None):
+    def __init__(
+        self,
+        directory: Path,
+        command: list[str] | None = None,
+        company: CompanyConnection | None = None,
+        executable: str | None = None,
+    ):
         self.directory = directory.resolve()
         self.command = command
+        self.company = company
+        self.credential_env = company.api_key_env if company else None
+        self.executable = executable
+        self._secrets = []
         self.process = None
         self.pending = {}
         self.ids = 0
@@ -77,6 +88,84 @@ class CodexRuntime:
         self.version = None
         self.closed = threading.Event()
 
+    def configuration(self):
+        if self.company is None:
+            return CONFIG
+        company = self.company
+        lines = ['model_provider = "practice_company"', "model = " + json.dumps(company.model)]
+        if company.effort:
+            lines.append("model_reasoning_effort = " + json.dumps(company.effort))
+        lines.extend(
+            line
+            for line in CONFIG.splitlines()
+            if not line.startswith(("forced_login_method =", "model_provider ="))
+        )
+        lines.extend(
+            [
+                "[model_providers.practice_company]",
+                'name = "Company"',
+                "base_url = " + json.dumps(company.base_url),
+                'wire_api = "responses"',
+                'env_key = "PRACTICE_ROOM_COMPANY_KEY"',
+                "requires_openai_auth = false",
+            ]
+        )
+        if company.organization:
+            lines.extend(
+                [
+                    "[model_providers.practice_company.env_http_headers]",
+                    'openai-organization = "PRACTICE_ROOM_COMPANY_ORGANIZATION"',
+                ]
+            )
+        return "\n".join(lines) + "\n"
+
+    def environment(self, home):
+        credential_env = self.company.api_key_env if self.company else self.credential_env
+        env = {
+            k: v
+            for k, v in os.environ.items()
+            if k.upper() != (credential_env or "").upper()
+            and not k.upper().startswith(
+                ("OPENAI_", "AZURE_", "AWS_", "ANTHROPIC_", "CODEX_", "PRACTICE_ROOM_COMPANY_")
+            )
+        }
+        self._secrets = []
+        if self.company:
+            key = os.environ.get(self.company.api_key_env, "").strip()
+            if not key:
+                raise RuntimeError(
+                    "The company credential environment variable "
+                    + self.company.api_key_env
+                    + " is unavailable. Set it in your launch environment, then run "
+                    "Start Study.cmd app --restart from that terminal."
+                )
+            env.pop(self.company.api_key_env, None)
+            env["PRACTICE_ROOM_COMPANY_KEY"] = key
+            self._secrets.append(key)
+            if self.company.organization:
+                env["PRACTICE_ROOM_COMPANY_ORGANIZATION"] = self.company.organization
+                self._secrets.append(self.company.organization)
+        env["CODEX_HOME"] = str(home)
+        return env
+
+    def safe_message(self, message):
+        text = str(message)
+        for secret in self._secrets:
+            text = text.replace(secret, "[redacted]")
+        if self.company:
+            lowered = text.lower()
+            if "401" in lowered or "unauthorized" in lowered or "invalid api key" in lowered:
+                return "Company authentication failed. Check the credential and reconnect."
+            if "403" in lowered or "forbidden" in lowered:
+                return "Company access was denied. Check the organization and model permissions."
+            if "429" in lowered or "rate limit" in lowered or "quota" in lowered:
+                return "The company provider is limiting requests. Wait before reconnecting."
+            if "model" in lowered and any(
+                word in lowered for word in ("not found", "unsupported", "does not exist")
+            ):
+                return "The company provider rejected the selected model. Check Company settings."
+        return text[:1200]
+
     def start(self):
         if self.process and self.process.poll() is None:
             return
@@ -85,10 +174,12 @@ class CodexRuntime:
         work = self.directory / "workspace"
         home.mkdir(exist_ok=True)
         work.mkdir(exist_ok=True)
-        atomic_text(home / "config.toml", CONFIG)
+        configuration = self.configuration()
+        env = self.environment(home)
+        atomic_text(home / "config.toml", configuration)
         cmd = self.command
         if cmd is None:
-            executable = ensure_codex()
+            executable = self.executable or ensure_codex()
             result = subprocess.run(
                 [executable, "--version"],
                 capture_output=True,
@@ -105,13 +196,7 @@ class CodexRuntime:
             cmd = [executable, "app-server", "--strict-config", "--listen", "stdio://"]
         else:
             self.version = "test-adapter"
-        # A child-specific Codex home owns its login. Never copy the desktop's credentials.
-        env = {
-            k: v
-            for k, v in os.environ.items()
-            if not k.startswith(("OPENAI_", "AZURE_", "AWS_", "ANTHROPIC_", "CODEX_"))
-        }
-        env["CODEX_HOME"] = str(home)
+        # Each connection owns its runtime; credentials exist only in the child environment.
         self.process = subprocess.Popen(
             cmd,
             cwd=work,
@@ -124,40 +209,46 @@ class CodexRuntime:
             bufsize=1,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
-        self.closed.clear()
-        self.turns.clear()
-        threading.Thread(target=self._read, args=(self.process,), daemon=True).start()
-        self.call(
-            "initialize",
-            {
-                "clientInfo": {"name": "practice_room", "version": VERSION},
-                "capabilities": {"experimentalApi": False},
-            },
-        )
-        self.send({"method": "initialized", "params": {}})
-        if self.command is None:
-            import tomllib
+        try:
+            self.closed.clear()
+            self.turns.clear()
+            threading.Thread(target=self._read, args=(self.process,), daemon=True).start()
+            self.call(
+                "initialize",
+                {
+                    "clientInfo": {"name": "practice_room", "version": VERSION},
+                    "capabilities": {"experimentalApi": False},
+                },
+            )
+            self.send({"method": "initialized", "params": {}})
+            if self.command is None:
+                import tomllib
 
-            actual = self.call("config/read", {"includeLayers": False}).get("config", {})
-            expected = tomllib.loads(CONFIG)
+                actual = self.call("config/read", {"includeLayers": False}).get("config", {})
+                expected = tomllib.loads(configuration)
 
-            def matches(wanted, found):
-                return isinstance(found, dict) and all(
-                    matches(value, found.get(key))
-                    if isinstance(value, dict)
-                    else found.get(key) == value
-                    for key, value in wanted.items()
-                )
+                def matches(wanted, found):
+                    return isinstance(found, dict) and all(
+                        matches(value, found.get(key))
+                        if isinstance(value, dict)
+                        else found.get(key) == value
+                        for key, value in wanted.items()
+                    )
 
-            if not matches(expected, actual) or any(
-                actual.get(k)
-                for k in ("mcp_servers", "plugins", "hooks", "notify", "model_providers")
-            ):
-                self.close()
-                raise RuntimeError(
-                    "Codex could not confirm the restricted coaching configuration. "
-                    "Practice remains available."
-                )
+                if (
+                    not matches(expected, actual)
+                    or any(actual.get(k) for k in ("mcp_servers", "plugins", "hooks", "notify"))
+                    or set(actual.get("model_providers") or {})
+                    != set(expected.get("model_providers", {}))
+                ):
+                    self.close()
+                    raise RuntimeError(
+                        "Codex could not confirm the restricted coaching configuration. "
+                        "Practice remains available."
+                    )
+        except (RuntimeError, OSError, ValueError):
+            self.close()
+            raise
 
     def send(self, message):
         with self.write_lock:
@@ -180,7 +271,9 @@ class CodexRuntime:
             message = response.get(timeout=timeout)
             if "error" in message:
                 raise RuntimeError(
-                    message["error"].get("message", "Codex could not complete the request.")
+                    self.safe_message(
+                        message["error"].get("message", "Codex could not complete the request.")
+                    )
                 )
             return message.get("result", {})
         except queue.Empty as exc:
@@ -253,8 +346,12 @@ class CodexRuntime:
                 turn = self.turns.get(turn_id, {})
                 if "result" in turn:
                     if turn["result"]["status"] != "completed":
+                        error = turn["result"].get("error") or {}
                         raise RuntimeError(
-                            "Coaching stopped before a complete reply. Your draft is saved."
+                            self.safe_message(
+                                error.get("message")
+                                or "Coaching stopped before a complete reply. Your draft is saved."
+                            )
                         )
                     return "\n".join(turn["texts"])
                 if self.closed.is_set() or not self.process or self.process.poll() is not None:

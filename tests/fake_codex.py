@@ -4,12 +4,16 @@ import json
 import sys
 import threading
 import time
+import tomllib
 import uuid
 from pathlib import Path
 
 write_lock = threading.Lock()
 threads = {}
 cancelled = set()
+configuration = tomllib.loads((Path.cwd().parent / "home/config.toml").read_text())
+company = configuration.get("model_provider") == "practice_company"
+methods = []
 
 
 def emit(value):
@@ -91,10 +95,17 @@ for line in sys.stdin:
     method, params, rid = message.get("method"), message.get("params", {}), message.get("id")
     if rid is None:
         continue
+    methods.append(method)
+    Path("fake-methods.json").write_text(json.dumps(methods))
     if method == "initialize":
         reply(rid, {"userAgent": "fake-codex"})
     elif method == "account/read":
-        reply(rid, {"account": {"type": "chatgpt", "planType": "plus"}})
+        reply(
+            rid,
+            {"account": None, "requiresOpenaiAuth": False}
+            if company
+            else {"account": {"type": "chatgpt", "planType": "plus"}, "requiresOpenaiAuth": True},
+        )
     elif method == "account/rateLimits/read":
         reply(rid, {"rateLimits": {"primary": {"usedPercent": 12, "resetsAt": 2000000000}}})
     elif method == "model/list":

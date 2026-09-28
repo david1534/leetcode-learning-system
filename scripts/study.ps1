@@ -4,6 +4,19 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+function Get-StudyHash {
+    param([string] $LiteralPath)
+    $hasher = [System.Security.Cryptography.SHA256]::Create()
+    $stream = $null
+    try {
+        $stream = [System.IO.File]::OpenRead($LiteralPath)
+        return [System.BitConverter]::ToString($hasher.ComputeHash($stream)).Replace('-', '')
+    } finally {
+        if ($stream) { $stream.Dispose() }
+        $hasher.Dispose()
+    }
+}
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $python = Join-Path $repoRoot '.venv\Scripts\python.exe'
 Set-Location -LiteralPath $repoRoot
@@ -14,7 +27,7 @@ if (-not (Test-Path -LiteralPath $python)) {
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 
-$projectHash = (Get-FileHash -LiteralPath (Join-Path $repoRoot 'pyproject.toml') -Algorithm SHA256).Hash
+$projectHash = Get-StudyHash -LiteralPath (Join-Path $repoRoot 'pyproject.toml')
 $pythonStamp = Join-Path $repoRoot '.venv\.study-project.sha256'
 $probe = "import importlib.util,pathlib,sys; spec=importlib.util.find_spec('study'); missing=any(importlib.util.find_spec(name) is None for name in ('fsrs','fastapi','uvicorn','filelock')); correct=spec and pathlib.Path(spec.origin).resolve().parent == pathlib.Path(sys.argv[1]).resolve() / 'src/study'; sys.exit(missing or not correct)"
 $null = & $python -I -c $probe $repoRoot 2>$null
@@ -33,7 +46,7 @@ if ($StudyArgs[0] -eq 'app') {
     $buildStamp = Join-Path $repoRoot 'src\study\web\.sources.sha256'
     $sources = @(Get-ChildItem -LiteralPath (Join-Path $frontendRoot 'src') -Recurse -File)
     $sources += Get-ChildItem -LiteralPath $frontendRoot -File | Where-Object { $_.Name -in @('index.html', 'package.json', 'package-lock.json', 'vite.config.ts') -or $_.Name -like 'tsconfig*.json' }
-    $fingerprintText = ($sources | Sort-Object FullName | ForEach-Object { $_.FullName.Substring($frontendRoot.Length) + ':' + (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash }) -join "`n"
+    $fingerprintText = ($sources | Sort-Object FullName | ForEach-Object { $_.FullName.Substring($frontendRoot.Length) + ':' + (Get-StudyHash -LiteralPath $_.FullName) }) -join "`n"
     $hasher = [System.Security.Cryptography.SHA256]::Create()
     try { $sourceHash = [System.BitConverter]::ToString($hasher.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($fingerprintText))) } finally { $hasher.Dispose() }
     $buildNeeded = -not (Test-Path -LiteralPath $webIndex) -or -not (Test-Path -LiteralPath $buildStamp)
@@ -45,7 +58,7 @@ if ($StudyArgs[0] -eq 'app') {
         }
         Push-Location -LiteralPath $frontendRoot
         try {
-            $lockHash = (Get-FileHash -LiteralPath 'package-lock.json' -Algorithm SHA256).Hash
+            $lockHash = Get-StudyHash -LiteralPath (Join-Path $frontendRoot 'package-lock.json')
             $dependencyStamp = Join-Path $frontendRoot 'node_modules\.study-lock.sha256'
             $dependenciesNeeded = -not (Test-Path -LiteralPath $dependencyStamp)
             if (-not $dependenciesNeeded) { $dependenciesNeeded = (Get-Content -LiteralPath $dependencyStamp -Raw).Trim() -ne $lockHash }

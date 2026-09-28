@@ -86,6 +86,23 @@ async function connect(page: Page) {
   await page
     .getByRole("button", { name: "Connect Codex", exact: true })
     .click();
+  if (
+    !(await (await page.request.get("/api/coach/connection")).json()).selected
+  ) {
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await page
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .selectOption("personal");
+    await page
+      .getByRole("button", { name: "Save connection", exact: true })
+      .click();
+    await expect(page.locator(".coach-connection-label")).toContainText(
+      "Personal ChatGPT",
+    );
+    await page
+      .getByRole("button", { name: "Connect Codex", exact: true })
+      .click();
+  }
   await expect(page.locator(".coach-status .badge")).toHaveText("Connected");
 }
 async function finish(page: Page, publish = false) {
@@ -701,4 +718,122 @@ test("publication preview can keep a saved session local and cancels by keyboard
   await expect(dialog).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
+});
+
+test("configure company before practice, remember it, and switch without losing the attempt", async ({
+  page,
+  request,
+}) => {
+  await page.goto("/");
+  await page.getByLabel("Settings", { exact: true }).click();
+  await page
+    .getByRole("button", { name: "Coaching connection", exact: true })
+    .click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page
+    .getByRole("combobox", { name: "Connection", exact: true })
+    .selectOption("company");
+  await page
+    .getByLabel("API base URL", { exact: true })
+    .fill("https://company.example/v1");
+  await page.getByLabel("Default model", { exact: true }).fill("test-model");
+  await page
+    .getByRole("combobox", { name: "Reasoning effort", exact: true })
+    .selectOption("medium");
+  await page
+    .getByLabel("Credential environment variable", { exact: true })
+    .fill("PRACTICE_BROWSER_KEY");
+  await page
+    .getByLabel("Organization ID (optional)", { exact: true })
+    .fill("fixture-org");
+  await page.screenshot({
+    path: "test-results/company-connection-settings.png",
+  });
+  await page
+    .getByRole("button", { name: "Save connection", exact: true })
+    .click();
+  await expect(page.getByRole("dialog")).not.toBeVisible();
+  await page.reload();
+  const saved = await (await request.get("/api/coach/connection")).json();
+  expect(saved.selected).toBe("company");
+  expect(saved.company.organization).toBe("fixture-org");
+  expect(JSON.stringify(saved)).not.toContain("private-browser-test-key");
+  await start(page);
+  await idea(page);
+  await code(page, solution);
+  await connect(page);
+  await expect(
+    page.getByText("Usage managed by your organization", { exact: true }),
+  ).toBeVisible();
+  await expect(page.locator(".usage-indicator")).toHaveCount(0);
+  await page
+    .getByRole("textbox", { name: "Ask your learning coach", exact: true })
+    .fill("Help me trace the example.");
+  await page.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(page.locator(".coach-message").last()).toContainText(
+    "Trace one small example",
+  );
+  const before = (await (await request.get("/api/state")).json()).session;
+  await page
+    .getByRole("button", { name: "Change connection", exact: true })
+    .click();
+  await page
+    .getByRole("combobox", { name: "Connection", exact: true })
+    .selectOption("personal");
+  await page
+    .getByRole("button", { name: "Save connection", exact: true })
+    .click();
+  await expect(page.locator(".coach-connection-label")).toContainText(
+    "Personal ChatGPT",
+  );
+  await page
+    .getByRole("button", { name: "Connect Codex", exact: true })
+    .click();
+  await expect(page.locator(".coach-status .badge")).toHaveText("Connected");
+  await expect(page.locator(".usage-indicator")).toHaveCount(1);
+  const after = (await (await request.get("/api/state")).json()).session;
+  expect(after.session_id).toBe(before.session_id);
+  expect(after.code).toBe(solution);
+  await expect(page.locator(".coach-message").last()).toContainText(
+    "Company coach",
+  );
+});
+
+test("missing company credentials preserve configuration and local practice", async ({
+  page,
+  request,
+}) => {
+  await request.post("/api/coach/connection", {
+    headers,
+    data: {
+      selected: "company",
+      company: {
+        base_url: "https://company.example/v1",
+        model: "test-model",
+        api_key_env: "MISSING_BROWSER_KEY",
+      },
+    },
+  });
+  await start(page);
+  await idea(page);
+  await page.getByRole("button", { name: "Ask coach", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Connect Codex", exact: true })
+    .click();
+  await expect(page.locator(".coach-connection")).toContainText(
+    "MISSING_BROWSER_KEY",
+  );
+  await expect(
+    page.getByRole("link", { name: "Sign in with ChatGPT", exact: true }),
+  ).toHaveCount(0);
+  expect(
+    (await (await request.get("/api/coach/connection")).json()).selected,
+  ).toBe("company");
+  await code(page, solution);
+  await page
+    .getByRole("button", { name: "Check solution", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "All checks passed", exact: true }),
+  ).toBeVisible();
 });

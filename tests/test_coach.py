@@ -11,13 +11,16 @@ from fastapi.testclient import TestClient
 from study.app import create_app
 from study.coach import Coach, CoachRequest, allowance
 from study.codex_runtime import CONFIG, SUPPORTED_VERSIONS, CodexRuntime
+from study.connections import ConnectionUpdate
 from study.service import Conflict
 
 FAKE = Path(__file__).with_name("fake_codex.py")
 
 
 def factory(service):
-    return Coach(service, lambda directory: CodexRuntime(directory, [sys.executable, str(FAKE)]))
+    value = Coach(service, lambda directory: CodexRuntime(directory, [sys.executable, str(FAKE)]))
+    value.save_connection(ConnectionUpdate(selected="personal"))
+    return value
 
 
 @pytest.fixture
@@ -186,6 +189,7 @@ def test_missing_and_incompatible_cli_disable_coaching(guided, monkeypatch):
         lambda: (_ for _ in ()).throw(RuntimeError("Runtime installation unavailable")),
     )
     value = Coach(guided)
+    value.save_connection(ConnectionUpdate(selected="personal"))
     assert not value.runtime.directory.is_relative_to(guided.root)
     assert value.connect()["connection"] == "unavailable"
     monkeypatch.setattr(runtime, "ensure_codex", lambda: "codex")

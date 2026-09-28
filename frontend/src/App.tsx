@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import CoachPanel from "./CoachPanel";
+import ConnectionDialog from "./ConnectionDialog";
 import CompletionDialog, {
   Dialog,
   type CompletionValues,
@@ -88,6 +89,7 @@ export default function App() {
   const w = useWorkspace(minutes, includeNew);
   const s = w.state?.session;
   const repair = w.state?.repair;
+  const [connectionOpen, setConnectionOpen] = useState(false);
   const [coachVisible, setCoachVisible] = useDraft("coach-visible", false);
   const [answer, setAnswer] = useDraft(
     "reasoning-" + (s?.session_id || "none"),
@@ -381,6 +383,12 @@ export default function App() {
             <span>Settings</span>
           </summary>
           <div className="settings-menu">
+            <button
+              className="secondary"
+              onClick={() => setConnectionOpen(true)}
+            >
+              Coaching connection
+            </button>
             <label>
               Theme
               <select
@@ -432,10 +440,19 @@ export default function App() {
             >
               Restart app
             </button>
-            <small>Practice Room 0.4 · personal ChatGPT coaching</small>
+            <small>Practice Room 0.4 · optional coaching</small>
           </div>
         </details>
       </header>
+      {connectionOpen && (
+        <ConnectionDialog
+          cancel={() => setConnectionOpen(false)}
+          active={
+            Boolean(w.coach?.active_request) ||
+            w.coach?.connection === "connecting"
+          }
+        />
+      )}
       <main className="page">
         {(w.error || w.connectionError || w.storageError) && (
           <section className="notice warning" role="alert">
@@ -1310,6 +1327,7 @@ export default function App() {
                           )}
                           {coachVisible && (
                             <CoachPanel
+                              openConnection={() => setConnectionOpen(true)}
                               session={s}
                               status={w.coach}
                               send={w.send}
