@@ -300,12 +300,16 @@ class TransactionLock:
 
     def __init__(self, store: StudyStore):
         self.store = store
+        # Queue threads locally before attempting the cross-process lock. A slow
+        # request in this process must not make another thread's file lock time out.
+        self.thread_lock = threading.RLock()
         self.file_lock = FileLock(str(store.directory / "session.lock"), timeout=3)
         self.contexts = threading.local()
 
     def __enter__(self):
         stack = ExitStack()
         try:
+            stack.enter_context(self.thread_lock)
             stack.enter_context(self.file_lock)
             stack.enter_context(self.store.transaction())
         except BaseException:

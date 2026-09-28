@@ -1,6 +1,8 @@
 import json
 import shutil
+import sqlite3
 import threading
+import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -309,3 +311,79 @@ def test_generic_formal_hint_keeps_independent_recall(service):
     assert service.hint()["level"] == "minor"
     assert service.state()["session"]["hints_used"] == 1
     assert service.evaluate()["recall_outcome"] == "success"
+
+
+@pytest.mark.parametrize("edit_during_check", [False, True])
+def test_check_waits_for_another_request_without_losing_its_result(
+    service, monkeypatch, edit_during_check
+):
+    snapshot = prepared(service, activity="learn")
+    checking, held, release = threading.Event(), threading.Event(), threading.Event()
+    result, errors = {}, []
+    updated_code = snapshot["code"] + "\n# saved edit during check\n"
+
+    def evaluate(*args, **kwargs):
+        checking.set()
+        assert held.wait(5)
+        return []
+
+    def run_check():
+        try:
+            result.update(service.check())
+        except Exception as exc:
+            errors.append(exc)
+
+    def concurrent_request():
+        with service.lock:
+            if edit_during_check:
+                service.save_code(updated_code, snapshot["revision"])
+            held.set()
+            release.wait(8)
+
+    monkeypatch.setattr(core, "run_solution", evaluate)
+    worker = threading.Thread(target=run_check)
+    holder = threading.Thread(target=concurrent_request)
+    worker.start()
+    try:
+        assert checking.wait(5)
+        holder.start()
+        assert held.wait(5)
+        # Exceed the production cross-process lock timeout. Local threads should
+        # wait for the request, then save a complete (or stale) result normally.
+        time.sleep(3.6)
+    finally:
+        release.set()
+        worker.join(6)
+        if holder.ident:
+            holder.join(6)
+    assert not worker.is_alive() and not holder.is_alive()
+    assert not errors
+    assert result["status"] == ("stale" if edit_during_check else "complete")
+    state = service.state()
+    assert state["check"] == result
+    assert state["session"]["code"] == (updated_code if edit_during_check else snapshot["code"])
+    assert state["session"].get("checkpoint_count", 0) == (0 if edit_during_check else 1)
+
+
+@pytest.mark.parametrize("failure", [OSError, sqlite3.OperationalError])
+def test_background_checker_failure_has_a_visible_retry_without_grading(
+    service, monkeypatch, failure
+):
+    snapshot = prepared(service)
+    app = create_app(service.root)
+    client = TestClient(app, base_url="http://127.0.0.1")
+
+    def fail(*args, **kwargs):
+        raise failure("private checker infrastructure detail")
+
+    monkeypatch.setattr(core, "run_solution", fail)
+    response = client.post("/api/action/check", json={}, headers={"x-study-request": "1"})
+    assert response.status_code == 200
+    state = client.get("/api/state").json()
+    assert state["check"]["status"] == "error"
+    assert "try again" in state["check"]["message"]
+    assert state["check"]["diagnostic_id"]
+    assert "private checker infrastructure detail" not in json.dumps(state)
+    assert state["session"]["code"] == snapshot["code"]
+    assert state["session"].get("checkpoint_count", 0) == 0
+    assert state["session"].get("latest_checkpoint") is None
