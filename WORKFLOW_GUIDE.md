@@ -30,9 +30,15 @@ An explicit independent assessment is different: conceptual help first offers **
 
 A worked example preserves your candidate and marks assisted learning. Trace it, explain a step, and then attempt an incomplete example or fresh implementation. A proposed code change is previewed; applying it requires **Apply this change** and a new test run.
 
-Choose **Connect Codex** and follow **Sign in with ChatGPT** using your personal subscription. Sign-in completion updates the connection automatically. Practice Room owns a tested CLI installation and private login; it neither copies desktop credentials nor changes global Codex configuration. Missing installation, expired sign-in, a disconnected coach, or unknown/exhausted allowance does not block local practice. **Stop coach** and **Stop tests** control separate processes.
+Open **Settings → Coaching connection** before connecting. A new installation suggests Personal ChatGPT or Company from local configuration; review and save your choice once. Existing personal sign-in and history retain Personal. The choice and settings stay on this computer.
 
-Automatic coaching is off by default. Advanced coach preferences can enable approach and test-result checkpoints separately. Automatic checkpoints conserve allowance at 20% remaining. Reconnection reconciles an uncertain request instead of sending it twice. Full conversations remain private on this computer.
+For **Personal ChatGPT**, choose **Connect Codex** and **Sign in with ChatGPT**. Your existing private sign-in and conversations are preserved. Unknown or exhausted included allowance blocks new personal turns; local practice remains available.
+
+For **Company**, enter the HTTPS API base URL, default model, reasoning effort, credential environment-variable name, and optional organization ID. **Use detected settings** fills an editable snapshot from local Codex settings. After saving, Practice Room uses its independent configuration. Enter only a variable name (for example `OPENAI_API_KEY`), never the key itself; after setting the variable in your terminal, run `Start Study.cmd app --restart` from that terminal so the server receives the updated environment. The organization ID is sent as the provider's organization header. Usage is managed by your organization, without a personal allowance meter. Authentication, model-access, throttling, or connectivity failures remain on Company until you explicitly choose another connection.
+
+Practice Room owns its pinned CLI and verifies restricted personal/company configurations. It leaves global Codex settings alone. **Stop coach** and **Stop tests** control separate processes. Finish or stop a running reply before changing connections. Conversations and uncertain-request reconciliation belong to their original connection; switching preserves your code, recorded assistance, and retry requirement.
+
+Automatic coaching starts off for a new connection. Model, effort, and automatic-checkpoint preferences are saved separately for each connection. Approach and test-result checkpoints can be enabled separately. Personal automatic checkpoints conserve allowance at 20% remaining. Reconnection reconciles an uncertain request instead of sending it twice. Full conversations and all connection settings remain private on this computer. Pause/Sync transfers learning work between computers, while each uses its own saved connection.
 
 ## Finish once, publish deliberately
 

@@ -162,7 +162,29 @@ export interface Evaluation {
   evidence: Finding[];
   unpublished_session_ids?: string[];
 }
+export type ConnectionMode = "personal" | "company";
+
+export interface CompanyConnection {
+  base_url: string;
+  model: string;
+  effort: string | null;
+  api_key_env: string;
+  organization: string | null;
+}
+
+export interface ConnectionStatus {
+  selected: ConnectionMode | null;
+  company: CompanyConnection | null;
+  recommendation: ConnectionMode;
+  reason: string;
+  detected: CompanyConnection | null;
+  credential_available: boolean;
+  busy: boolean;
+}
+
 export interface CoachMessage {
+  connection_mode: ConnectionMode;
+  connection_id: string;
   request_id: string;
   session_id: string;
   kind: string;
@@ -180,11 +202,13 @@ export interface CoachMessage {
   proposal_applied?: boolean;
 }
 export interface CoachStatus {
+  selected_connection: ConnectionMode | null;
   snapshot: number;
   connection: string;
   message: string;
   auth_url: string | null;
   usage: {
+    source: ConnectionMode;
     known: boolean;
     blocked: boolean;
     conserving: boolean;

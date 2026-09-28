@@ -39,6 +39,7 @@ def pytest_sessionstart(session):
 @pytest.fixture(autouse=True)
 def isolated_working_directory(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path / "codex-config"))
 
     def native_disabled():
         raise RuntimeError(

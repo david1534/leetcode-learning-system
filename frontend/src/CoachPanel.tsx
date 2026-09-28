@@ -24,6 +24,7 @@ interface Props {
   convert: () => Promise<unknown>;
   converting: boolean;
   busy: boolean;
+  openConnection: () => void;
 }
 export default function CoachPanel({
   session,
@@ -33,6 +34,7 @@ export default function CoachPanel({
   convert,
   converting,
   busy,
+  openConnection,
 }: Props) {
   const [message, setMessage] = useDraft("question-" + session.session_id, "");
   const [allowCode, setAllowCode] = useState(false);
@@ -51,6 +53,7 @@ export default function CoachPanel({
   const following = useRef(true);
   const independent =
     session.assessment_mode !== "practice" && session.activity !== "learn";
+  const companyConnection = status?.selected_connection === "company";
   const remaining = Math.round(status?.usage.remaining ?? 0);
   const selectedModel = status?.models.find(
     (model) => model.id === status.preferences.model,
@@ -105,7 +108,7 @@ export default function CoachPanel({
           <h2>Learning coach</h2>
         </div>
         <div className="coach-status">
-          {status?.connection === "connected" && (
+          {status?.connection === "connected" && !companyConnection && (
             <span
               className={
                 status.usage.conserving
@@ -147,6 +150,21 @@ export default function CoachPanel({
           )}
         </div>
       </header>
+      <div className="coach-connection-label">
+        <span>
+          {status?.selected_connection
+            ? companyConnection
+              ? "Company"
+              : "Personal ChatGPT"
+            : "Choose a connection"}
+        </span>
+        <button className="text-button" onClick={openConnection}>
+          Change connection
+        </button>
+      </div>
+      {companyConnection && (
+        <p className="muted">Usage managed by your organization</p>
+      )}
       {status?.connection === "connected" ? (
         status.usage.blocked ? (
           <div className="coach-usage-warning warning-text" role="status">
@@ -176,7 +194,11 @@ export default function CoachPanel({
                 status?.connection === "connecting" ||
                 status?.connection === "signing_in"
               }
-              onClick={() => void act(() => operate("coach/connect", {}))}
+              onClick={() =>
+                status?.selected_connection
+                  ? void act(() => operate("coach/connect", {}))
+                  : openConnection()
+              }
             >
               <Plug size={15} />
               {status?.connection === "connecting"
@@ -277,7 +299,9 @@ export default function CoachPanel({
             </div>
             <div className="coach-message">
               <small>
-                Codex{" "}
+                {m.connection_mode === "company"
+                  ? "Company coach"
+                  : "Personal coach"}{" "}
                 {m.assistance && m.assistance !== "none"
                   ? `· ${m.assistance} help`
                   : ""}

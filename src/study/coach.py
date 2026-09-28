@@ -17,6 +17,14 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from study.codex_runtime import CodexRuntime
+from study.connections import (
+    ConnectionMode,
+    ConnectionSettings,
+    ConnectionStatus,
+    ConnectionUpdate,
+    default_preferences,
+    detect_company,
+)
 from study.service import Conflict
 
 
@@ -79,6 +87,8 @@ class CoachMessage(BaseModel):
     takeaway: str | None = None
     assistance: Literal["none", "minor", "guided", "substantial"] | None = None
     latency_seconds: float | None = None
+    connection_mode: ConnectionMode = "personal"
+    connection_id: str = "personal"
     application_revision: int | None = None
     proposal_applied: bool | None = None
 
@@ -91,6 +101,7 @@ class UsageWindow(BaseModel):
 
 
 class UsageStatus(BaseModel):
+    source: ConnectionMode = "personal"
     known: bool
     remaining: float | None
     windows: list[UsageWindow]
@@ -126,6 +137,7 @@ class CoachStatus(BaseModel):
         "unsupported",
     ]
     message: str
+    selected_connection: ConnectionMode | None = None
     account: dict[str, str | None] | None
     auth_url: str | None
     usage: UsageStatus
@@ -206,6 +218,7 @@ def allowance(result):
                 )
     remaining = min((w["remaining"] for w in windows), default=None)
     return {
+        "source": "personal",
         "known": remaining is not None,
         "remaining": remaining,
         "windows": windows,
@@ -233,29 +246,125 @@ class Coach:
         self.service = service
         self.directory = service.local / "coach"
         self.directory.mkdir(exist_ok=True)
-        if runtime_factory is CodexRuntime:
-            runtime_directory = runtime_home(service.root)
-        else:
-            # Injected deterministic runtimes belong to the disposable fixture.
-            runtime_directory = self.directory / "runtime"
-        self.runtime = runtime_factory(runtime_directory)
-        self.runtime.on_event = self._event
+        self.runtime_factory = runtime_factory
+        self.base_runtime_directory = (
+            runtime_home(service.root)
+            if runtime_factory is CodexRuntime
+            else self.directory / "runtime"
+        )
         self.lock = threading.RLock()
         self.io_lock = threading.RLock()
         self.active = None
         self.connection = "disconnected"
-        self.message = "Connect Codex to use your ChatGPT allowance."
+        self.message = "Choose a coaching connection in Settings."
         self.account = None
         self.auth_url = None
         self.models = []
-        self.usage = allowance({})
-        self.preferences = self._load(
-            "preferences",
-            {"automatic": False, "approach": False, "check": False, "model": None, "effort": None},
-        )
         self.sequence = 0
         self.cancelled = set()
         self.worker = None
+        saved = self._load("connection")
+        self.settings = ConnectionSettings.model_validate(saved or {})
+        if saved is None and (
+            self._load("preferences") is not None
+            or self.service.store.json_documents(".study-local/coach/requests/")
+            or self.service.store.json_documents(".study-local/coach/threads/")
+            or (self.base_runtime_directory / "home/auth.json").is_file()
+        ):
+            self.settings = ConnectionSettings(selected="personal")
+            self._save("connection", self.settings.model_dump())
+        self._replace_runtime()
+
+    @property
+    def company(self):
+        return self.settings.company if self.settings.selected == "company" else None
+
+    @property
+    def preference_key(self):
+        return "preferences/" + self.settings.identity if self.company else "preferences"
+
+    def _replace_runtime(self):
+        directory = self.base_runtime_directory
+        if self.company:
+            directory = directory / self.settings.identity
+        runtime = self.runtime_factory(directory)
+        runtime.company = self.company
+        runtime.credential_env = (
+            self.settings.company.api_key_env if self.settings.company else None
+        )
+        self.runtime = runtime
+        runtime.on_event = lambda method, params: (
+            self._event(method, params) if self.runtime is runtime else None
+        )
+        self.preferences = self._load(self.preference_key, default_preferences(self.company))
+        self.usage = self._empty_usage()
+
+    def _empty_usage(self):
+        if self.company:
+            return {
+                "source": "company",
+                "known": False,
+                "remaining": None,
+                "windows": [],
+                "blocked": False,
+                "conserving": False,
+            }
+        return allowance({})
+
+    def connection_settings(self):
+        with self.lock:
+            detected, reason = detect_company()
+            return ConnectionStatus(
+                **self.settings.model_dump(),
+                detected=detected,
+                recommendation="company" if detected else "personal",
+                reason=reason,
+                credential_available=bool(
+                    self.settings.company and self.settings.company.credential_available
+                ),
+                busy=bool(
+                    self.active
+                    or (self.worker and self.worker.is_alive())
+                    or self.connection == "connecting"
+                ),
+            ).model_dump()
+
+    def save_connection(self, update: ConnectionUpdate):
+        with self.lock:
+            if (
+                self.active
+                or (self.worker and self.worker.is_alive())
+                or self.connection == "connecting"
+            ):
+                raise Conflict(
+                    "Wait for the coach to finish or Stop coach before changing connections."
+                )
+            previous = self.settings
+            settings = ConnectionSettings(
+                selected=update.selected, company=update.company or previous.company
+            )
+            self.disconnect()
+            self.settings = settings
+            self._save("connection", settings.model_dump())
+            self._replace_runtime()
+            if self.company and (
+                previous.company is None
+                or (previous.company.model, previous.company.effort)
+                != (self.company.model, self.company.effort)
+            ):
+                self.preferences.update(model=self.company.model, effort=self.company.effort)
+                self._save(self.preference_key, self.preferences)
+            with self.service.lock:
+                parent = self.service._practice()
+                if parent and parent["status"] == "active":
+                    parent["automatic_coaching"] = self.preferences["automatic"]
+                    parent["coach_checkpoints"] = {
+                        k: self.preferences[k] for k in ("approach", "check")
+                    }
+                    self.service._save_practice(parent)
+            self.models = []
+            self.message = "Connection saved. Connect when you are ready."
+            return self.connection_settings()
 
     def _load(self, name, default=None):
         with self.io_lock:
@@ -269,22 +378,27 @@ class Coach:
     def _event(self, method, params):
         if method == "account/login/completed":
             if params.get("success"):
-                threading.Thread(target=self._refresh_safely, daemon=True).start()
+                threading.Thread(
+                    target=self._refresh_safely, args=(self.runtime,), daemon=True
+                ).start()
             else:
                 self.connection = "signed_out"
                 self.message = "Sign-in was cancelled. Connect when you're ready."
-        elif method == "account/rateLimits/updated":
+        elif method == "account/rateLimits/updated" and not self.company:
             self.usage = allowance(params)
         elif method in {"coach/disconnected", "coach/unsupportedTool"}:
             self.connection = "disconnected" if method.endswith("disconnected") else "unsupported"
             self.message = "Coach connection ended. Your practice is still saved locally."
         self.sequence += 1
 
-    def _refresh_safely(self):
-        try:
-            self.refresh()
-        except RuntimeError as exc:
-            self.message = str(exc)
+    def _refresh_safely(self, runtime=None):
+        with self.lock:
+            if runtime is not None and runtime is not self.runtime:
+                return
+            try:
+                self.refresh()
+            except RuntimeError as exc:
+                self.message = str(exc)
 
     def status(self, session_id=None):
         with self.service.lock:
@@ -297,35 +411,43 @@ class Coach:
                 # No model context, auth payloads, or raw protocol output reaches React.
                 requests.append(
                     {
-                        k: value.get(k)
-                        for k in (
-                            "request_id",
-                            "session_id",
-                            "message",
-                            "kind",
-                            "status",
-                            "created_at",
-                            "reply",
-                            "error",
-                            "diff",
-                            "findings",
-                            "takeaway",
-                            "code_digest",
-                            "assistance",
-                            "latency_seconds",
-                            "application_revision",
-                            "proposal_applied",
-                        )
+                        **{
+                            k: value.get(k)
+                            for k in (
+                                "request_id",
+                                "session_id",
+                                "message",
+                                "kind",
+                                "status",
+                                "created_at",
+                                "reply",
+                                "error",
+                                "diff",
+                                "findings",
+                                "takeaway",
+                                "code_digest",
+                                "assistance",
+                                "latency_seconds",
+                                "application_revision",
+                                "proposal_applied",
+                            )
+                        },
+                        "connection_id": value.get("connection_id", "personal"),
+                        "connection_mode": value.get("connection_mode", "personal"),
                     }
                 )
         parent = self.service._practice()
         preferences = {**self.preferences}
         if parent and parent["status"] == "active":
-            preferences["automatic"] = parent.get("automatic_coaching", False)
-            preferences.update(parent.get("coach_checkpoints", {}))
+            preferences["automatic"] = preferences["automatic"] and parent.get(
+                "automatic_coaching", False
+            )
+            for kind, enabled in parent.get("coach_checkpoints", {}).items():
+                preferences[kind] = preferences[kind] and enabled
         return CoachStatus.model_validate(
             {
                 "connection": self.connection,
+                "selected_connection": self.settings.selected,
                 "message": self.message,
                 "account": self.account,
                 "auth_url": self.auth_url,
@@ -341,18 +463,27 @@ class Coach:
         ).model_dump()
 
     def begin_connect(self):
-        if self.connection in {"connecting", "signing_in"}:
+        with self.lock:
+            if self.connection in {"connecting", "signing_in"} or self.active:
+                return self.status()
+            if self.settings.selected is None:
+                raise RuntimeError("Choose and save a coaching connection in Settings first.")
+            self.connection = "connecting"
+            self.message = "Preparing the learning coach…"
+            threading.Thread(target=self.connect, daemon=True).start()
             return self.status()
-        self.connection = "connecting"
-        self.message = "Preparing the learning coach?"
-        threading.Thread(target=self.connect, daemon=True).start()
-        return self.status()
 
     def connect(self):
         with self.lock:
             self.connection = "connecting"
             try:
+                if self.settings.selected is None:
+                    raise RuntimeError("Choose and save a coaching connection in Settings first.")
                 self.runtime.start()
+                if self.company:
+                    self.refresh()
+                    self.reconcile()
+                    return self.status()
                 account = self.runtime.call("account/read").get("account")
                 if account and account.get("type") != "chatgpt":
                     raise RuntimeError(
@@ -376,31 +507,59 @@ class Coach:
             return self.status()
 
     def refresh(self):
-        account = self.runtime.call("account/read", {"refreshToken": True}).get("account")
-        if not account:
-            self.connection = "signed_out"
-            self.message = "Sign in to connect coaching."
+        with self.lock:
+            if self.company:
+                account = self.runtime.call("account/read", {"refreshToken": False})
+                if account.get("requiresOpenaiAuth") is not False:
+                    raise RuntimeError(
+                        "The company runtime unexpectedly requires personal sign-in."
+                    )
+                self.account = None
+                self.usage = self._empty_usage()
+            else:
+                account = self.runtime.call("account/read", {"refreshToken": True}).get("account")
+                if not account:
+                    self.connection = "signed_out"
+                    self.message = "Sign in to connect coaching."
+                    return self.status()
+                if account.get("type") != "chatgpt":
+                    self.runtime.close()
+                    raise RuntimeError("API-key sessions are not allowed in Personal coaching.")
+                self.account = {"plan": account.get("planType")}
+                self.usage = allowance(self.runtime.call("account/rateLimits/read"))
+            models = self.runtime.call("model/list", {"includeHidden": False}).get("data", [])
+            self.models = [
+                {
+                    "id": m["id"],
+                    "name": m.get("displayName", m["id"]),
+                    "default": m.get("isDefault", False),
+                    "default_effort": m.get("defaultReasoningEffort"),
+                    "efforts": [
+                        e["reasoningEffort"] for e in m.get("supportedReasoningEfforts", [])
+                    ],
+                }
+                for m in models
+            ]
+            if self.company and not any(m["id"] == self.company.model for m in self.models):
+                self.models.insert(
+                    0,
+                    {
+                        "id": self.company.model,
+                        "name": self.company.model,
+                        "default": True,
+                        "default_effort": self.company.effort,
+                        "efforts": [self.company.effort] if self.company.effort else [],
+                    },
+                )
+            self.connection = "connected"
+            self.auth_url = None
+            self.message = (
+                "Company runtime ready. Your first reply checks provider access. "
+                "Usage is managed by your organization."
+                if self.company
+                else "Connected with ChatGPT. Uses your included Codex allowance."
+            )
             return self.status()
-        if account.get("type") != "chatgpt":
-            self.runtime.close()
-            raise RuntimeError("API-key sessions are not allowed in this coach.")
-        self.account = {"plan": account.get("planType")}
-        self.usage = allowance(self.runtime.call("account/rateLimits/read"))
-        models = self.runtime.call("model/list", {"includeHidden": False}).get("data", [])
-        self.models = [
-            {
-                "id": m["id"],
-                "name": m.get("displayName", m["id"]),
-                "default": m.get("isDefault", False),
-                "default_effort": m.get("defaultReasoningEffort"),
-                "efforts": [e["reasoningEffort"] for e in m.get("supportedReasoningEfforts", [])],
-            }
-            for m in models
-        ]
-        self.connection = "connected"
-        self.auth_url = None
-        self.message = "Connected with ChatGPT. Uses your included Codex allowance."
-        return self.status()
 
     def configure(self, automatic=False, model=None, effort=None, approach=False, check=False):
         selected = next((m for m in self.models if m["id"] == model), None)
@@ -421,7 +580,7 @@ class Coach:
             "approach": approach,
             "check": check,
         }
-        self._save("preferences", self.preferences)
+        self._save(self.preference_key, self.preferences)
         return self.status()
 
     def submit(self, request: CoachRequest):
@@ -443,6 +602,7 @@ class Coach:
             if any(
                 r["status"] in {"uncertain", "sending", "running"}
                 and r["session_id"] == request.session_id
+                and r["connection_id"] == self.settings.identity
                 for r in self.status()["requests"]
             ):
                 raise Conflict(
@@ -454,6 +614,7 @@ class Coach:
                 for prior in self.status(request.session_id)["requests"]:
                     if (
                         prior["kind"] == request.kind
+                        and prior["connection_id"] == self.settings.identity
                         and prior["status"] == "completed"
                         and (
                             request.kind == "approach"
@@ -463,6 +624,8 @@ class Coach:
                         return {"request_id": prior["request_id"], "status": "reused"}
             record = {
                 **request.model_dump(),
+                "connection_id": self.settings.identity,
+                "connection_mode": self.settings.selected or "personal",
                 "created_at": datetime.now(UTC).isoformat(),
                 "context": context,
                 "status": "queued",
@@ -513,6 +676,8 @@ class Coach:
             if record["request_id"] in self.cancelled:
                 raise RuntimeError("Coaching stopped. Your question is saved.")
             thread_key = record["session_id"] + "-" + record["context"]["mode"]
+            if record.get("connection_id", "personal") != "personal":
+                thread_key = record["connection_id"] + "/" + thread_key
             saved = self._load("threads/" + thread_key)
             if saved:
                 thread_id = saved["thread_id"]
@@ -533,21 +698,26 @@ class Coach:
                 self._save("threads/" + thread_key, {"thread_id": thread_id})
             record.update(thread_id=thread_id, status="sending")
             self._save("requests/" + record["request_id"], record)
-            prompt = json.dumps(
-                {
-                    "request_id": record["request_id"],
-                    "kind": record["kind"],
-                    "allow_code": record["allow_code"],
-                    "message": record["message"],
-                    "session": record["context"],
-                    "retry_required": record.get("retry_required", False),
-                }
-            )
+            payload = {
+                "request_id": record["request_id"],
+                "kind": record["kind"],
+                "allow_code": record["allow_code"],
+                "message": record["message"],
+                "session": record["context"],
+                "retry_required": record.get("retry_required", False),
+            }
+            schema = CoachReply.model_json_schema()
+            if self.company:
+                # AI Factory currently drops streamed output when text.format uses
+                # json_schema. Supply the contract in the prompt and validate the
+                # completed reply below; never accept partial or malformed output.
+                payload["response_schema"] = schema
             params = {
                 "threadId": thread_id,
-                "input": [{"type": "text", "text": prompt}],
-                "outputSchema": CoachReply.model_json_schema(),
+                "input": [{"type": "text", "text": json.dumps(payload)}],
             }
+            if not self.company:
+                params["outputSchema"] = schema
             if self.preferences["effort"]:
                 params["effort"] = self.preferences["effort"]
             if self.preferences["model"]:
@@ -561,9 +731,20 @@ class Coach:
                 self.runtime.call("turn/interrupt", {"threadId": thread_id, "turnId": turn["id"]})
             text = self.runtime.wait_turn(turn["id"])
             record["model_completed"] = True
+            record["reply_characters"] = len(text)
+            if not text.strip():
+                raise RuntimeError(
+                    "The provider returned no assistant reply. Your work is saved; "
+                    "no help was recorded."
+                )
             record["latency_seconds"] = round(time.monotonic() - started, 3)
             self._accept(record, text)
         except (RuntimeError, ValueError, KeyError, OSError) as exc:
+            if isinstance(exc, ValidationError):
+                record["validation_errors"] = [
+                    {"field": ".".join(map(str, e["loc"])), "type": e["type"]}
+                    for e in exc.errors(include_input=False, include_context=False)
+                ]
             message = (
                 "The coach returned an invalid reply. No help or evidence was accepted. "
                 "Try a new question."
@@ -723,6 +904,8 @@ class Coach:
 
     def reconcile(self):
         for record in self.service.store.json_documents(".study-local/coach/requests/"):
+            if record.get("connection_id", "personal") != self.settings.identity:
+                continue
             if record["status"] not in {"sending", "running", "uncertain", "queued"}:
                 continue
             if not record.get("thread_id"):
@@ -780,6 +963,6 @@ class Coach:
             self.connection = "disconnected"
             self.account = None
             self.auth_url = None
-            self.usage = allowance({})
+            self.usage = self._empty_usage()
             self.message = "Coaching is disconnected. Connect when you're ready."
         return self.status()

@@ -46,13 +46,19 @@ The launcher owns one background server per workspace, waits for health, and ide
 
 The API version is 2. Mutation inputs are validated; candidate operations include session identity, revision, and code digest. State snapshots carry an ordering token so an older response cannot restore a finished problem. Old browser builds receive a restart/reload instruction before mutation. Storage failures return structured JSON with a diagnostic reference. A completion receipt endpoint reconciles an uncertain HTTP response without repeating the review.
 
-The app pins the official `@openai/codex` package to 0.157.0, uses its native executable, verifies the restricted effective configuration, and signs in through Codex-managed personal ChatGPT authentication. PATH upgrades, global providers, desktop credentials, and API-key fallbacks are outside this connection path. Coaching state has its own ordering and availability signals. Browser recovery is a fallback for unsent edits; a failed browser-storage write never produces a saved claim.
+The app pins official `@openai/codex` 0.157.0 and verifies the restricted effective configuration. Personal preserves its managed ChatGPT authentication and existing runtime home. Company gets a separate runtime home keyed by endpoint and organization, using the saved API root, default model, effort, environment-variable credential reference, and organization header. Credentials are passed only in the child environment; generated configuration contains references rather than values. Both modes disable tools, plugins, and inherited agent instructions.
+
+`GET`/`POST /api/coach/connection` expose typed local settings and an optional detected suggestion. Saving explicitly selects a mode; detection never connects or changes saved settings. Settings and per-connection preferences live under private `.study-local/coach/` documents in SQLite. Untagged old conversations and requests mean Personal. New requests identify their connection; reconciliation, checkpoint reuse, and native conversation resumption are connection-scoped. Learning evidence and retry requirements remain shared. Active workers block connection changes, and retired-runtime events are ignored.
+
+Coach status/events identify the selected connection and usage source. Personal retains its allowance gate. Company skips personal sign-in and allowance endpoints; runtime initialization is distinct from verified provider access, which requires a successful reply. Missing credentials and provider failures never select another mode. Connection settings, credentials, and raw conversations are excluded from Git exports.
+
+Browser recovery is a fallback for unsent edits; a failed browser-storage write never produces a saved claim.
 
 ## Validation and release
 
 Run focused Python tests, full pytest, Ruff, interface tests, production build, formatting, and Playwright on Windows and Linux. The suite covers real Windows file locks, an abruptly terminated SQLite writer, legacy saved-data migration, real disposable Git remotes, repeated completion, metadata/edition conflicts, real launcher lifecycle, viewport layouts, normal coaching, interruptions, storage failure, and response reconciliation.
 
-Ordinary pytest and browser fixtures never use a signed-in account. The separate native contract check installs the pinned official binary, generates its version-matched schema, initializes an empty private home, checks the restricted configuration, and verifies that no account was inherited:
+Ordinary pytest and browser fixtures never use a signed-in account. The separate native contract check installs the pinned official binary, generates its version-matched schema, initializes an empty private home, checks both restricted configurations, and verifies that neither inherited an account:
 
 ```powershell
 .\.venv\Scripts\python.exe -m study.runtime_check
@@ -65,3 +71,19 @@ The final personal-device acceptance requires launching the feature on the Lenov
 ```
 
 `--live` is disabled in CI. A timeout or uncertain turn is reported and is not automatically retried. Native initialization and fake-coach journeys are supporting evidence; they do not establish successful authenticated coaching on the Yoga. Keep the feature PR unmerged until the learner's review and that device check pass.
+
+Company acceptance uses one structured coaching request against the configured provider, with a disposable learning database:
+
+```powershell
+.\.venv\Scripts\python.exe -m study.runtime_check --root . --live --connection company
+```
+
+Save company settings in the app first. For an isolated setup check, `--company-settings <private-json-file>` accepts the same non-credential company fields (`base_url`, `model`, `effort`, `api_key_env`, `organization`). It must be combined with `--live --connection company`. Never include a key value. This does not save a choice in the learner's app. Both live checks start exactly one logical request and never publish learning work. A rejected structured reply reports field/type diagnostics without recording its raw content.
+
+On a company Windows machine, Playwright's browser download may need the same CA file already configured for npm. Set `NODE_EXTRA_CA_CERTS` to that file for the test process before `npx playwright install chromium`; keep TLS verification enabled. The ordinary launcher continues using the configured pip/npm registries and trust settings. Use a draft PR while a required device/live check is blocked, and record the specific missing validation.
+
+Company replies include the exact `CoachReply` JSON schema in the prompt and pass the same local validation as Personal. The current AI Factory gateway returns a completed stream with no output for API-enforced `json_schema`; ordinary streaming returns assistant messages. Personal retains App Server's `outputSchema`. Empty or malformed replies never become assistance or learning evidence.
+
+On Windows, stopping a code check terminates its owned process tree, including an interpreter started by the virtual-environment launcher. This prevents a timed-out worker or its descendants from retaining the temporary output file.
+
+The Windows launcher hashes files through .NET SHA256, including in shells where the optional `Get-FileHash` command is unavailable. Hash values match the previous stamps. After changing credential environment variables, launch `Start Study.cmd app --restart` from the updated environment; reopening without `--restart` can reuse an existing server with its original environment.

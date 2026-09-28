@@ -1,6 +1,6 @@
 # Practice Room
 
-A local browser app for daily algorithm practice. Work on one problem, reconstruct an idea, write and test code, and save a brief record. Reviews use the existing FSRS schedule. Coaching is optional and uses your personal ChatGPT subscription.
+A local browser app for daily algorithm practice. Work on one problem, reconstruct an idea, write and test code, and save a brief record. Reviews use the existing FSRS schedule. Coaching is optional and supports personal ChatGPT or a separately configured company provider.
 
 ## Start on Windows
 
@@ -29,11 +29,14 @@ Git exports run in a separate application-data checkout. Saving does not depend 
 
 ## Connect coaching
 
-Choose **Connect Codex**, then **Sign in with ChatGPT** using your personal account. The connection updates when sign-in finishes. Each computer has its own Codex-managed sign-in; credentials are not copied between applications or published.
+Open **Settings → Coaching connection**. On a new installation, review the suggested Personal ChatGPT or Company connection and save your choice. Existing personal sign-in and coaching history retain Personal. The selected connection stays local to each computer.
 
-The app installs its own pinned **Codex CLI 0.157.0** from the official npm package and validates its restricted configuration. It does not depend on whichever Codex executable happens to be on PATH and does not change desktop or company Codex settings. Installation, login, connection, or allowance failures leave local practice available.
+- **Personal ChatGPT:** choose **Connect Codex**, then **Sign in with ChatGPT**. Existing sign-in and conversations remain in their original location. Included Codex allowance is shared with your other personal Codex use; unknown or exhausted allowance blocks new personal coaching turns.
+- **Company:** enter the HTTPS API base URL, model, reasoning effort, credential environment-variable name, and optional organization ID. **Use detected settings** offers an editable snapshot from local Codex configuration. Save these independent settings, then connect. Enter an environment-variable name such as `OPENAI_API_KEY`, never a credential value. After setting the variable in your terminal, run `Start Study.cmd app --restart` from that terminal so the server receives the updated environment. Usage is managed by your organization.
 
-Coaching uses the ChatGPT plan's included Codex allowance, shared with other Codex use. Automatic checkpoints are off by default. Unknown or exhausted allowance blocks new turns until refreshed; the integration does not use API-key billing, purchase credits, or redeem resets. See the official [App Server](https://developers.openai.com/codex/app-server) and [authentication](https://developers.openai.com/codex/auth) documentation.
+The app installs its own pinned **Codex CLI 0.157.0** and verifies a restricted configuration for each connection. Company authentication is supplied only to the child process; personal OAuth remains Codex-managed. Global Codex settings are not changed. The app never switches providers after a connection failure. Local practice remains available.
+
+Automatic coaching starts off for a new connection. Model, effort, and automatic-checkpoint preferences are saved separately. Personal automatic checkpoints pause at 20% remaining allowance. Stop or finish a running reply before changing connections. Each connection keeps its own conversation; your code and learning evidence continue in the same attempt.
 
 The coach receives the problem, your recorded idea, current code, and limited check results. Tools and direct file access are disabled. Proposed code needs a preview and **Apply**. Conversations, runtime logs, and authentication stay private; publication includes only the reviewed learning artifacts.
 
@@ -47,7 +50,7 @@ Passing tests establishes tested correctness. Recall, explanation, complexity, a
 
 - Python: `python -m pip install -e ".[dev]"`, `python -m pytest`, `python -m ruff check --no-cache .`.
 - Interface: in `frontend`, run `npm ci`, `npm test`, `npm run build`, and `npm run format:check`.
-- Browser journeys: `npx playwright install chromium`, then `npm run test:browser` in `frontend`.
+- Browser journeys: `npx playwright install chromium`, then `npm run test:browser` in `frontend`. Set `PRACTICE_ROOM_TEST_PORT` when another local app uses the default port 8767.
 - Tests use disposable repositories and private data directories. Ordinary tests disable the native coach and use a deterministic JSONL fake. Real launcher tests start and stop only their own local server processes.
 
 See [architecture and validation](docs/architecture.md) for persistence, migration, API, synchronization, and release checks. A personal-account coaching smoke check on the Yoga is a separate release acceptance step; mocked coaching and an unauthenticated protocol probe do not establish that it passed.

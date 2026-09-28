@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import os
 from argparse import Namespace
+
+import pytest
 
 from study.cli import apply_reflection_file, main
 from study.core import problem_by_id, run_solution
@@ -48,4 +51,19 @@ def test_runner_timeout_preserves_candidate(tmp_path, repo_root):
     candidate.write_text("def pair_sum_indices(nums, target):\n    while True: pass\n")
     failures = run_solution(candidate, problem_by_id(repo_root, "arrays-001-pair-sum"), timeout=0.3)
     assert "timed out" in failures[0].error.lower()
+    assert candidate.exists()
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows interpreter process tree")
+def test_timeout_stops_windows_candidate_descendants(tmp_path, repo_root):
+    candidate = tmp_path / "candidate.py"
+    candidate.write_text(
+        "import subprocess, sys\n"
+        "def pair_sum_indices(nums, target):\n"
+        "    subprocess.Popen([sys.executable, '-c', 'while True: pass'], "
+        "stdout=sys.stdout, stderr=sys.stderr)\n"
+        "    while True: pass\n"
+    )
+    failures = run_solution(candidate, problem_by_id(repo_root, "arrays-001-pair-sum"), timeout=1)
+    assert "timed out" in failures[0].error
     assert candidate.exists()

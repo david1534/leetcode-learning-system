@@ -19,6 +19,7 @@ from pydantic import ValidationError
 
 from study.build import API_VERSION, VERSION, build_id
 from study.coach import Coach, CoachRequest, CoachStatus, RequestReceipt
+from study.connections import ConnectionStatus, ConnectionUpdate
 from study.database import workspace_id
 from study.interfaces import (
     ACTION_INPUTS,
@@ -351,6 +352,14 @@ def create_app(root: Path, coach_factory=Coach) -> FastAPI:
     @app.get("/api/coach/status", response_model=CoachStatus)
     def coach_status(session_id: str | None = None):
         return coach.status(session_id)
+
+    @app.get("/api/coach/connection", response_model=ConnectionStatus)
+    def coach_connection():
+        return coach.connection_settings()
+
+    @app.post("/api/coach/connection", response_model=ConnectionStatus)
+    def save_coach_connection(data: ConnectionUpdate):
+        return coach.save_connection(data)
 
     @app.post("/api/coach/connect", response_model=CoachStatus)
     def coach_connect():

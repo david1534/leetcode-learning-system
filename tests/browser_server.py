@@ -12,6 +12,7 @@ import uvicorn
 from study.app import create_app
 from study.coach import Coach
 from study.codex_runtime import CodexRuntime
+from study.connections import ConnectionSettings
 
 
 def main():
@@ -23,6 +24,8 @@ def main():
         root = Path(directory).resolve() / "repository"
         root.mkdir()
         os.environ["PRACTICE_ROOM_DATA_HOME"] = str(Path(directory) / "private")
+        os.environ["CODEX_HOME"] = str(Path(directory) / "codex-config")
+        os.environ["PRACTICE_BROWSER_KEY"] = "private-browser-test-key"
 
         def seed():
             shutil.copytree(source / "curriculum", root / "curriculum")
@@ -45,6 +48,8 @@ def main():
             app.state.coach.disconnect()
             with app.state.service.lock:
                 app.state.service.store.delete_tree("")
+                app.state.coach.settings = ConnectionSettings()
+                app.state.coach._replace_runtime()
                 app.state.coach.preferences = {
                     "automatic": False,
                     "approach": False,
