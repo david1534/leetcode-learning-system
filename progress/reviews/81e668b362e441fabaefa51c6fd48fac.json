@@ -1,0 +1,89 @@
+{
+  "schema_version": 4,
+  "event_id": "81e668b362e441fabaefa51c6fd48fac",
+  "session_id": "81e668b362e441fabaefa51c6fd48fac",
+  "problem_id": "arrays-003-longest-streak",
+  "topic": "arrays-hashing",
+  "kind": "core",
+  "reviewed_at": "2026-09-28T19:50:53.892837+00:00",
+  "recall_at": "2026-09-12T23:09:36.705356+00:00",
+  "rating": "good",
+  "minutes": 38.142,
+  "timing": {
+    "recall": 903.7069999999999,
+    "learning": 1351.3880000000001,
+    "administration": 33.444
+  },
+  "timing_adjusted": false,
+  "activity": "recall",
+  "attempt_kind": "review",
+  "unseen": false,
+  "recall_outcome": "success",
+  "recall_quality": "complete",
+  "assistance_level": "guided",
+  "assistance_count": 8,
+  "hints_used": 0,
+  "first_checkpoint_passed": false,
+  "tests_passed": false,
+  "explained": false,
+  "assessment": {
+    "constraints_met": false,
+    "dimensions": {},
+    "explanation_source": "learner_report",
+    "constraints_source": "learner_report",
+    "status": "ended_for_help"
+  },
+  "skill_ids": [
+    "set-membership",
+    "sequence-start-recognition",
+    "amortized-linear-scans"
+  ],
+  "content_version": 2,
+  "rubric_version": 2,
+  "scheduler": {
+    "library": "fsrs",
+    "version": "6.3.2",
+    "desired_retention": 0.9,
+    "learning_steps": [],
+    "relearning_steps": [],
+    "enable_fuzzing": false
+  },
+  "code_digest": "93a90764942c5d1b6926554e62ea82538de3f10be6ce1909c0b269eed1421caa",
+  "workflow_version": 4,
+  "practice_session_id": null,
+  "evidence": [],
+  "timing_uncertain": {
+    "reason": "App restarted. Confirm any study time since the last save."
+  },
+  "assessment_before_help": {
+    "activity": "recall",
+    "unseen": false,
+    "ended_at": "2026-09-12T23:20:30.846600+00:00",
+    "status": "ended_for_help",
+    "initial_reasoning": {
+      "approach": "I would use a set to deduplicate the numbers in the list and then because sets have O(1) membership checks I can quickly check if certain numbers exist in the set. For example, to determine the start of the streak (n), I can check if n - 1 exist in the set. I can also check for n + 1 to determine if the streak continues. I will have two nested loops but since sets have O(1) membership checks, the overall time complexity would still be O(n) worst case. An important edge case would be a streak of 1, where n + 1 doesn't exist so the default placeholder variable would have to be at least 1",
+      "quality": "complete",
+      "why": "Not recorded",
+      "invariant": "Not recorded",
+      "expected_complexity": "Not recorded",
+      "edge_case": "Not recorded",
+      "recorded_at": "2026-09-12T23:09:36.705356+00:00"
+    },
+    "code_digest": "76fbb672bdddcc98bba9b5845595edc056e384e648d671af72dd6d75f6bdc03f",
+    "latest_checkpoint": {
+      "attempt": 5,
+      "checked_at": "2026-09-12T23:18:00.865598+00:00",
+      "passed_cases": 0,
+      "total_cases": 4,
+      "code_digest": "76fbb672bdddcc98bba9b5845595edc056e384e648d671af72dd6d75f6bdc03f",
+      "status": "timeout"
+    },
+    "timing": {
+      "recall": 903.7069999999999
+    }
+  },
+  "guided_outcome": {
+    "tests_passed": true,
+    "activity": "learn"
+  }
+}

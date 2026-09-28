@@ -1,0 +1,25 @@
+{
+  "practice_id": "81e668b362e441fabaefa51c6fd48fac",
+  "workflow_version": 4,
+  "status": "completed",
+  "completed_at": "2026-09-28T19:50:53.892837+00:00",
+  "started_at": "2026-09-12T23:01:37.054175+00:00",
+  "minutes": 38.142,
+  "timing": {
+    "recall": 903.7069999999999,
+    "learning": 1351.3880000000001,
+    "administration": 33.444
+  },
+  "attempt_ids": [
+    "81e668b362e441fabaefa51c6fd48fac"
+  ],
+  "main_attempt_id": "81e668b362e441fabaefa51c6fd48fac",
+  "main_activity": "recall",
+  "main_was_new": false,
+  "coaching": {
+    "turns": 0,
+    "interruptions": 0,
+    "latency_seconds": [],
+    "escalations": 0
+  }
+}
