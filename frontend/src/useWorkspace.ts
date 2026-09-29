@@ -308,9 +308,13 @@ export function useWorkspace(minutes: number, includeNew: boolean) {
       const result = await api<T>(path, data);
       if (result && typeof result === "object" && "connection" in result)
         applyCoach(result as unknown as CoachStatus);
-      if (result && typeof result === "object" && "session" in result)
+      if (result && typeof result === "object" && "session" in result) {
         apply(result as unknown as StudyState);
-      await refresh();
+        // The acknowledged state is ready; queue and progress need not delay navigation.
+        void refresh();
+      } else {
+        await refresh();
+      }
       return result;
     } catch (e) {
       setError((e as Error).message);

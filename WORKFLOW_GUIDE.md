@@ -6,6 +6,8 @@ Open **Start Study.cmd**, run `study app` in the installed environment, or use V
 
 A saved attempt opens with its full problem, constraints, function signature, and public examples. Finish the active local attempt before starting another. If GitHub offers older saved drafts, choose one to resume or select **Start fresh practice** to leave those drafts saved and start today's scheduled work. Returning after several days does not create a new review or require repeating an already recorded initial idea. Restart or a long sleep gap pauses uncertain timing so you can correct it at completion.
 
+A confirmed start or resume opens the session while queue and progress summaries refresh in the background.
+
 Each session contains **one problem or repair**. There is no automatic sequence of warm-up, repair, recall, and main activity. Finish returns to Today; another problem starts only when you choose it. The scheduler continues to balance eligible implementation reviews, new material, and unfamiliar transfer. A short Recall session does not replace a full implementation review.
 
 The default time budget is 60 active minutes. A break is suggested at 45 minutes. Pause when stepping away. Browser focus alone is not an activity sensor because coaching time also counts. At the budget boundary, work is preserved and timing pauses; a short explicit extension is available. Correct measured minutes in the completion summary when necessary.

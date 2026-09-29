@@ -1223,3 +1223,39 @@ test("saved drafts can stay saved while today's fresh practice starts", async ({
     page.getByRole("button", { name: "attempt/older-pair-sum", exact: true }),
   ).toBeVisible();
 });
+
+test("confirmed practice opens without waiting for a progress refresh", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const startButton = page.getByRole("button", {
+    name: "Start practice",
+    exact: true,
+  });
+  await expect(startButton).toBeEnabled();
+  let release!: () => void;
+  const delayedProgress = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let requested!: () => void;
+  const progressRequest = new Promise<void>((resolve) => {
+    requested = resolve;
+  });
+  await page.route("**/api/progress", async (route) => {
+    requested();
+    await delayedProgress;
+    await route.continue();
+  });
+  try {
+    await startButton.click();
+    await progressRequest;
+    await expect(
+      page.getByRole("region", { name: "Problem and examples" }),
+    ).toBeVisible();
+    await expect(
+      page.getByLabel("Your initial idea", { exact: true }),
+    ).toBeVisible();
+  } finally {
+    release();
+  }
+});
