@@ -488,6 +488,8 @@ def build_parser() -> argparse.ArgumentParser:
     advance.add_argument("--passed", action="store_true")
     publish = commands.add_parser("publish", help="explicitly publish a saved completion")
     publish.add_argument("session_id")
+    choose = commands.add_parser("choose-attempt", help="resume a listed saved draft")
+    choose.add_argument("branch")
     commands.add_parser("recover", help="preserve a divergent or orphan draft")
     commands.add_parser("learn-example", help="study a worked solution after an initial attempt")
     commands.add_parser("keep-local", help="defer pending publication")
@@ -506,6 +508,9 @@ def build_parser() -> argparse.ArgumentParser:
         "practice", help="start or resume today's highest-priority problem"
     )
     practice.add_argument("--no-sync", action="store_true", help=argparse.SUPPRESS)
+    practice.add_argument(
+        "--fresh", action="store_true", help="keep remote drafts and start a new practice"
+    )
     practice.add_argument("--include-new", action="store_true")
     practice.add_argument("--minutes", type=int)
     practice.add_argument("--open", action="store_true", help="open the candidate in VS Code")
@@ -521,7 +526,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--activity", choices=("learn", "recall", "implement", "transfer"), default="implement"
     )
     start.add_argument("--minutes", type=int)
-    start.add_argument("--replace", action="store_true", help="replace an unfinished session")
+    start.add_argument(
+        "--fresh", action="store_true", help="keep remote drafts and start this exercise"
+    )
+    start.add_argument("--no-sync", action="store_true", help="continue with locally saved history")
+    start.add_argument("--replace", action="store_true", help=argparse.SUPPRESS)
     note = commands.add_parser("note", help="record learning evidence for the active attempt")
     note_subcommands = note.add_subparsers(dest="note_kind", required=True)
     reasoning = note_subcommands.add_parser("reasoning", help="record the initial reasoning")

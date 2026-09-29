@@ -900,14 +900,17 @@ class Coach:
             self._save("requests/" + request_id, record)
             return result
 
-    def interrupt(self):
-        if self.active:
-            self.cancelled.add(self.active)
-            record = self._load("requests/" + self.active)
-            if record and record.get("turn_id"):
-                self.runtime.call(
-                    "turn/interrupt", {"threadId": record["thread_id"], "turnId": record["turn_id"]}
-                )
+    def interrupt(self, session_id=None):
+        with self.lock:
+            request_id = self.active
+            record = self._load("requests/" + request_id) if request_id else None
+            if record and (session_id is None or record["session_id"] == session_id):
+                self.cancelled.add(request_id)
+                if record.get("turn_id"):
+                    self.runtime.call(
+                        "turn/interrupt",
+                        {"threadId": record["thread_id"], "turnId": record["turn_id"]},
+                    )
         return {"message": "Stopping coaching. Your code and question are saved."}
 
     def reconcile(self):

@@ -109,6 +109,7 @@ export default function App() {
     null,
   );
   const [repairPassed, setRepairPassed] = useState(false);
+  useEffect(() => setRepairPassed(false), [repair?.session_id, repairAnswer]);
   const [facts, setFacts] = useState<Evaluation | null>(null);
   const [hintChoice, setHintChoice] = useState<"hint" | "example" | null>(null);
   const [converting, setConverting] = useState(false);
@@ -140,7 +141,7 @@ export default function App() {
         const sid = w.state.session.session_id;
         beforeFinishPhase.current =
           w.state.session.previous_phase || "implementation";
-        void api<Evaluation>("action/evaluate", {})
+        void api<Evaluation>("action/evaluate", { session_id: sid })
           .then((value) => {
             if (w.latest.current?.session?.session_id === sid) setFacts(value);
           })
@@ -191,13 +192,14 @@ export default function App() {
       ),
       "practice-work.json",
     );
-  const start = async (synchronize = true) => {
+  const start = async (synchronize = true, fresh = false) => {
     const next = await w.operate<StudyState & { message?: string }>(
       "practice/start",
-      { minutes, include_new: includeNew, synchronize },
+      { minutes, include_new: includeNew, synchronize, fresh },
     );
     if (next.session || next.repair) setView("practice");
-    else if (next.message) w.setError(next.message);
+    else if (next.message && !next.remote_attempts.length)
+      w.setError(next.message);
   };
   const saveRepair = async () => {
     await w.operate("practice/repair-draft", {
@@ -239,37 +241,57 @@ export default function App() {
     }
     await w.mutate(kind === "hint" ? "action/hint" : "action/worked-example");
   };
-  const finishPreview = async () => {
-    beforeFinishPhase.current =
-      w.latest.current?.session?.phase || "implementation";
-    await w.mutate("action/phase", { phase: "administration" });
-    setFacts(await w.operate<Evaluation>("action/evaluate", {}));
-  };
-  const cancelFinish = () =>
-    safely(async () => {
-      setFacts(null);
-      await w.mutate("action/phase", { phase: beforeFinishPhase.current });
-    });
-  const finish = async (values: CompletionValues) => {
-    if (!s || !facts) return;
-    if (facts.session_id !== w.latest.current?.session?.session_id) {
+  const requireCompletionSession = (sessionId: string | undefined) => {
+    if (!sessionId || sessionId !== w.latest.current?.session?.session_id) {
       setFacts(null);
       throw new Error(
         "The active problem changed. Open a fresh completion summary.",
       );
     }
+  };
+  const finishPreview = async () => {
+    beforeFinishPhase.current =
+      w.latest.current?.session?.phase || "implementation";
+    const sessionId = w.latest.current?.session?.session_id;
+    await w.mutate("action/phase", {
+      phase: "administration",
+      session_id: sessionId,
+    });
+    const next = await w.mutate<Evaluation>("action/evaluate", {
+      session_id: sessionId,
+    });
+    requireCompletionSession(sessionId);
+    setFacts(next);
+  };
+  const cancelFinish = () =>
+    safely(async () => {
+      const sessionId = facts?.session_id;
+      setFacts(null);
+      requireCompletionSession(sessionId);
+      await w.mutate("action/phase", {
+        phase: beforeFinishPhase.current,
+        session_id: sessionId,
+      });
+    });
+  const finish = async (values: CompletionValues) => {
+    if (!s || !facts) return;
+    const sessionId = facts.session_id;
+    requireCompletionSession(sessionId);
     if (values.findings.length)
-      await w.mutate("action/evidence", { findings: values.findings });
-    const now = await w.operate<Evaluation>("action/evaluate", {});
+      await w.mutate("action/evidence", {
+        findings: values.findings,
+        session_id: sessionId,
+      });
+    const now = await w.mutate<Evaluation>("action/evaluate", {
+      session_id: sessionId,
+    });
+    requireCompletionSession(sessionId);
     await w.mutate("practice/finish", {
-      session_id: w.latest.current!.session!.session_id,
+      session_id: sessionId,
       rating: now.recall_outcome === "failure" ? "again" : values.rating,
       recall_confirmed: values.recallConfirmed,
       expected_session_ids: values.publish
-        ? [
-            ...(facts.unpublished_session_ids || []),
-            w.latest.current!.session!.session_id,
-          ]
+        ? [...(facts.unpublished_session_ids || []), sessionId]
         : undefined,
       takeaway: values.takeaway,
       explained: values.explained,
@@ -469,10 +491,12 @@ export default function App() {
               )}
             </div>
             <div className="button-row">
-              <button className="secondary" onClick={() => void w.refresh()}>
-                <RefreshCw size={16} />
-                Retry connection
-              </button>
+              {w.connectionError && (
+                <button className="secondary" onClick={() => void w.refresh()}>
+                  <RefreshCw size={16} />
+                  Retry connection
+                </button>
+              )}
               <button className="secondary" onClick={downloadWork}>
                 <Download size={16} />
                 Download work
@@ -628,10 +652,21 @@ export default function App() {
                 <button
                   className="primary"
                   disabled={w.busy}
-                  onClick={() => safely(start)}
+                  onClick={() =>
+                    safely(() =>
+                      start(
+                        true,
+                        !s && !repair && w.state!.remote_attempts.length > 0,
+                      ),
+                    )
+                  }
                 >
                   <Play size={18} />
-                  {s || repair ? "Resume practice" : "Start practice"}
+                  {s || repair
+                    ? "Resume practice"
+                    : w.state.remote_attempts.length
+                      ? "Start fresh practice"
+                      : "Start practice"}
                 </button>
                 {w.state.sync.status === "pending" && (
                   <button
@@ -692,17 +727,18 @@ export default function App() {
                 )}
               </section>
             </div>
-            {w.state.remote_attempts.length > 0 && (
+            {!s && !repair && w.state.remote_attempts.length > 0 && (
               <section className="panel">
                 <h2>Choose your saved attempt</h2>
                 <p>
-                  These drafts are preserved on GitHub. Choose which one to
-                  resume.
+                  Resume a saved attempt below, or choose Start fresh practice
+                  above. Your saved drafts stay on GitHub.
                 </p>
                 {w.state.remote_attempts.map((branch) => (
                   <button
                     key={branch}
                     className="secondary branch-choice"
+                    disabled={w.busy}
                     onClick={() =>
                       safely(async () => {
                         await w.operate("action/choose-attempt", { branch });
@@ -915,7 +951,9 @@ export default function App() {
                           </button>
                           <button
                             className="secondary"
-                            disabled={w.busy}
+                            disabled={
+                              w.busy || repair.check?.status === "running"
+                            }
                             onClick={() =>
                               safely(() =>
                                 repairAction("practice/repair-check"),
@@ -951,7 +989,9 @@ export default function App() {
                               w.busy || w.coach?.connection === "connecting"
                             }
                             onClick={() =>
-                              safely(() => w.operate("coach/connect", {}))
+                              w.coach?.selected_connection
+                                ? safely(() => w.operate("coach/connect", {}))
+                                : setConnectionOpen(true)
                             }
                           >
                             Connect Codex

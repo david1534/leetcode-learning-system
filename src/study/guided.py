@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import ast
 import hashlib
+import logging
+import sqlite3
 import uuid
 from datetime import UTC, datetime
 
@@ -12,17 +14,6 @@ from study.storage import atomic_text
 
 
 class GuidedSession:
-    def _portable_practice(self):
-        # Draft snapshots are assembled from the database by Synchronizer.
-        return None
-
-    def _restore_portable_practice(self):
-        # Legacy portable files are imported transactionally during initialization.
-        return None
-
-    def _recover_practice_completion(self):
-        return None
-
     def repair_draft(self, answer, revision=None, session_id=None):
         with self.lock:
             timer = self._read_local("repair-timer")
@@ -53,61 +44,112 @@ class GuidedSession:
             self._write_local("repair-timer", timer)
             return self.state()
 
-    def check_repair(self):
-        from study.runner import execute
+    def _check_error(self, job, exc):
+        from study.database import workspace_id
+
+        reference = uuid.uuid4().hex[:12]
+        logging.getLogger("study." + workspace_id(self.root)).error(
+            "Check failed %s", reference, exc_info=exc
+        )
+        return {
+            **job,
+            "status": "error",
+            "all_passed": False,
+            "message": "The check could not finish. Your saved work is unchanged; try again.",
+            "diagnostic_id": reference,
+        }
+
+    def check_repair(self, session_id=None, code_digest=None, schedule=None):
+        from study.service import Conflict
 
         with self.lock:
             timer = self._read_local("repair-timer")
             if not timer:
                 raise RuntimeError("Start a repair first.")
+            if session_id is not None and timer["session_id"] != session_id:
+                raise Conflict("The active repair changed. Review the current application.")
+            if code_digest is not None and timer.get("code_digest") != code_digest:
+                raise Conflict("The repair changed. Save and check the current application.")
+            if timer.get("check", {}).get("status") == "running":
+                raise Conflict("A repair check is already running.")
             answer = timer.get("application", "")
-            if not any(isinstance(node, ast.Assert) for node in ast.walk(ast.parse(answer))):
+            try:
+                tree = ast.parse(answer)
+            except SyntaxError as exc:
+                raise RuntimeError(
+                    f"Fix the Python syntax on line {exc.lineno}: {exc.msg}"
+                ) from exc
+            if not any(isinstance(node, ast.Assert) for node in ast.walk(tree)):
                 raise RuntimeError(
                     "Include an assert for a fresh example in this small coding repair."
                 )
-            if timer.get("check", {}).get("status") == "running":
-                raise RuntimeError("A repair check is already running.")
-            snapshot = timer["code_digest"]
             candidate = self.local / f"repair-check-{uuid.uuid4().hex}.py"
             atomic_text(candidate, answer + "\ndef __study_result__():\n    return True\n")
-            timer["check"] = {"status": "running", "code_digest": snapshot}
+            job = {
+                "id": uuid.uuid4().hex,
+                "session_id": timer["session_id"],
+                "status": "running",
+                "code_digest": timer["code_digest"],
+                "message": "Checking your fresh application…",
+            }
+            timer["check"] = job
             self._write_local("repair-timer", timer)
             (self.local / "stop-repair-check").unlink(missing_ok=True)
+        if schedule:
+            schedule(self._complete_repair_check, candidate, job)
+            return job
+        return self._complete_repair_check(candidate, job)
+
+    def _complete_repair_check(self, candidate, job):
+        from study.runner import execute
 
         class Cancel:
             def is_set(inner):
                 return (self.local / "stop-repair-check").exists()
 
+        failure_result = None
         try:
             failures = execute(
                 candidate,
                 {"function": "__study_result__", "cases": [{"args": [], "expected": True}]},
                 cancel=Cancel(),
             )
+        except (RuntimeError, OSError, ValueError, sqlite3.Error) as exc:
+            failure_result = self._check_error(job, exc)
         finally:
             try:
                 candidate.unlink(missing_ok=True)
             except OSError:
-                pass  # A generated-file cleanup failure must not discard a completed check.
+                pass  # Generated-file cleanup cannot discard a completed check.
         with self.lock:
             timer = self._read_local("repair-timer")
-            if not timer:
-                return {"status": "stale"}
-            error = failures[0].get("error", "Check failed.") if failures else None
-            result = {
-                "code_digest": snapshot,
-                "all_passed": not failures,
-                "source": "learner_authored_assertions",
-                "message": error
-                or "Your assertions passed; conceptual correctness still needs review.",
-                "status": "stale"
-                if timer.get("code_digest") != snapshot
-                else "timeout"
-                if error and "timed out" in error
-                else "stopped"
-                if error and "stopped" in error
-                else "complete",
-            }
+            if (
+                not timer
+                or timer.get("session_id") != job["session_id"]
+                or timer.get("check", {}).get("id") != job["id"]
+            ):
+                return {**job, "status": "stale", "all_passed": False}
+            if failure_result:
+                result = failure_result
+            else:
+                error = failures[0].get("error", "Check failed.") if failures else None
+                stale = timer.get("code_digest") != job["code_digest"]
+                result = {
+                    **job,
+                    "all_passed": not failures and not stale,
+                    "source": "learner_authored_assertions",
+                    "message": "The application changed during this check; run it again."
+                    if stale
+                    else error
+                    or "Your assertions passed; conceptual correctness still needs review.",
+                    "status": "stale"
+                    if stale
+                    else "timeout"
+                    if error and "timed out" in error
+                    else "stopped"
+                    if error and "stopped" in error
+                    else "complete",
+                }
             timer["check"] = result
             self._write_local("repair-timer", timer)
             return result
@@ -259,7 +301,15 @@ class GuidedSession:
             },
         }
 
-    def practice_start(self, minutes=60, include_new=False, synchronize=True):
+    def practice_start(self, minutes=60, include_new=False, synchronize=True, fresh=False):
+        if fresh and (
+            core.load_session(self.root)
+            or self._read_local("repair-timer")
+            or self.store.paths(".study-local/queued-attempts/", ".json")
+        ):
+            from study.service import Conflict
+
+            raise Conflict("Finish the saved local activity before starting fresh.")
         timer = self._read_local("repair-timer")
         if timer:
             self.begin_repair(timer["error_id"])
@@ -274,11 +324,14 @@ class GuidedSession:
                     self.store.write_json("attempt/session.json", saved["session"])
                     self.store.write_text("attempt/current.py", saved["code"])
                     self.store.delete(queued[0])
-        result = self.start(minutes=minutes, include_new=include_new, synchronize=synchronize)
+        result = self.start(
+            minutes=minutes, include_new=include_new, synchronize=synchronize, fresh=fresh
+        )
         if (
             not result["session"]
-            and not result["remote_attempts"]
-            and result["sync"]["status"] not in {"checking", "pending", "choice"}
+            and (fresh or not result["remote_attempts"])
+            and result["sync"]["status"] not in {"checking", "pending"}
+            and (fresh or result["sync"]["status"] != "choice")
         ):
             eligible = [g for g in self.plan(include_new, minutes)["repairs"] if g["eligible"]]
             if eligible:

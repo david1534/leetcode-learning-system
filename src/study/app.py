@@ -292,7 +292,9 @@ def create_app(root: Path, coach_factory=Coach) -> FastAPI:
     def practice_pause():
         result = service.practice_pause()
         try:
-            coach.interrupt()
+            paused = result.get("session") or result.get("repair")
+            if paused:
+                coach.interrupt(session_id=paused["session_id"])
         except RuntimeError:
             pass
         return result
@@ -305,7 +307,7 @@ def create_app(root: Path, coach_factory=Coach) -> FastAPI:
         result = service.practice_finish(**data.model_dump())
         # Finishing never waits on the coach or its network. Late replies cannot
         # mutate the now-closed session, and an old retry never interrupts a new one.
-        background.add_task(coach.interrupt)
+        background.add_task(coach.interrupt, session_id=data.session_id)
         return result
 
     @app.post("/api/practice/repair-draft")
@@ -332,18 +334,13 @@ def create_app(root: Path, coach_factory=Coach) -> FastAPI:
     def repair_check(data: RepairDraft, background: BackgroundTasks):
         service.repair_draft(data.answer, data.revision, data.session_id)
 
-        def run():
-            try:
-                service.check_repair()
-            except (RuntimeError, SyntaxError) as exc:
-                with service.lock:
-                    timer = service._read_local("repair-timer")
-                    if timer:
-                        timer["check"] = {"status": "error", "message": str(exc)}
-                        service._write_local("repair-timer", timer)
+        from study.service import digest
 
-        background.add_task(run)
-        return {"message": "Checking your fresh application…"}
+        return service.check_repair(
+            session_id=data.session_id,
+            code_digest=digest(data.answer),
+            schedule=background.add_task,
+        )
 
     @app.post("/api/practice/repair-stop")
     def repair_stop():
@@ -438,39 +435,7 @@ def create_app(root: Path, coach_factory=Coach) -> FastAPI:
             "keep-local": service.keep_local,
         }
         if operation == "check":
-            # Validate before dispatch so stale callers receive a visible error.
-            with service.lock:
-                session = service._session(
-                    None if data.get("code_digest") else data.get("revision"),
-                    data.get("session_id"),
-                )
-                if data.get("code_digest") and data["code_digest"] != session["code_digest"]:
-                    raise Conflict("The candidate changed. Save and check the current code.")
-
-            def run():
-                try:
-                    service.check(**data)
-                except RuntimeError as exc:
-                    with service.lock:
-                        service._write_local("check", {"status": "error", "message": str(exc)})
-                except (OSError, sqlite3.Error) as exc:
-                    reference = uuid.uuid4().hex[:12]
-                    logger.error("Solution check failed %s", reference, exc_info=exc)
-                    with service.lock:
-                        service._write_local(
-                            "check",
-                            {
-                                "status": "error",
-                                "message": (
-                                    "The check could not finish. "
-                                    "Your saved code is unchanged; try again."
-                                ),
-                                "diagnostic_id": reference,
-                            },
-                        )
-
-            background.add_task(run)
-            return {"message": "Checking saved code…"}
+            return service.check(**data, schedule=background.add_task)
         if operation not in actions:
             return JSONResponse({"detail": "Unknown operation."}, status_code=404)
         try:

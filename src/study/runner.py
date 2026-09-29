@@ -29,6 +29,7 @@ def execute(
                     str(request),
                     str(response),
                 ],
+                cwd=target,
                 stdout=output,
                 stderr=output,
                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),

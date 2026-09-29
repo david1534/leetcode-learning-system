@@ -4,7 +4,7 @@
 
 Open **Start Study.cmd**, run `study app` in the installed environment, or use VS Code's **Study: Start or Resume** task. The launcher opens the browser when the app is ready. Its terminal can close while practice continues. Reopening the launcher reuses the correct server or restarts an outdated one safely. For the first upgrade from version 0.3, close the old foreground server terminal first.
 
-A saved attempt opens with its full problem, constraints, function signature, and public examples. Resume that attempt before starting another. Returning after several days does not create a new review or require repeating an already recorded initial idea. Restart or a long sleep gap pauses uncertain timing so you can correct it at completion.
+A saved attempt opens with its full problem, constraints, function signature, and public examples. Finish the active local attempt before starting another. If GitHub offers older saved drafts, choose one to resume or select **Start fresh practice** to leave those drafts saved and start today's scheduled work. Returning after several days does not create a new review or require repeating an already recorded initial idea. Restart or a long sleep gap pauses uncertain timing so you can correct it at completion.
 
 Each session contains **one problem or repair**. There is no automatic sequence of warm-up, repair, recall, and main activity. Finish returns to Today; another problem starts only when you choose it. The scheduler continues to balance eligible implementation reviews, new material, and unfamiliar transfer. A short Recall session does not replace a full implementation review.
 
@@ -42,6 +42,8 @@ Automatic coaching starts off for a new connection. Model, effort, and automatic
 
 ## Finish once, publish deliberately
 
+A completion summary belongs to the session it was opened for. If another window changes the active session, open a new summary before finishing. A delayed pause or completion cannot stop coaching in a newer session.
+
 **Finish** opens one summary. Review the latest test status, recall, assistance, explanation and complexity evidence, and active minutes. The learning question is **What would you recognize or do differently next time?** A brief takeaway is optional; unsupported details remain unrecorded.
 
 - **Again:** the target reasoning could not be reconstructed without help supplying it.
@@ -68,7 +70,7 @@ A repair ends with its own saved session. If an older workflow left a paused mai
 
 ## Synchronization and two computers
 
-Saving and synchronization are separate. Pause saves locally and queues a scoped draft backup. Sync retries requested work. Check the result before changing computers. On the other computer, Start fetches the saved draft and restores the same durable attempt. Multiple saved attempts require an explicit choice; divergent drafts are preserved instead of overwritten.
+Saving and synchronization are separate. Pause saves locally and queues a scoped draft backup. Sync retries requested work. Check the result before changing computers. On the other computer, Start fetches the saved draft and restores the same durable attempt. Multiple saved attempts offer an explicit choice: resume one, or start fresh while keeping them saved. Starting fresh retains prior exposure and recorded repair requirements from the drafts. Divergent drafts are preserved instead of overwritten.
 
 When GitHub cannot be checked, **Continue locally** uses saved work on this computer. Locally completed sessions and pending publication do not force you to publish before continuing. The synchronization message describes the requested backup or publication; the editor's save indicator describes the current draft.
 
@@ -86,7 +88,7 @@ After import, editing the old repository `attempt/current.py` does not edit the 
 
 Settings provides restart and private diagnostics. If the local server is unreachable, reopen **Start Study.cmd**, keep the browser draft open, and retry. Download work when a save cannot be confirmed. Database schema upgrades require a verified backup; do not copy an active SQLite file without its transaction state or delete application-data recovery files while work is pending.
 
-If the app restarts during a repair assertion check, the answer is retained and the check becomes interrupted. Run the assertions again before relying on their result.
+If the app restarts during a repair assertion check, the answer is retained and the check becomes interrupted. Run the assertions again before relying on their result. Duplicate check requests cannot replace a running check, and failures in the checker leave the answer available for retry. Editing a repair answer clears its correctness confirmation. Relative files created by candidate code use the temporary check directory; the runner is not a security sandbox.
 
 ## Useful commands
 
@@ -100,6 +102,8 @@ Use the installed interpreter, for example `.venv\Scripts\python.exe -m study <c
 | Restricted coaching context | `study coach-context` |
 | Record the initial answer | `study note reasoning --approach "..."` |
 | Open an editor after the answer | Add `--open` to the reasoning command |
+| Start fresh and keep remote drafts | `study practice --fresh` |
+| Resume a listed remote draft | `study choose-attempt <branch>` |
 | Save a proposed candidate | `study save --file <draft> --session-id <id> --revision <n> --digest <digest>` |
 | Record help | `study note assistance --level <minor|guided|substantial> --summary "..."` |
 | Check / interrupt code | `study checkpoint --json` / `study stop` |
