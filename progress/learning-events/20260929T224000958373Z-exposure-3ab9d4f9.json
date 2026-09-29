@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "event_id": "3ab9d4f93f7e4653af6d885424499a31",
+  "recorded_at": "2026-09-29T22:40:00.958373+00:00",
+  "event_type": "exposure",
+  "problem_id": "arrays-001-pair-sum",
+  "session_id": "d82542e6b13e4909b30cb7fc7d53f2af",
+  "activity": "implement",
+  "content_version": 2
+}
