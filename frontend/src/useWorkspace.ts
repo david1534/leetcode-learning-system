@@ -31,6 +31,7 @@ export function useWorkspace(minutes: number, includeNew: boolean) {
   const activeId = useRef("");
   const base = useRef({ revision: 0, digest: "" });
   const saving = useRef<Promise<void> | null>(null);
+  const savingDraft = useRef<{ sessionId: string; code: string } | null>(null);
   const conflictRef = useRef(false);
   const apply = (next: StudyState) => {
     if (latest.current && next.snapshot < latest.current.snapshot) return;
@@ -86,7 +87,10 @@ export function useWorkspace(minutes: number, includeNew: boolean) {
         dirty.current ? "Recovered browser draft" : "Saved on this computer",
       );
     } else if (dirty.current) {
-      if (base.current.digest !== s.code_digest) {
+      const ownSave =
+        savingDraft.current?.sessionId === s.session_id &&
+        savingDraft.current.code === s.code;
+      if (base.current.digest !== s.code_digest && !ownSave) {
         conflictRef.current = true;
         setConflict(true);
       }
@@ -203,6 +207,31 @@ export function useWorkspace(minutes: number, includeNew: boolean) {
         "No active exercise. Export your draft before starting another.",
       );
     const candidate = text.current;
+    const sameSession = () =>
+      activeId.current === s.session_id &&
+      latest.current?.session?.session_id === s.session_id;
+    const acknowledge = () => {
+      const current = latest.current?.session;
+      if (!sameSession() || current?.code !== candidate) return false;
+      base.current = {
+        revision: current.revision,
+        digest: current.code_digest,
+      };
+      dirty.current = text.current !== candidate;
+      conflictRef.current = false;
+      setConflict(false);
+      browserRecovery.current = storeDraft(
+        "code-" + s.session_id,
+        dirty.current
+          ? { code: text.current, digest: base.current.digest }
+          : null,
+      );
+      setSaveStatus(
+        dirty.current ? "Unsaved changes" : "Saved on this computer",
+      );
+      return true;
+    };
+    savingDraft.current = { sessionId: s.session_id, code: candidate };
     const pending = (async () => {
       try {
         setSaveStatus("Saving…");
@@ -212,25 +241,17 @@ export function useWorkspace(minutes: number, includeNew: boolean) {
           revision: base.current.revision,
           code_digest: base.current.digest,
         });
-        base.current = {
-          revision: response.session!.revision,
-          digest: response.session!.code_digest,
-        };
-        dirty.current = text.current !== candidate;
+        if (!sameSession()) return;
         apply(response);
-        browserRecovery.current = storeDraft(
-          "code-" + s.session_id,
-          dirty.current
-            ? {
-                code: text.current,
-                digest: base.current.digest,
-              }
-            : null,
-        );
-        setSaveStatus(
-          dirty.current ? "Unsaved changes" : "Saved on this computer",
-        );
+        if (!acknowledge()) {
+          throw new ApiError(
+            "Another saved version changed during the save. Compare the versions before continuing.",
+            409,
+            "conflict",
+          );
+        }
       } catch (e) {
+        if (!sameSession() || acknowledge()) return;
         setSaveStatus(
           browserRecovery.current
             ? "Saved in browser"
@@ -243,6 +264,7 @@ export function useWorkspace(minutes: number, includeNew: boolean) {
         throw e;
       } finally {
         saving.current = null;
+        savingDraft.current = null;
       }
     })();
     saving.current = pending;
@@ -286,9 +308,13 @@ export function useWorkspace(minutes: number, includeNew: boolean) {
       const result = await api<T>(path, data);
       if (result && typeof result === "object" && "connection" in result)
         applyCoach(result as unknown as CoachStatus);
-      if (result && typeof result === "object" && "session" in result)
+      if (result && typeof result === "object" && "session" in result) {
         apply(result as unknown as StudyState);
-      await refresh();
+        // The acknowledged state is ready; queue and progress need not delay navigation.
+        void refresh();
+      } else {
+        await refresh();
+      }
       return result;
     } catch (e) {
       setError((e as Error).message);
@@ -321,7 +347,14 @@ export function useWorkspace(minutes: number, includeNew: boolean) {
     kind: "question" | "approach" | "check" | "review" = "question",
     allowCode = false,
   ) => {
+    const sessionId = latest.current?.session?.session_id;
     await save();
+    if (sessionId !== latest.current?.session?.session_id) {
+      const message =
+        "The active problem changed before sending this question. Review the current problem and ask again.";
+      setError(message);
+      throw new Error(message);
+    }
     const previousSession = latest.current?.session;
     const freshState = await api<StudyState>("state");
     apply(freshState);

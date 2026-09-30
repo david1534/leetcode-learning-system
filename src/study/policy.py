@@ -289,7 +289,6 @@ def metrics(root: Path) -> dict:
             "rate": passed / len(items) if items else None,
         }
 
-    time_by_phase = {}
     timed = [
         *modern,
         *(
@@ -298,9 +297,6 @@ def metrics(root: Path) -> dict:
             if e["event_type"] == "repair" and "timing" in e
         ),
     ]
-    for e in timed:
-        for phase, seconds in e.get("timing", {}).items():
-            time_by_phase[phase] = time_by_phase.get(phase, 0) + seconds
     admin = [
         e["timing"]["administration"] / 60
         for e in attempts[:12]

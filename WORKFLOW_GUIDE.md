@@ -4,7 +4,9 @@
 
 Open **Start Study.cmd**, run `study app` in the installed environment, or use VS Code's **Study: Start or Resume** task. The launcher opens the browser when the app is ready. Its terminal can close while practice continues. Reopening the launcher reuses the correct server or restarts an outdated one safely. For the first upgrade from version 0.3, close the old foreground server terminal first.
 
-A saved attempt opens with its full problem, constraints, function signature, and public examples. Resume that attempt before starting another. Returning after several days does not create a new review or require repeating an already recorded initial idea. Restart or a long sleep gap pauses uncertain timing so you can correct it at completion.
+A saved attempt opens with its full problem, constraints, function signature, and public examples. Finish the active local attempt before starting another. If GitHub offers older saved drafts, choose one to resume or select **Start fresh practice** to leave those drafts saved and start today's scheduled work. Returning after several days does not create a new review or require repeating an already recorded initial idea. Restart or a long sleep gap pauses uncertain timing so you can correct it at completion.
+
+A confirmed start or resume opens the session while queue and progress summaries refresh in the background.
 
 Each session contains **one problem or repair**. There is no automatic sequence of warm-up, repair, recall, and main activity. Finish returns to Today; another problem starts only when you choose it. The scheduler continues to balance eligible implementation reviews, new material, and unfamiliar transfer. A short Recall session does not replace a full implementation review.
 
@@ -20,7 +22,7 @@ Write code in the editor. **Saved on this computer** means the database acknowle
 
 **Check solution** runs public and assessment cases against a fixed saved candidate. Public-example failures are shown; hidden-case details stay out of coaching context. A timeout or **Stop tests** is distinct from an incorrect answer. Editing the candidate invalidates earlier test evidence; run the check again before treating it as correct. Results wait for other app requests to finish saving. If the checker itself fails, the app shows retry guidance and preserves your code and learning evidence; that failure is not counted as an incorrect solution.
 
-Two windows cannot silently overwrite conflicting drafts. Compare their versions, then deliberately keep your draft or use the other saved version. A changed active problem also rejects an old tab's write. Earlier unsent text is retained in browser recovery.
+You can continue typing while an earlier save is awaiting acknowledgement. The app recognizes its own committed save without inventing a conflict, and a late acknowledgement from an earlier session cannot change the current draft. If the active session changes while a question is waiting for a save, review the new problem and send a fresh question. Two windows cannot silently overwrite conflicting drafts. Compare their versions, then deliberately keep your draft or use the other saved version. A changed active problem also rejects an old tab's write. Earlier unsent text is retained in browser recovery.
 
 ## Ask for help when needed
 
@@ -28,7 +30,7 @@ Ordinary practice offers help directly after your initial attempt. Use **Ask coa
 
 An explicit independent assessment is different: conceptual help first offers **Continue independently** or **Switch to guided practice**. Switching preserves the original assessment and pre-help candidate. Assisted completion cannot become an unseen independent transfer pass.
 
-A worked example preserves your candidate and marks assisted learning. Trace it, explain a step, and then attempt an incomplete example or fresh implementation. A proposed code change is previewed; applying it requires **Apply this change** and a new test run.
+A worked example preserves your candidate and marks assisted learning. Trace it, explain a step, and then attempt an incomplete example or fresh implementation. A proposed code change is previewed; applying it requires **Apply this change** and a new test run. Viewing a preview, keeping the original code, or applying the proposed code unchanged does not count as a fresh learner retry before another substantive hint.
 
 Open **Settings → Coaching connection** before connecting. A new installation suggests Personal ChatGPT or Company from local configuration; review and save your choice once. Existing personal sign-in and history retain Personal. The choice and settings stay on this computer.
 
@@ -38,9 +40,11 @@ For **Company**, enter the HTTPS API base URL, default model, reasoning effort, 
 
 Practice Room owns its pinned CLI and verifies restricted personal/company configurations. It leaves global Codex settings alone. **Stop coach** and **Stop tests** control separate processes. Finish or stop a running reply before changing connections. Conversations and uncertain-request reconciliation belong to their original connection; switching preserves your code, recorded assistance, and retry requirement.
 
-Automatic coaching starts off for a new connection. Model, effort, and automatic-checkpoint preferences are saved separately for each connection. Approach and test-result checkpoints can be enabled separately. Personal automatic checkpoints conserve allowance at 20% remaining. Reconnection reconciles an uncertain request instead of sending it twice. Full conversations and all connection settings remain private on this computer. Pause/Sync transfers learning work between computers, while each uses its own saved connection.
+Automatic coaching starts off for a new connection. Model, effort, and automatic-checkpoint preferences are saved separately for each connection. Approach and test-result checkpoints can be enabled separately. Personal automatic checkpoints conserve allowance at 20% remaining. Reconnection reconciles an uncertain request instead of sending it twice. An expired personal sign-in requires signing in again before a new question is queued; late notifications from a retired coach process cannot disconnect the new connection. Full conversations and all connection settings remain private on this computer. Pause/Sync transfers learning work between computers, while each uses its own saved connection.
 
 ## Finish once, publish deliberately
+
+A completion summary belongs to the session it was opened for. If another window changes the active session, open a new summary before finishing. A delayed pause or completion cannot stop coaching in a newer session.
 
 **Finish** opens one summary. Review the latest test status, recall, assistance, explanation and complexity evidence, and active minutes. The learning question is **What would you recognize or do differently next time?** A brief takeaway is optional; unsupported details remain unrecorded.
 
@@ -68,11 +72,13 @@ A repair ends with its own saved session. If an older workflow left a paused mai
 
 ## Synchronization and two computers
 
-Saving and synchronization are separate. Pause saves locally and queues a scoped draft backup. Sync retries requested work. Check the result before changing computers. On the other computer, Start fetches the saved draft and restores the same durable attempt. Multiple saved attempts require an explicit choice; divergent drafts are preserved instead of overwritten.
+Saving and synchronization are separate. Pause saves locally and queues a scoped draft backup. Sync retries requested work. Check the result before changing computers. On the other computer, Start fetches the saved draft and restores the same durable attempt. Multiple saved attempts offer an explicit choice: resume one, or start fresh while keeping them saved. Starting fresh retains prior exposure and recorded repair requirements from the drafts. Divergent drafts are preserved instead of overwritten.
 
 When GitHub cannot be checked, **Continue locally** uses saved work on this computer. Locally completed sessions and pending publication do not force you to publish before continuing. The synchronization message describes the requested backup or publication; the editor's save indicator describes the current draft.
 
 Git works in a private export checkout. Practice does not switch the source repository's branch or commit its unrelated changes. Existing public review IDs and artifact formats are retained. A successful remote acknowledgment is required before the service reports synchronization success.
+
+`study keep-local` defers queued synchronization requests. A failed Git preparation cannot reactivate those deferred requests. Work already being sent must finish before this command can defer pending work; it does not recall an in-flight or completed publication.
 
 ## Recovery and storage
 
@@ -83,6 +89,8 @@ The first launch imports legacy `attempt/`, `.practice/`, `.study-local/`, and p
 After import, editing the old repository `attempt/current.py` does not edit the current browser attempt. Use the browser or the revision-checked CLI. An explicitly opened VS Code candidate is a private editor copy; checkpoint/pause/completion imports its edits only when they do not conflict with the saved candidate.
 
 Settings provides restart and private diagnostics. If the local server is unreachable, reopen **Start Study.cmd**, keep the browser draft open, and retry. Download work when a save cannot be confirmed. Database schema upgrades require a verified backup; do not copy an active SQLite file without its transaction state or delete application-data recovery files while work is pending.
+
+If the app restarts during a repair assertion check, the answer is retained and the check becomes interrupted. Run the assertions again before relying on their result. Duplicate check requests cannot replace a running check, and failures in the checker leave the answer available for retry. Editing a repair answer clears its correctness confirmation. Relative files created by candidate code use the temporary check directory; the runner is not a security sandbox.
 
 ## Useful commands
 
@@ -96,6 +104,8 @@ Use the installed interpreter, for example `.venv\Scripts\python.exe -m study <c
 | Restricted coaching context | `study coach-context` |
 | Record the initial answer | `study note reasoning --approach "..."` |
 | Open an editor after the answer | Add `--open` to the reasoning command |
+| Start fresh and keep remote drafts | `study practice --fresh` |
+| Resume a listed remote draft | `study choose-attempt <branch>` |
 | Save a proposed candidate | `study save --file <draft> --session-id <id> --revision <n> --digest <digest>` |
 | Record help | `study note assistance --level <minor|guided|substantial> --summary "..."` |
 | Check / interrupt code | `study checkpoint --json` / `study stop` |

@@ -87,3 +87,9 @@ Company replies include the exact `CoachReply` JSON schema in the prompt and pas
 On Windows, stopping a code check terminates its owned process tree, including an interpreter started by the virtual-environment launcher. This prevents a timed-out worker or its descendants from retaining the temporary output file.
 
 The Windows launcher hashes files through .NET SHA256, including in shells where the optional `Get-FileHash` command is unavailable. Hash values match the previous stamps. After changing credential environment variables, launch `Start Study.cmd app --restart` from the updated environment; reopening without `--restart` can reuse an existing server with its original environment.
+
+## Startup and check ownership
+
+`StartPractice.fresh` is an explicit choice to retain remote drafts while creating a new scheduled attempt. Normal startup still resumes a single saved draft or presents a choice among several. Fresh startup imports their learning events so prior exposure and repair gates remain authoritative; it cannot replace an active local problem or repair. Browser and CLI startup use the same service path.
+
+The service reserves a check and its unique job ID before dispatching the worker. Both direct CLI checks and scheduled HTTP checks share validation, results, and failure handling. A retired job cannot overwrite the current job or grade its candidate. The candidate runs with a temporary working directory for relative file operations; this is process isolation, not a security sandbox. Completion requests retain the original session ID across each asynchronous step.

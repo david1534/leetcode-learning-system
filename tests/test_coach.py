@@ -337,3 +337,22 @@ def test_owned_runtime_manifest_is_portable_and_contains_no_registry_credentials
             url = urlparse(item["resolved"])
             assert url.hostname == "registry.npmjs.org"
             assert not url.username and not url.password
+
+
+def test_expired_personal_signin_blocks_the_question_before_starting_a_turn(coach, monkeypatch):
+    coach.connect()
+    original = coach.runtime.call
+
+    def expired(method, params=None, **kwargs):
+        if method == "account/read":
+            return {"account": None, "requiresOpenaiAuth": True}
+        return original(method, params, **kwargs)
+
+    monkeypatch.setattr(coach.runtime, "call", expired)
+    started = []
+    monkeypatch.setattr(coach, "_run", lambda record: started.append(record))
+    with pytest.raises(RuntimeError, match="Sign in"):
+        coach.submit(request(coach))
+    assert not started
+    assert not coach.status()["requests"]
+    assert coach.usage["blocked"]

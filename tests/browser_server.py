@@ -78,6 +78,15 @@ def main():
                 }
             return {"reset": True}
 
+        @app.post("/__test__/remote-drafts")
+        def remote_drafts():
+            with app.state.service.lock:
+                app.state.service._write_local(
+                    "remote-attempts", ["attempt/older-pair-sum", "attempt/older-product"]
+                )
+                app.state.service._set_sync("choice", "Saved drafts await a choice.")
+            return {"seeded": True}
+
         @app.get("/__test__/records")
         def records():
             from study import core, policy

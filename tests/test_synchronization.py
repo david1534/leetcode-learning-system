@@ -164,3 +164,40 @@ def test_git_archive_line_endings_do_not_change_the_saved_candidate(tmp_path, re
     restored = second.start()["session"]
     assert restored["code"] == first._code()
     assert restored["code_digest"] == first._session()["code_digest"]
+
+
+def test_fresh_practice_preserves_real_remote_drafts_and_can_resume_them(tmp_path, repo_root):
+    from test_cross_device import clone, git, seed_remote
+
+    remote, _ = seed_remote(tmp_path, repo_root)
+    first = prepared(clone(remote, tmp_path / "first"), repo_root)
+    first_id = first._session()["session_id"]
+    first_branch = first._session()["sync_branch"]
+    first_code = first._code()
+    first.pause(synchronize=False)
+    assert first.sync(wait=True)["status"] == "synced"
+    heads = {first_branch: git(remote, "rev-parse", "refs/heads/" + first_branch)}
+
+    second = StudyService(clone(remote, tmp_path / "second"))
+    new = second.practice_start(include_new=True, fresh=True)["session"]
+    assert new["session_id"] != first_id and new["code"] != first_code
+    assert new["unseen"] is False
+    second.reasoning("Trace both distinct indices.")
+    second.pause(synchronize=False)
+    assert second.sync(wait=True)["status"] == "synced"
+    second_branch = second._session()["sync_branch"]
+    heads[second_branch] = git(remote, "rev-parse", "refs/heads/" + second_branch)
+
+    third = StudyService(clone(remote, tmp_path / "third"))
+    choice = third.practice_start(include_new=True)
+    assert choice["session"] is None and set(choice["remote_attempts"]) == set(heads)
+    fresh = third.practice_start(include_new=True, fresh=True)["session"]
+    assert fresh["session_id"] not in {first_id, new["session_id"]}
+    third.reasoning("My independent approach starts here.")
+    third.pause(synchronize=False)
+    assert third.sync(wait=True)["status"] == "synced"
+    assert heads == {branch: git(remote, "rev-parse", "refs/heads/" + branch) for branch in heads}
+    third.finish(fresh["session_id"], "unknown", "", stopped=True)
+    restored = third.choose_attempt(first_branch)["session"]
+    assert restored["session_id"] == first_id and restored["code"] == first_code
+    assert StudyService(third.root).state()["session"]["code"] == first_code

@@ -501,6 +501,9 @@ test("conflicting tabs preserve both versions until an explicit choice", async (
   await idea(page);
   const other = await context.newPage();
   await other.goto("/");
+  await expect(
+    other.getByRole("textbox", { name: "Python solution editor", exact: true }),
+  ).toBeVisible();
   let release!: () => void;
   const delayed = new Promise<void>((resolve) => (release = resolve));
   await page.route("**/api/action/save", async (route) => {
@@ -871,4 +874,388 @@ test("check solution keeps its result while progress is busy", async ({
   state = await (await request.get("/api/state")).json();
   expect(state.check.all_passed).toBe(true);
   expect(state.session.code).toBe(candidate);
+});
+
+for (const mode of ["delayed", "lost"] as const) {
+  test(`a ${mode} save acknowledgement does not create a conflict with this tab`, async ({
+    page,
+    request,
+  }) => {
+    await start(page);
+    await idea(page);
+    let committed!: () => void;
+    const savedOnServer = new Promise<void>((resolve) => {
+      committed = resolve;
+    });
+    let release!: () => void;
+    const acknowledgement = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let first = true;
+    await page.route("**/api/action/save", async (route) => {
+      if (!first) return route.continue();
+      first = false;
+      const response = await route.fetch();
+      committed();
+      await acknowledgement;
+      if (mode === "lost") await route.abort("failed");
+      else await route.fulfill({ response });
+    });
+    const initial = solution + "\n# first edit\n";
+    const continued = solution + "\n# continued typing\n";
+    try {
+      await code(page, initial, false);
+      await savedOnServer;
+      await page.waitForResponse(
+        async (response) =>
+          response.url().endsWith("/api/state") &&
+          response.ok() &&
+          (await response.json()).session?.code === initial,
+      );
+      await code(page, continued, false);
+    } finally {
+      release();
+    }
+    await expect
+      .poll(
+        async () =>
+          (await (await request.get("/api/state")).json()).session.code,
+      )
+      .toBe(continued);
+    await expect(
+      page.getByRole("heading", {
+        name: "Two versions of your code",
+        exact: true,
+      }),
+    ).toHaveCount(0);
+    await expect(page.locator(".save-status")).toHaveText(
+      "Saved on this computer",
+    );
+  });
+}
+
+test("a late save acknowledgement cannot change the next session's draft", async ({
+  page,
+  request,
+}) => {
+  await start(page);
+  await idea(page);
+  let committed!: () => void;
+  const savedOnServer = new Promise<void>((resolve) => {
+    committed = resolve;
+  });
+  let release!: () => void;
+  const acknowledgement = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let first = true;
+  await page.route("**/api/action/save", async (route) => {
+    if (!first) return route.continue();
+    first = false;
+    const response = await route.fetch();
+    committed();
+    await acknowledgement;
+    await route.fulfill({ response });
+  });
+  const nextDraft = solution + "\n# next session draft\n";
+  let secondId = "";
+  try {
+    await code(page, solution + "\n# previous session\n", false);
+    await savedOnServer;
+    const previous = (await (await request.get("/api/state")).json()).session;
+    const finished = await request.post("/api/practice/finish", {
+      headers,
+      data: {
+        session_id: previous.session_id,
+        revision: previous.revision,
+        rating: "unknown",
+        stopped: true,
+      },
+    });
+    expect(finished.ok()).toBe(true);
+    const started = await request.post("/api/practice/start", {
+      headers,
+      data: { include_new: true, synchronize: false },
+    });
+    secondId = (await started.json()).session.session_id;
+    await request.post("/api/action/reasoning", {
+      headers,
+      data: {
+        answer:
+          "Trace earlier values and compare their complement before insertion.",
+      },
+    });
+    await expect(page.locator(".original-idea p")).toHaveText(
+      "Trace earlier values and compare their complement before insertion.",
+    );
+    await code(page, nextDraft, false);
+  } finally {
+    release();
+  }
+  await expect
+    .poll(
+      async () => (await (await request.get("/api/state")).json()).session.code,
+    )
+    .toBe(nextDraft);
+  const current = (await (await request.get("/api/state")).json()).session;
+  expect(current.session_id).toBe(secondId);
+  await expect(
+    page.getByRole("heading", {
+      name: "Two versions of your code",
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  await expect(page.locator(".save-status")).toHaveText(
+    "Saved on this computer",
+  );
+});
+
+test("a question waiting for autosave cannot move to a new session", async ({
+  page,
+  request,
+}) => {
+  const postedQuestions: unknown[] = [];
+  page.on("request", (event) => {
+    if (
+      event.url().endsWith("/api/coach/requests") &&
+      event.method() === "POST"
+    ) {
+      const payload = event.postDataJSON();
+      postedQuestions.push({
+        session_id: payload.session_id,
+        message: payload.message,
+      });
+    }
+  });
+  await start(page);
+  await idea(page);
+  await connect(page);
+  let committed!: () => void;
+  const savedOnServer = new Promise<void>((resolve) => {
+    committed = resolve;
+  });
+  let release!: () => void;
+  const acknowledgement = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let first = true;
+  await page.route("**/api/action/save", async (route) => {
+    if (!first) return route.continue();
+    first = false;
+    const response = await route.fetch();
+    committed();
+    await acknowledgement;
+    await route.fulfill({ response });
+  });
+  try {
+    await code(page, solution + "\n# old session edit\n", false);
+    await savedOnServer;
+    await page
+      .getByRole("textbox", { name: "Ask your learning coach", exact: true })
+      .fill("Question about the previous problem.");
+    await page.getByRole("button", { name: "Send", exact: true }).click();
+    const previous = (await (await request.get("/api/state")).json()).session;
+    await request.post("/api/practice/finish", {
+      headers,
+      data: {
+        session_id: previous.session_id,
+        revision: previous.revision,
+        rating: "unknown",
+        stopped: true,
+      },
+    });
+    await request.post("/api/practice/start", {
+      headers,
+      data: { include_new: true, synchronize: false },
+    });
+    await request.post("/api/action/reasoning", {
+      headers,
+      data: { answer: "A fresh idea for the new session." },
+    });
+    await expect(page.locator(".original-idea p")).toHaveText(
+      "A fresh idea for the new session.",
+    );
+  } finally {
+    release();
+  }
+  await expect(
+    page
+      .getByText(
+        "The active problem changed before sending this question. Review the current problem and ask again.",
+        { exact: true },
+      )
+      .first(),
+  ).toBeVisible();
+  expect(postedQuestions).toHaveLength(0);
+  const status = await (await request.get("/api/coach/status")).json();
+  expect(status.requests).toHaveLength(0);
+});
+
+test("a delayed completion cannot finish the next session", async ({
+  page,
+  request,
+}) => {
+  await start(page);
+  await idea(page);
+  await page.getByRole("button", { name: "Finish", exact: true }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page
+    .getByLabel("A short takeaway (optional)")
+    .fill("Takeaway for the first session only.");
+  let evaluated!: () => void;
+  const evaluation = new Promise<void>((resolve) => {
+    evaluated = resolve;
+  });
+  let release!: () => void;
+  const acknowledgement = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/api/action/evaluate", async (route) => {
+    const response = await route.fetch();
+    evaluated();
+    await acknowledgement;
+    await route.fulfill({ response });
+  });
+  let nextId = "";
+  try {
+    await page
+      .getByRole("button", { name: "Finish locally", exact: true })
+      .click();
+    await evaluation;
+    const current = (await (await request.get("/api/state")).json()).session;
+    const finished = await request.post("/api/practice/finish", {
+      headers,
+      data: {
+        session_id: current.session_id,
+        revision: current.revision,
+        rating: "unknown",
+        stopped: true,
+      },
+    });
+    expect(finished.ok()).toBe(true);
+    const next = await request.post("/api/practice/start", {
+      headers,
+      data: { include_new: true, synchronize: false },
+    });
+    nextId = (await next.json()).session.session_id;
+    await request.post("/api/action/reasoning", {
+      headers,
+      data: { answer: "New session reasoning must stay independent." },
+    });
+    await expect(page.locator(".original-idea p")).toHaveText(
+      "New session reasoning must stay independent.",
+    );
+  } finally {
+    release();
+  }
+  await expect(page.locator("section[role=alert]")).toContainText(
+    "Open a fresh completion summary",
+  );
+  expect(
+    (await (await request.get("/api/state")).json()).session.session_id,
+  ).toBe(nextId);
+  const records = await (await request.get("/__test__/records")).json();
+  expect(records.reviews).toHaveLength(1);
+});
+
+test("editing a repair clears its correctness confirmation and offers first connection setup", async ({
+  page,
+  request,
+}) => {
+  await request.post("/__test__/repair", { headers });
+  await page.goto("/");
+  await page
+    .getByText("Repairs and learning examples", { exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Practice this repair", exact: true })
+    .click();
+  const editor = page.getByRole("textbox", {
+    name: "Your fresh application",
+    exact: true,
+  });
+  const confirmation = page.getByRole("checkbox", {
+    name: "I reviewed a correct fresh application, with Codex or an external coach",
+    exact: true,
+  });
+  await editor.fill("assert True");
+  await confirmation.check();
+  await editor.fill("assert False");
+  await expect(confirmation).not.toBeChecked();
+  await page
+    .getByRole("button", { name: "Connect Codex", exact: true })
+    .click();
+  await expect(
+    page.getByRole("dialog", { name: "Coaching connection" }),
+  ).toBeVisible();
+});
+
+test("saved drafts can stay saved while today's fresh practice starts", async ({
+  page,
+  request,
+}) => {
+  await request.post("/__test__/remote-drafts", { headers });
+  await page.goto("/");
+  await expect(
+    page.getByRole("heading", { name: "Choose your saved attempt" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "attempt/older-pair-sum", exact: true }),
+  ).toBeVisible();
+  await page.screenshot({ path: "test-results/saved-draft-choice.png" });
+  await page
+    .getByRole("button", { name: "Start fresh practice", exact: true })
+    .click();
+  await expect(
+    page.getByLabel("Your initial idea", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Retry connection", exact: true }),
+  ).toHaveCount(0);
+  const state = await (await request.get("/api/state")).json();
+  expect(state.remote_attempts).toEqual([
+    "attempt/older-pair-sum",
+    "attempt/older-product",
+  ]);
+  await idea(page);
+  await finish(page);
+  await expect(
+    page.getByRole("button", { name: "attempt/older-pair-sum", exact: true }),
+  ).toBeVisible();
+});
+
+test("confirmed practice opens without waiting for a progress refresh", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const startButton = page.getByRole("button", {
+    name: "Start practice",
+    exact: true,
+  });
+  await expect(startButton).toBeEnabled();
+  let release!: () => void;
+  const delayedProgress = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let requested!: () => void;
+  const progressRequest = new Promise<void>((resolve) => {
+    requested = resolve;
+  });
+  await page.route("**/api/progress", async (route) => {
+    requested();
+    await delayedProgress;
+    await route.continue();
+  });
+  try {
+    await startButton.click();
+    await progressRequest;
+    await expect(
+      page.getByRole("region", { name: "Problem and examples" }),
+    ).toBeVisible();
+    await expect(
+      page.getByLabel("Your initial idea", { exact: true }),
+    ).toBeVisible();
+  } finally {
+    release();
+  }
 });

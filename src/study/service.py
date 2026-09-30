@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sqlite3
 import time
 import uuid
 from datetime import UTC, datetime
@@ -146,7 +147,6 @@ class StudyService(GuidedSession):
             receipt = self._read_local("completions/" + session["session_id"])
             if receipt:
                 self._close_attempt(receipt)
-        self._recover_practice_completion()
 
     def _close_attempt(self, receipt):
         session = core.load_session(self.root)
@@ -256,7 +256,6 @@ class StudyService(GuidedSession):
 
     def state(self) -> dict:
         with self.lock:
-            self._restore_portable_practice()
             self._recover_completed()
             raw = core.load_session(self.root)
             session = self._session() if raw else None
@@ -336,7 +335,7 @@ class StudyService(GuidedSession):
         self._write_local("sync", result)
         return result
 
-    def _pull(self):
+    def _pull(self, resume_saved=True):
         active = core.load_session(self.root)
         paused_checkpoint = (
             active and not active.get("phase_started_at") and active.get("sync_base")
@@ -344,7 +343,7 @@ class StudyService(GuidedSession):
         wait = bool(paused_checkpoint) or not (
             active or self._read_local("repair-timer") or self._unpublished()
         )
-        return self.synchronizer.pull(wait=wait)
+        return self.synchronizer.pull(wait=wait or not resume_saved, resume_saved=resume_saved)
 
     def start(
         self,
@@ -354,17 +353,29 @@ class StudyService(GuidedSession):
         minutes=None,
         synchronize=True,
         revision=None,
+        fresh=False,
     ):
         if activity not in ACTIVITIES:
             raise RuntimeError("Choose Learn, Recall, Implement, or Transfer.")
         if minutes is not None and not 5 <= minutes <= 180:
             raise RuntimeError("Choose a session budget between 5 and 180 minutes.")
+        if fresh:
+            with self.lock:
+                if core.load_session(self.root) or self._read_local("repair-timer"):
+                    raise Conflict("Finish the saved local activity before starting fresh.")
         if synchronize:
-            self._pull()
+            self._pull(resume_saved=not fresh)
         with self.lock:
             self._recover_completed()
-            if self._read_local("remote-attempts") and not core.load_session(self.root):
-                return {**self.state(), "message": "Choose a saved attempt before starting."}
+            if (
+                not fresh
+                and self._read_local("remote-attempts")
+                and not core.load_session(self.root)
+            ):
+                return {
+                    **self.state(),
+                    "message": "Resume a saved attempt or start fresh; your drafts stay saved.",
+                }
             if core.load_session(self.root):
                 session = self._session(revision)
                 if not session.get("phase_started_at"):
@@ -644,7 +655,7 @@ class StudyService(GuidedSession):
             self._save(session)
             return self.state()
 
-    def check(self, revision=None, timeout=10, session_id=None, code_digest=None):
+    def check(self, revision=None, timeout=10, session_id=None, code_digest=None, schedule=None):
         with self.lock:
             session = self._session(None if code_digest is not None else revision, session_id)
             if code_digest is not None and code_digest != session["code_digest"]:
@@ -668,7 +679,9 @@ class StudyService(GuidedSession):
             candidate = self.local / f"check-{uuid.uuid4().hex}.py"
             atomic_text(candidate, self._code())
             job = {
+                "id": uuid.uuid4().hex,
                 "status": "running",
+                "message": "Checking saved code...",
                 "started_at": datetime.now(UTC).isoformat(),
                 "session_id": session["session_id"],
                 "code_digest": session["code_digest"],
@@ -676,12 +689,24 @@ class StudyService(GuidedSession):
             self._write_local("check", job)
             (self.local / "stop-check").unlink(missing_ok=True)
 
+        if schedule:
+            schedule(self._complete_check, snapshot, problem, candidate, job, timeout)
+            return job
+        return self._complete_check(snapshot, problem, candidate, job, timeout)
+
+    def _complete_check(self, snapshot, problem, candidate, job, timeout):
         class Cancel:
             def is_set(inner):
                 return (self.local / "stop-check").exists()
 
         try:
             failures = core.run_solution(candidate, problem, min(10, max(0.1, timeout)), Cancel())
+        except (RuntimeError, OSError, ValueError, sqlite3.Error) as exc:
+            result = self._check_error(job, exc)
+            with self.lock:
+                if self._read_local("check", {}).get("id") == job["id"]:
+                    self._write_local("check", result)
+            return result
         finally:
             try:
                 candidate.unlink(missing_ok=True)
@@ -689,8 +714,10 @@ class StudyService(GuidedSession):
                 pass  # Generated check files can be cleaned later; the result remains valid.
         with self.lock:
             session = core.load_session(self.root) or {}
+            retired = self._read_local("check", {}).get("id") != job["id"]
             stale = (
-                session.get("session_id") != snapshot["session_id"]
+                retired
+                or session.get("session_id") != snapshot["session_id"]
                 or session.get("code_digest") != snapshot["code_digest"]
             )
             total = len(problem["cases"])
@@ -747,16 +774,17 @@ class StudyService(GuidedSession):
                 }
                 self._save(session)
             result["checkpoint_count"] = session.get("checkpoint_count", 0)
-            self._write_local("check", result)
+            if not retired:
+                self._write_local("check", result)
             return result
 
     def stop_check(self):
         atomic_text(self.local / "stop-check", "stop")
         return {"message": "Stopping check; your saved code is preserved."}
 
-    def evaluate(self):
+    def evaluate(self, revision=None, session_id=None):
         with self.lock:
-            session = self._session()
+            session = self._session(revision, session_id)
             self._tick(session)
             core.save_session(self.root, session)
             levels = [e["level"] for e in session.get("assistance_log", [])]
@@ -1121,6 +1149,14 @@ class StudyService(GuidedSession):
 
     def keep_local(self):
         with self.lock:
+            if any(
+                job.get("status") == "running"
+                for job in self.store.json_documents(".study-local/outbox/")
+            ):
+                raise Conflict(
+                    "Synchronization is already sending work. Wait for its result before "
+                    "deferring pending work; an in-flight publication cannot be recalled."
+                )
             for path in self.store.paths(".study-local/outbox/", ".json"):
                 job = self.store.read_json(path)
                 if job.get("status") == "pending":

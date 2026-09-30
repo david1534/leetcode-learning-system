@@ -45,19 +45,12 @@ def dispatch(root: Path, args) -> int | None:
         output(result, True)
         return 0
     if command in {"practice", "start"}:
-        if not getattr(args, "no_sync", False):
-            synchronized = service.synchronizer.pull(wait=True)
-            if synchronized["status"] in {"pending", "checking"}:
-                print(synchronized["message"])
-                print(
-                    "Your local work is preserved. Use study practice --no-sync to continue here."
-                )
-                return 2
         result = (
             service.practice_start(
                 include_new=getattr(args, "include_new", False),
                 minutes=getattr(args, "minutes", None) or 60,
-                synchronize=False,
+                synchronize=not getattr(args, "no_sync", False),
+                fresh=getattr(args, "fresh", False),
             )
             if command == "practice"
             else service.start(
@@ -65,7 +58,8 @@ def dispatch(root: Path, args) -> int | None:
                 activity=getattr(args, "activity", "implement"),
                 include_new=getattr(args, "include_new", False),
                 minutes=getattr(args, "minutes", None),
-                synchronize=False,
+                synchronize=not getattr(args, "no_sync", False),
+                fresh=getattr(args, "fresh", False),
             )
         )
         session = result.get("session")
@@ -85,6 +79,16 @@ def dispatch(root: Path, args) -> int | None:
         else:
             print(result.get("message", "No activity selected."))
         print(result["sync"]["message"])
+        if not session and not result.get("repair"):
+            if result["remote_attempts"]:
+                for branch in result["remote_attempts"]:
+                    print(f"study choose-attempt {branch}")
+                print("Or use study practice --fresh to keep those drafts and start today.")
+            if result["sync"]["status"] in {"pending", "checking"}:
+                print(
+                    "Your local work is preserved. Use study practice --no-sync to continue here."
+                )
+                return 2
         for gate in service.plan()["repairs"]:
             print(f"Repair: {gate['skill']}. Error ID: {gate['event_id']}")
             print(f"study repair --error-id {gate['event_id']} --application <text> --minutes <n>")
@@ -232,6 +236,9 @@ def dispatch(root: Path, args) -> int | None:
         if publish:
             result["sync"] = service.sync(wait=True)
         output(result)
+        return 0
+    if command == "choose-attempt":
+        output(service.choose_attempt(args.branch))
         return 0
     if command == "recover":
         output(service.recover())

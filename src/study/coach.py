@@ -193,8 +193,11 @@ def attempted_again(context, prior):
             return (code or "").strip()
 
     # Applying a coach's proposal is exposure, not a learner-generated retry.
-    previous = prior.get("proposed_code") or prior["context"].get("code")
-    return structure(context.get("code")) != structure(previous)
+    current = structure(context.get("code"))
+    previous = [prior["context"].get("code")]
+    if prior.get("proposed_code"):
+        previous.append(prior["proposed_code"])
+    return all(current != structure(code) for code in previous)
 
 
 def allowance(result):
@@ -520,6 +523,9 @@ class Coach:
                 account = self.runtime.call("account/read", {"refreshToken": True}).get("account")
                 if not account:
                     self.connection = "signed_out"
+                    self.account = None
+                    self.models = []
+                    self.usage = allowance({})
                     self.message = "Sign in to connect coaching."
                     return self.status()
                 if account.get("type") != "chatgpt":
@@ -653,6 +659,8 @@ class Coach:
             if self.connection != "connected":
                 raise RuntimeError("Connect Codex first. Your question stays in the composer.")
             self.refresh()
+            if self.connection != "connected":
+                raise RuntimeError(self.message)
             if self.usage["blocked"]:
                 raise RuntimeError(
                     "Included allowance is exhausted or unavailable. "
@@ -892,14 +900,17 @@ class Coach:
             self._save("requests/" + request_id, record)
             return result
 
-    def interrupt(self):
-        if self.active:
-            self.cancelled.add(self.active)
-            record = self._load("requests/" + self.active)
-            if record and record.get("turn_id"):
-                self.runtime.call(
-                    "turn/interrupt", {"threadId": record["thread_id"], "turnId": record["turn_id"]}
-                )
+    def interrupt(self, session_id=None):
+        with self.lock:
+            request_id = self.active
+            record = self._load("requests/" + request_id) if request_id else None
+            if record and (session_id is None or record["session_id"] == session_id):
+                self.cancelled.add(request_id)
+                if record.get("turn_id"):
+                    self.runtime.call(
+                        "turn/interrupt",
+                        {"threadId": record["thread_id"], "turnId": record["turn_id"]},
+                    )
         return {"message": "Stopping coaching. Your code and question are saved."}
 
     def reconcile(self):

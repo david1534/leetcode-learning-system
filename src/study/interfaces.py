@@ -13,6 +13,7 @@ class StartPractice(Input):
     minutes: int = Field(default=60, ge=5, le=180)
     include_new: bool = False
     synchronize: bool = True
+    fresh: bool = False
 
 
 class AdvancePractice(Input):
@@ -170,7 +171,7 @@ ACTION_INPUTS = {
     "sync": Input,
     "stop": Input,
     "keep-local": Input,
-    "evaluate": Input,
+    "evaluate": OptionalRevision,
 }
 
 

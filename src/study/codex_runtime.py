@@ -82,6 +82,7 @@ class CodexRuntime:
         self.pending = {}
         self.ids = 0
         self.write_lock = threading.Lock()
+        self.lifecycle_lock = threading.RLock()
         self.changed = threading.Condition()
         self.turns = {}
         self.on_event = lambda method, params: None
@@ -167,8 +168,13 @@ class CodexRuntime:
         return text[:1200]
 
     def start(self):
-        if self.process and self.process.poll() is None:
+        with self.lifecycle_lock:
+            self._start()
+
+    def _start(self):
+        if self.process and self.process.poll() is None and not self.closed.is_set():
             return
+        self.close()
         self.directory.mkdir(parents=True, exist_ok=True)
         home = self.directory / "home"
         work = self.directory / "workspace"
@@ -197,21 +203,22 @@ class CodexRuntime:
         else:
             self.version = "test-adapter"
         # Each connection owns its runtime; credentials exist only in the child environment.
-        self.process = subprocess.Popen(
-            cmd,
-            cwd=work,
-            env=env,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            text=True,
-            encoding="utf-8",
-            bufsize=1,
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-        )
-        try:
+        with self.changed:
+            self.process = subprocess.Popen(
+                cmd,
+                cwd=work,
+                env=env,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                text=True,
+                encoding="utf-8",
+                bufsize=1,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            )
             self.closed.clear()
             self.turns.clear()
+        try:
             threading.Thread(target=self._read, args=(self.process,), daemon=True).start()
             self.call(
                 "initialize",
@@ -283,34 +290,53 @@ class CodexRuntime:
         finally:
             self.pending.pop(request_id, None)
 
+    def _disconnected(self, process):
+        with self.changed:
+            if self.process is not process:
+                return
+            self.closed.set()
+            for target in list(self.pending.values()):
+                try:
+                    target.put_nowait(
+                        {"error": {"message": "Codex disconnected. Reconnect to recover."}}
+                    )
+                except queue.Full:
+                    pass
+            self.on_event("coach/disconnected", {})
+            self.changed.notify_all()
+
     def _read(self, process):
         try:
             for line in process.stdout:
-                if len(line) > 8_000_000:
-                    raise RuntimeError("Codex response exceeded the local safety limit.")
-                message = json.loads(line)
-                if "id" in message and "method" not in message:
-                    target = self.pending.get(message["id"])
-                    if target:
-                        target.put_nowait(message)
-                    continue
-                if "id" in message:
-                    # An unexpected tool or approval is never forwarded to the learner or executed.
-                    self.send(
-                        {
-                            "id": message["id"],
-                            "error": {
-                                "code": -32601,
-                                "message": "Tools are disabled in the learning coach.",
-                            },
-                        }
-                    )
-                    self.on_event("coach/unsupportedTool", {})
-                    process.terminate()
-                    break
-                method, params = message.get("method"), message.get("params", {})
-                turn_id = params.get("turnId") or params.get("turn", {}).get("id")
                 with self.changed:
+                    if self.process is not process:
+                        return
+                    if len(line) > 8_000_000:
+                        raise RuntimeError("Codex response exceeded the local safety limit.")
+                    message = json.loads(line)
+                    if "id" in message and "method" not in message:
+                        target = self.pending.get(message["id"])
+                        if target:
+                            try:
+                                target.put_nowait(message)
+                            except queue.Full:
+                                pass
+                        continue
+                    if "id" in message:
+                        self.send(
+                            {
+                                "id": message["id"],
+                                "error": {
+                                    "code": -32601,
+                                    "message": "Tools are disabled in the learning coach.",
+                                },
+                            }
+                        )
+                        self.on_event("coach/unsupportedTool", {})
+                        process.terminate()
+                        break
+                    method, params = message.get("method"), message.get("params", {})
+                    turn_id = params.get("turnId") or params.get("turn", {}).get("id")
                     if turn_id:
                         turn = self.turns.setdefault(turn_id, {"texts": []})
                         if (
@@ -323,21 +349,11 @@ class CodexRuntime:
                         if method == "turn/completed":
                             turn["result"] = params["turn"]
                         self.changed.notify_all()
-                self.on_event(method, params)
+                    self.on_event(method, params)
         except (OSError, ValueError, RuntimeError):
             pass
         finally:
-            self.closed.set()
-            for target in list(self.pending.values()):
-                try:
-                    target.put_nowait(
-                        {"error": {"message": "Codex disconnected. Reconnect to recover."}}
-                    )
-                except queue.Full:
-                    pass
-            self.on_event("coach/disconnected", {})
-            with self.changed:
-                self.changed.notify_all()
+            self._disconnected(process)
 
     def wait_turn(self, turn_id, timeout=180):
         deadline = time.monotonic() + timeout
@@ -360,12 +376,24 @@ class CodexRuntime:
         raise RuntimeError("Coaching took too long. Stop or reconnect; your work is saved.")
 
     def close(self):
-        proc = self.process
-        if proc and proc.poll() is None:
-            proc.terminate()
-            try:
-                proc.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                proc.kill()
-        self.process = None
-        self.closed.set()
+        with self.lifecycle_lock:
+            with self.changed:
+                proc = self.process
+                if proc is not None:
+                    self._disconnected(proc)
+                self.process = None
+                self.closed.set()
+            if proc:
+                if proc.poll() is None:
+                    proc.terminate()
+                    try:
+                        proc.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        proc.kill()
+                        proc.wait(timeout=5)
+                for stream in (proc.stdin, proc.stdout):
+                    if stream:
+                        try:
+                            stream.close()
+                        except OSError:
+                            pass  # The process is stopped; a broken pipe is already disconnected.

@@ -12,7 +12,7 @@ from pathlib import Path
 
 from filelock import FileLock, Timeout
 
-from study import core, gitflow
+from study import core, gitflow, policy
 from study.database import PUBLIC_PREFIXES, same_document
 from study.storage import atomic_text
 
@@ -130,7 +130,7 @@ class Synchronizer:
         with self.store.transaction():
             return self.service._set_sync(status, message)
 
-    def pull(self, wait=True):
+    def pull(self, wait=True, resume_saved=True):
         if not (self.service.root / ".git").exists():
             return self._set("local", "Saved on this computer. No Git remote is configured.")
         if not wait:
@@ -140,7 +140,7 @@ class Synchronizer:
             )
         try:
             with self.guard:
-                return self._pull()
+                return self._pull(resume_saved=resume_saved)
         except Timeout:
             return self._set("checking", "GitHub synchronization is already running.")
         except (gitflow.GitFlowError, OSError, subprocess.SubprocessError) as exc:
@@ -149,7 +149,7 @@ class Synchronizer:
                 "GitHub could not be checked. Continue locally or retry sync. " + str(exc),
             )
 
-    def _pull(self):
+    def _pull(self, resume_saved=True):
         self.prepare()
         history = self.tree("origin/main")
         branches = gitflow.remote_attempts(self.root)
@@ -169,8 +169,36 @@ class Synchronizer:
             ).code
             != 0
         ]
+        # Keep prior exposure and repair gates even when the learner leaves drafts saved.
+        # Candidate text is read only as part of the snapshot, never imported here.
+        draft_evidence = {}
+        draft_problems = set()
+        for branch in branches:
+            snapshot = self.tree("origin/" + branch, include_attempt=True)
+            draft_evidence[branch] = {
+                path: text
+                for path, text in snapshot.items()
+                if path.startswith("progress/learning-events/")
+            }
+            saved = json.loads(snapshot.get("attempt/session.json", "{}"))
+            if saved.get("problem_id"):
+                draft_problems.add(saved["problem_id"])
         with self.service.lock:
             self.store.import_documents(history, "github-main")
+            for branch, documents in draft_evidence.items():
+                self.store.import_documents(documents, "github-" + branch)
+            # Legacy drafts may predate exposure events. Record the observed exposure
+            # once; do not invent a review, recall rating, or historical study time.
+            catalog = {p["id"] for p in core.load_problems(self.service.root)}
+            for problem_id in (draft_problems & catalog) - policy.exposures(self.service.root):
+                core._write_learning_event(
+                    self.service.root,
+                    {
+                        "event_type": "exposure",
+                        "problem_id": problem_id,
+                        "source": "retained_remote_draft",
+                    },
+                )
             active = core.load_session(self.service.root)
             public_reviews = {
                 json.loads(text)["event_id"]: (path, json.loads(text))
@@ -203,10 +231,10 @@ class Synchronizer:
                 active = None
             active = active or self.service._read_local("repair-timer")
             self.service._write_local("remote-attempts", branches if not active else [])
-        if not active and len(branches) == 1:
+        if resume_saved and not active and len(branches) == 1:
             return self._choose(branches[0])
-        if not active and len(branches) > 1:
-            return self._set("choice", "Several saved attempts exist. Choose the one to resume.")
+        if not active and branches:
+            return self._set("choice", "Saved attempts are available. Resume one or start fresh.")
         return self._set(
             "local" if active else "synced",
             "GitHub checked. Pause or Sync to back up this draft."
@@ -489,6 +517,9 @@ class Synchronizer:
                         self._push(job)
                     except (RuntimeError, OSError, subprocess.SubprocessError) as exc:
                         with self.store.transaction():
+                            latest = self.service._read_local("outbox/" + job["id"], {})
+                            if latest.get("status") not in {"pending", "running"}:
+                                continue  # Keep a concurrent deferral authoritative.
                             job.update(status="pending", error=str(exc))
                             self.service._write_local("outbox/" + job["id"], job)
                             self.service._set_sync(
