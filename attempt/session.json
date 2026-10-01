@@ -1,95 +1,29 @@
 {
-  "schema_version": 6,
+  "schema_version": 7,
   "problem_id": "arrays-003-longest-streak",
   "attempt_kind": "review",
-  "started_at": "2026-09-12T23:01:37.054175+00:00",
-  "active_started_at": "2026-09-13T00:09:19.030042+00:00",
-  "accumulated_seconds": 2030,
+  "started_at": "2026-09-30T18:41:41.850806+00:00",
+  "active_started_at": null,
+  "accumulated_seconds": 16,
   "hints_used": 0,
-  "checkpoint_count": 8,
-  "assistance_log": [
-    {
-      "request_id": "76ab8fe9-a5b3-4568-b1af-bc8a845f2c81",
-      "level": "guided",
-      "supplied_missing_recall": false,
-      "summary": "Integrated coaching supplied guided assistance.",
-      "source": "codex",
-      "recorded_at": "2026-09-12T23:20:45.230777+00:00"
-    },
-    {
-      "request_id": "4d4c135e-96b6-4ab7-91e4-72c622772082",
-      "level": "minor",
-      "supplied_missing_recall": false,
-      "summary": "Integrated coaching supplied minor assistance.",
-      "source": "codex",
-      "recorded_at": "2026-09-12T23:21:03.085278+00:00"
-    },
-    {
-      "request_id": "a3e7e6f3-3935-4f47-9bfd-4e8262c57d31",
-      "level": "minor",
-      "supplied_missing_recall": false,
-      "summary": "Integrated coaching supplied minor assistance.",
-      "source": "codex",
-      "recorded_at": "2026-09-12T23:21:56.846994+00:00"
-    },
-    {
-      "request_id": "32b36115-3770-4632-b4d5-2c95149a6f5d",
-      "level": "guided",
-      "supplied_missing_recall": false,
-      "summary": "Integrated coaching supplied guided assistance.",
-      "source": "codex",
-      "recorded_at": "2026-09-12T23:24:48.715547+00:00"
-    },
-    {
-      "request_id": "21fbb5b4-12b1-45f4-8126-18c35e41ca7b",
-      "level": "guided",
-      "supplied_missing_recall": false,
-      "summary": "Integrated coaching supplied guided assistance.",
-      "source": "codex",
-      "recorded_at": "2026-09-12T23:56:07.162580+00:00"
-    },
-    {
-      "request_id": "e7f44ea8-dde1-4386-a79d-1242abd37560",
-      "level": "minor",
-      "supplied_missing_recall": false,
-      "summary": "Integrated coaching supplied minor assistance.",
-      "source": "codex",
-      "recorded_at": "2026-09-13T00:00:13.437517+00:00"
-    },
-    {
-      "request_id": "b3729882-9779-4c35-9397-c5fc3619820b",
-      "level": "minor",
-      "supplied_missing_recall": false,
-      "summary": "Integrated coaching supplied minor assistance.",
-      "source": "codex",
-      "recorded_at": "2026-09-13T00:08:41.794204+00:00"
-    },
-    {
-      "request_id": "8f512244-4fa8-4c16-b067-5bb7c51eddeb",
-      "level": "minor",
-      "supplied_missing_recall": false,
-      "summary": "Integrated coaching supplied minor assistance.",
-      "source": "codex",
-      "recorded_at": "2026-09-13T00:09:16.979555+00:00"
-    }
-  ],
+  "checkpoint_count": 0,
+  "assistance_log": [],
   "focus_extensions": [],
   "learning_event_paths": [
-    "progress/learning-events/20260912T230137084610Z-exposure-31f7b753.json"
+    "progress/learning-events/20260930T184141925644Z-exposure-0f3173ad.json"
   ],
   "substantial_gate_recorded": false,
-  "workflow_version": 3,
-  "session_id": "81e668b362e441fabaefa51c6fd48fac",
-  "revision": 103,
-  "activity": "learn",
+  "workflow_version": 4,
+  "session_id": "1508cf8d33cc4460a68f5db83d4873a9",
+  "revision": 4,
+  "activity": "implement",
   "assessment_mode": "practice",
   "unseen": false,
-  "phase": "learning",
+  "phase": "recall",
   "timing": {
-    "recall": 903.7069999999999,
-    "learning": 1127.2620000000002
+    "recall": 16.916
   },
-  "phase_started_at": "2026-09-13T00:09:19.030042+00:00",
+  "phase_started_at": null,
   "budget_minutes": 60,
   "content_version": 2,
   "rubric_version": 2,
@@ -98,100 +32,7 @@
     "sequence-start-recognition",
     "amortized-linear-scans"
   ],
-  "code_digest": "93a90764942c5d1b6926554e62ea82538de3f10be6ce1909c0b269eed1421caa",
-  "practice": {
-    "practice_id": "ff2ebb00b1fe457680ac5a60761f41e2",
-    "workflow_version": 3,
-    "started_at": "2026-09-12T23:00:34.976963+00:00",
-    "budget_minutes": 60,
-    "include_new": true,
-    "status": "active",
-    "index": 1,
-    "stages": [
-      {
-        "type": "repair",
-        "error_id": "f1c63de3b98d409c99ab98977d7575ca",
-        "label": "Apply a corrected rule",
-        "minutes": 5,
-        "status": "skipped"
-      },
-      {
-        "type": "recall",
-        "activity": "recall",
-        "problem_id": "arrays-003-longest-streak",
-        "label": "Brief retrieval",
-        "minutes": 5,
-        "status": "active"
-      },
-      {
-        "type": "main",
-        "problem_id": "arrays-001-pair-sum",
-        "activity": "implement",
-        "label": "Main activity",
-        "minutes": 60,
-        "status": "pending"
-      }
-    ],
-    "attempt_ids": [],
-    "repair_paths": [],
-    "timing": {
-      "repair": 61.761886999999994
-    },
-    "receipts": [],
-    "automatic_coaching": true,
-    "main_was_new": false,
-    "coach_checkpoints": {
-      "approach": true,
-      "check": true
-    }
-  },
-  "practice_session_id": "ff2ebb00b1fe457680ac5a60761f41e2",
-  "initial_reasoning": {
-    "approach": "I would use a set to deduplicate the numbers in the list and then because sets have O(1) membership checks I can quickly check if certain numbers exist in the set. For example, to determine the start of the streak (n), I can check if n - 1 exist in the set. I can also check for n + 1 to determine if the streak continues. I will have two nested loops but since sets have O(1) membership checks, the overall time complexity would still be O(n) worst case. An important edge case would be a streak of 1, where n + 1 doesn't exist so the default placeholder variable would have to be at least 1",
-    "quality": "complete",
-    "why": "Not recorded",
-    "invariant": "Not recorded",
-    "expected_complexity": "Not recorded",
-    "edge_case": "Not recorded",
-    "recorded_at": "2026-09-12T23:09:36.705356+00:00"
-  },
-  "first_checkpoint_passed": false,
-  "latest_checkpoint": {
-    "attempt": 8,
-    "checked_at": "2026-09-12T23:56:00.241622+00:00",
-    "passed_cases": 4,
-    "total_cases": 4,
-    "code_digest": "93a90764942c5d1b6926554e62ea82538de3f10be6ce1909c0b269eed1421caa",
-    "status": "complete"
-  },
-  "timing_uncertain": {
-    "reason": "App restarted. Confirm any study time since the last save."
-  },
-  "assessment_before_help": {
-    "activity": "recall",
-    "unseen": false,
-    "ended_at": "2026-09-12T23:20:30.846600+00:00",
-    "status": "ended_for_help",
-    "initial_reasoning": {
-      "approach": "I would use a set to deduplicate the numbers in the list and then because sets have O(1) membership checks I can quickly check if certain numbers exist in the set. For example, to determine the start of the streak (n), I can check if n - 1 exist in the set. I can also check for n + 1 to determine if the streak continues. I will have two nested loops but since sets have O(1) membership checks, the overall time complexity would still be O(n) worst case. An important edge case would be a streak of 1, where n + 1 doesn't exist so the default placeholder variable would have to be at least 1",
-      "quality": "complete",
-      "why": "Not recorded",
-      "invariant": "Not recorded",
-      "expected_complexity": "Not recorded",
-      "edge_case": "Not recorded",
-      "recorded_at": "2026-09-12T23:09:36.705356+00:00"
-    },
-    "code_digest": "76fbb672bdddcc98bba9b5845595edc056e384e648d671af72dd6d75f6bdc03f",
-    "latest_checkpoint": {
-      "attempt": 5,
-      "checked_at": "2026-09-12T23:18:00.865598+00:00",
-      "passed_cases": 0,
-      "total_cases": 4,
-      "code_digest": "76fbb672bdddcc98bba9b5845595edc056e384e648d671af72dd6d75f6bdc03f",
-      "status": "timeout"
-    },
-    "timing": {
-      "recall": 903.7069999999999
-    }
-  }
+  "sync_branch": "attempt/arrays-003-longest-streak-1508cf8d33cc",
+  "code_digest": "c5bd9a078519b715161c7ab8e0da48bf35c46de54066570ec3be57cec5128501",
+  "saved_at": "2026-10-01T18:59:38.621317+00:00"
 }
