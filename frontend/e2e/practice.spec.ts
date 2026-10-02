@@ -1259,3 +1259,84 @@ test("confirmed practice opens without waiting for a progress refresh", async ({
     release();
   }
 });
+
+for (const retry of [false, true]) {
+  test(`confirmed publication clears the saved-session prompt${retry ? " after retry" : " on finish"}`, async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(120000);
+    if (!retry) {
+      expect(
+        (await request.post("/__test__/publication-remote", { headers })).ok(),
+      ).toBe(true);
+    }
+    await start(page);
+    await idea(page);
+    await finish(page, true);
+    const saved = page.getByRole("region", { name: "Saved learning" });
+    if (retry) {
+      await expect(saved.getByRole("status")).toContainText("sync pending");
+      expect(
+        (await request.post("/__test__/publication-remote", { headers })).ok(),
+      ).toBe(true);
+      await saved
+        .getByRole("button", { name: "Review & publish", exact: true })
+        .click();
+      const dialog = page.getByRole("dialog", {
+        name: "Publish saved learning",
+      });
+      await dialog
+        .getByRole("button", {
+          name: "Publish 1 saved session(s)",
+          exact: true,
+        })
+        .click();
+      await expect(dialog).toHaveCount(0);
+    }
+    await expect(saved).toContainText(
+      "Saved locally and published to GitHub.",
+      { timeout: 60000 },
+    );
+    await expect(
+      saved.getByRole("button", { name: "Review & publish", exact: true }),
+    ).toHaveCount(0);
+    await page.reload();
+    await expect(saved).toContainText("Saved locally and published to GitHub.");
+    expect(
+      (await (await request.get("/api/state")).json()).unpublished_count,
+    ).toBe(0);
+    const records = await (await request.get("/__test__/records")).json();
+    expect(records.reviews).toHaveLength(1);
+  });
+}
+
+test("publication request errors stay visible inside the preview", async ({
+  page,
+}) => {
+  await start(page);
+  await idea(page);
+  await finish(page);
+  await page
+    .getByRole("button", { name: "Review & publish", exact: true })
+    .click();
+  expectedFailures.get(page)!.add("/api/action/publish");
+  await page.route("**/api/action/publish", (route) =>
+    route.fulfill({
+      status: 409,
+      contentType: "application/json",
+      body: JSON.stringify({
+        detail:
+          "The saved-session list changed. Review the publication preview again.",
+      }),
+    }),
+  );
+  const dialog = page.getByRole("dialog", { name: "Publish saved learning" });
+  await dialog
+    .getByRole("button", { name: "Publish 1 saved session(s)", exact: true })
+    .click();
+  await expect(dialog.getByRole("alert")).toContainText(
+    "Review the publication preview again.",
+  );
+  await expect(dialog).toBeVisible();
+});

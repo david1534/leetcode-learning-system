@@ -201,3 +201,81 @@ def test_fresh_practice_preserves_real_remote_drafts_and_can_resume_them(tmp_pat
     restored = third.choose_attempt(first_branch)["session"]
     assert restored["session_id"] == first_id and restored["code"] == first_code
     assert StudyService(third.root).state()["session"]["code"] == first_code
+
+
+def test_publication_acknowledgement_waits_for_busy_app(guided, monkeypatch):
+    import threading
+
+    from study.gitflow import GitResult
+
+    sid = guided.practice_start(include_new=True, synchronize=False)["session"]["session_id"]
+    guided.finish(sid, "unknown", "Saved after a first attempt.", stopped=True)
+    guided.publish(sid)
+    sync = guided.synchronizer
+    job = guided.store.json_documents(".study-local/outbox/")[0]
+    # Git has the exact approved snapshot; only its local acknowledgement remains.
+    monkeypatch.setattr(sync, "prepare", lambda: None)
+    monkeypatch.setattr(sync, "tree", lambda *args, **kwargs: job["artifacts"])
+    monkeypatch.setattr(sync, "git", lambda *args: "remote-head")
+    monkeypatch.setattr("study.gitflow.run_git", lambda *args: GitResult(0, "remote-head"))
+    entered = threading.Event()
+
+    def publish():
+        entered.set()
+        sync._background(False)
+
+    worker = threading.Thread(target=publish)
+    with guided.lock:
+        worker.start()
+        assert entered.wait(5)
+        worker.join(timeout=4.2)  # A progress request outlasts SQLite's busy timeout.
+    worker.join(timeout=5)
+    assert not worker.is_alive()
+    assert guided.state()["unpublished_count"] == 0
+    assert guided.state()["completion"]["published"] is True
+    assert guided.state()["sync"]["status"] == "synced"
+
+
+def test_completed_draft_cannot_block_publication_or_return_after_retry(tmp_path, repo_root):
+    remote, _ = seed_remote(tmp_path, repo_root)
+    service = prepared(clone(remote, tmp_path / "stale-backup"), repo_root)
+    sync = service.synchronizer
+    sid = service._session()["session_id"]
+    service.pause(synchronize=False)
+    sync.enqueue_draft()
+    older = service.store.json_documents(".study-local/outbox/")[0]
+    # Keep a failed older backup ahead of publication in the persistent queue.
+    service._delete_local("outbox/" + older["id"])
+    older["id"] = "000-old-backup"
+    service._write_local("outbox/" + older["id"], older)
+    state = service.state()["session"]
+    service.save_code(state["code"] + "\n# A later learner revision\n", state["revision"])
+    service.pause(synchronize=False)
+    sync.enqueue_draft()
+    newer = next(
+        job
+        for job in service.store.json_documents(".study-local/outbox/")
+        if job["id"] != older["id"]
+    )
+    sync.prepare()
+    sync._push(newer)
+    service.finish(sid, "good", "Preserve the later revision.", stopped=True)
+    service.publish(sid)
+    # Reopening the app must also recover jobs queued before this fix.
+    restarted = StudyService(service.root)
+    result = restarted.sync(wait=True)
+    assert result["status"] == "synced", result
+    assert restarted.state()["unpublished_count"] == 0
+    assert restarted.state()["completion"]["published"] is True
+    retained = restarted._read_local("outbox/" + older["id"])
+    assert retained["status"] == "superseded"
+    assert retained["artifacts"] == older["artifacts"]
+    observer = clone(remote, tmp_path / "published-observer")
+    assert [event["event_id"] for event in core.load_events(observer)] == [sid]
+    assert (
+        "later learner revision"
+        in (observer / "progress/attempts" / sid / "candidate.py").read_text()
+    )
+    head = git(observer, "rev-parse", "HEAD")
+    assert restarted.publish(sid, wait=True)["published"] is True
+    assert git(remote, "rev-parse", "main") == head
