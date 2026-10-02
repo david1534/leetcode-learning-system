@@ -1266,13 +1266,13 @@ for (const retry of [false, true]) {
     request,
   }) => {
     test.setTimeout(120000);
+    await start(page);
+    await idea(page);
     if (!retry) {
       expect(
         (await request.post("/__test__/publication-remote", { headers })).ok(),
       ).toBe(true);
     }
-    await start(page);
-    await idea(page);
     await finish(page, true);
     const saved = page.getByRole("region", { name: "Saved learning" });
     if (retry) {
