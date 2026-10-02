@@ -672,7 +672,7 @@ export default function App() {
                       ? "Start fresh practice"
                       : "Start practice"}
                 </button>
-                {w.state.sync.status === "pending" && (
+                {["pending", "syncing"].includes(w.state.sync.status) && (
                   <button
                     className="secondary"
                     disabled={w.busy}
