@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import json
+import logging
 import subprocess
 import tarfile
 import threading
@@ -13,7 +14,7 @@ from pathlib import Path
 from filelock import FileLock, Timeout
 
 from study import core, gitflow, policy
-from study.database import PUBLIC_PREFIXES, same_document
+from study.database import PUBLIC_PREFIXES, same_document, workspace_id
 from study.storage import atomic_text
 
 
@@ -127,7 +128,7 @@ class Synchronizer:
         return documents
 
     def _set(self, status, message):
-        with self.store.transaction():
+        with self.service.lock:
             return self.service._set_sync(status, message)
 
     def pull(self, wait=True, resume_saved=True):
@@ -499,24 +500,52 @@ class Synchronizer:
                 self.pull()
             self.run_jobs()
         except Exception:
-            # The local completion already committed; diagnostics middleware also
-            # handles foreground errors. A retry reconstructs this job from SQLite.
+            logging.getLogger("study." + workspace_id(self.service.root)).exception(
+                "Background synchronization interrupted"
+            )
+            # The local completion already committed. A retry uses the saved job.
             self._set("pending", "Saved locally; sync was interrupted. Retry synchronization.")
 
     def run_jobs(self):
         try:
             with self.guard:
-                jobs = [
-                    j
-                    for j in self.store.json_documents(".study-local/outbox/")
-                    if j["status"] in {"pending", "running"}
-                ]
+                # An enqueue may have woken us before its transaction committed.
+                with self.service.lock:
+                    jobs = [
+                        j
+                        for j in self.store.json_documents(".study-local/outbox/")
+                        if j["status"] in {"pending", "running"}
+                    ]
                 for job in jobs:
+                    with self.service.lock:
+                        latest = self.service._read_local("outbox/" + job["id"], {})
+                        if latest.get("status") not in {"pending", "running"}:
+                            continue
+                        # A closed activity has its final work archived. Keep old
+                        # backup snapshots locally without sending them again.
+                        if (
+                            job["kind"] == "draft"
+                            and job["session_ids"]
+                            and all(
+                                self.service._read_local("completions/" + sid)
+                                for sid in job["session_ids"]
+                            )
+                        ):
+                            latest["status"] = "superseded"
+                            latest.pop("error", None)
+                            self.service._write_local("outbox/" + job["id"], latest)
+                            continue
+                        self.service._set_sync(
+                            "syncing",
+                            "Publishing saved learning to GitHub..."
+                            if job["kind"] == "publish"
+                            else "Backing up the saved draft to GitHub...",
+                        )
                     try:
                         self.prepare()
                         self._push(job)
                     except (RuntimeError, OSError, subprocess.SubprocessError) as exc:
-                        with self.store.transaction():
+                        with self.service.lock:
                             latest = self.service._read_local("outbox/" + job["id"], {})
                             if latest.get("status") not in {"pending", "running"}:
                                 continue  # Keep a concurrent deferral authoritative.
@@ -530,7 +559,7 @@ class Synchronizer:
             return
 
     def _push(self, job):
-        with self.store.transaction():
+        with self.service.lock:
             latest = self.service._read_local("outbox/" + job["id"], {})
             if latest.get("status") not in {"pending", "running"}:
                 return

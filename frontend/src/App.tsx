@@ -603,6 +603,10 @@ export default function App() {
                       publish.
                     </p>
                   )}
+                  {w.state.unpublished_count > 0 &&
+                    ["pending", "syncing"].includes(w.state.sync.status) && (
+                      <p role="status">{w.state.sync.message}</p>
+                    )}
                 </div>
                 {w.state.unpublished_count > 0 && (
                   <button
@@ -668,7 +672,7 @@ export default function App() {
                       ? "Start fresh practice"
                       : "Start practice"}
                 </button>
-                {w.state.sync.status === "pending" && (
+                {["pending", "syncing"].includes(w.state.sync.status) && (
                   <button
                     className="secondary"
                     disabled={w.busy}
@@ -1462,7 +1466,9 @@ export default function App() {
                 ? "Last sync succeeded"
                 : w.state.sync.status === "pending"
                   ? "GitHub sync pending"
-                  : "Local practice"}
+                  : w.state.sync.status === "syncing"
+                    ? "Syncing with GitHub"
+                    : "Local practice"}
             </strong>
             <p>{w.state.sync.message}</p>
           </div>
@@ -1497,6 +1503,7 @@ export default function App() {
           cancel={() => setPublication(null)}
         >
           <h2 id="publish-title">Publish saved learning</h2>
+          {w.error && <p role="alert">{w.error}</p>}
           <p>Destination: {publication.destination}</p>
           <p>
             Your approved code, review evidence, and reflections will be public.

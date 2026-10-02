@@ -3,10 +3,13 @@
 import argparse
 import os
 import shutil
+import stat
+import subprocess
 import sys
 import tempfile
 import threading
 import time
+import uuid
 from pathlib import Path
 
 import uvicorn
@@ -65,6 +68,20 @@ def main():
         def reset():
             slow_progress.clear()
             app.state.coach.disconnect()
+            worker = app.state.service.synchronizer.worker
+            if worker:
+                worker.join(timeout=20)
+                if worker.is_alive():
+                    raise RuntimeError("Fixture synchronization has not stopped.")
+
+            def writable_remove(function, path, error):
+                os.chmod(path, stat.S_IWRITE)
+                function(path)
+
+            for target in (root / ".git", app.state.service.synchronizer.root):
+                assert target.resolve().is_relative_to(Path(directory).resolve())
+                if target.exists():
+                    shutil.rmtree(target, onexc=writable_remove)
             with app.state.service.lock:
                 app.state.service.store.delete_tree("")
                 app.state.coach.settings = ConnectionSettings()
@@ -77,6 +94,24 @@ def main():
                     "effort": None,
                 }
             return {"reset": True}
+
+        @app.post("/__test__/publication-remote")
+        def publication_remote():
+            remote = Path(directory) / ("remote-" + uuid.uuid4().hex + ".git")
+
+            def git(cwd, *args):
+                subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True, timeout=20)
+
+            git(root, "init", "--bare", str(remote))
+            git(root, "init", "-b", "main")
+            git(root, "config", "user.name", "Browser Fixture")
+            git(root, "config", "user.email", "fixture@example.invalid")
+            git(root, "add", "curriculum", "pyproject.toml")
+            git(root, "commit", "-m", "test: seed publication fixture")
+            git(root, "remote", "add", "origin", str(remote))
+            git(root, "push", "origin", "HEAD:main")
+            git(remote, "symbolic-ref", "HEAD", "refs/heads/main")
+            return {"ready": True}
 
         @app.post("/__test__/remote-drafts")
         def remote_drafts():

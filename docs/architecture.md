@@ -38,7 +38,7 @@ A newer candidate left after an already-recorded completion is preserved as an e
 
 Git operates only in the private export checkout. Draft snapshots contain the supported candidate/session files and scoped learning events. Each new attempt uses a distinct draft branch; conflicts preserve both versions. Publication captures the approved artifact set and session IDs, and a changed batch requires a fresh preview. Immutable published evidence is never overwritten to resolve a conflict. Retrying a rejected publication rebuilds its scoped commit on current main, while newer published solution/reflection pointers take precedence over older offline records.
 
-The pending-work records retain explicit publication intent across restart. Worker failure never changes a successful local completion into a failed save. The UI distinguishes the current editor save from the last synchronization result.
+The pending-work records retain explicit publication intent across restart. The worker retires queued draft backups when their original session already has a completion receipt, preserving their snapshots locally without allowing stale backups to block publication. Synchronization state writes queue through the shared service lock before opening SQLite transactions. Publication progress and failure are visible beside saved work; errors submitting the preview stay inside its dialog. Worker failure never changes a successful local completion into a failed save. The UI distinguishes the current editor save from the last synchronization result.
 
 ## Runtime and API boundaries
 
