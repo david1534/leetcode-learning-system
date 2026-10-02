@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "event_id": "0f3173ad24f74de1b65c253d47c62573",
+  "recorded_at": "2026-09-30T18:41:41.925644+00:00",
+  "event_type": "exposure",
+  "problem_id": "arrays-003-longest-streak",
+  "session_id": "1508cf8d33cc4460a68f5db83d4873a9",
+  "activity": "implement",
+  "content_version": 2
+}

@@ -1,0 +1,56 @@
+{
+  "schema_version": 4,
+  "event_id": "1508cf8d33cc4460a68f5db83d4873a9",
+  "session_id": "1508cf8d33cc4460a68f5db83d4873a9",
+  "problem_id": "arrays-003-longest-streak",
+  "topic": "arrays-hashing",
+  "kind": "core",
+  "reviewed_at": "2026-10-02T01:39:17.534224+00:00",
+  "recall_at": "2026-10-02T01:23:41.266764+00:00",
+  "rating": "easy",
+  "minutes": 18.52,
+  "timing": {
+    "recall": 174.91499999999994,
+    "implementation": 832.456,
+    "administration": 103.80299999999998
+  },
+  "timing_adjusted": false,
+  "activity": "implement",
+  "attempt_kind": "review",
+  "unseen": false,
+  "recall_outcome": "success",
+  "recall_quality": "complete",
+  "assistance_level": "guided",
+  "assistance_count": 2,
+  "hints_used": 0,
+  "first_checkpoint_passed": false,
+  "tests_passed": true,
+  "explained": true,
+  "assessment": {
+    "constraints_met": true,
+    "dimensions": {},
+    "explanation_source": "learner_report",
+    "constraints_source": "learner_report",
+    "status": "completed"
+  },
+  "skill_ids": [
+    "set-membership",
+    "sequence-start-recognition",
+    "amortized-linear-scans"
+  ],
+  "content_version": 2,
+  "rubric_version": 2,
+  "scheduler": {
+    "library": "fsrs",
+    "version": "6.3.2",
+    "desired_retention": 0.9,
+    "learning_steps": [],
+    "relearning_steps": [],
+    "enable_fuzzing": false
+  },
+  "code_digest": "f196a679454857ca87c276297090da95d0bd2198ff521125b9cf71f0b31990f5",
+  "workflow_version": 4,
+  "practice_session_id": null,
+  "evidence": [],
+  "timing_uncertain": null
+}
