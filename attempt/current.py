@@ -1,2 +1,3 @@
 def product_of_others(nums: list[int]) -> list[int]:
-    for i in nums: 
+    for index, value in enumerate(nums):
+        
