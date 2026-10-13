@@ -287,6 +287,68 @@ test("ordinary coaching needs no mode conversion and remains on request", async 
   expect(state.assistance_log).toHaveLength(1);
 });
 
+test("coach composer sends Enter and keeps Shift+Enter for a new line", async ({
+  page,
+  request,
+}) => {
+  await start(page);
+  await idea(page);
+  await connect(page);
+  const composer = page.getByRole("textbox", {
+    name: "Ask your learning coach",
+  });
+  await composer.fill("   ");
+  await composer.press("Enter");
+  expect(
+    (await (await request.get("/api/coach/status")).json()).requests,
+  ).toHaveLength(0);
+
+  await composer.fill("I tried the first example");
+  const composingEnterWasIgnored = await composer.evaluate((element) =>
+    element.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Enter",
+        bubbles: true,
+        cancelable: true,
+        isComposing: true,
+      }),
+    ),
+  );
+  expect(composingEnterWasIgnored).toBe(true);
+  await composer.press("Shift+Enter");
+  await composer.type("but I am unsure about the next step.");
+  const question =
+    "I tried the first example\nbut I am unsure about the next step.";
+  await expect(composer).toHaveValue(question);
+  expect(
+    (await (await request.get("/api/coach/status")).json()).requests,
+  ).toHaveLength(0);
+
+  await composer.press("Enter");
+  await expect(composer).toHaveValue("");
+  await expect
+    .poll(
+      async () =>
+        (await (await request.get("/api/coach/status")).json()).requests.length,
+    )
+    .toBe(1);
+  const first = (await (await request.get("/api/coach/status")).json())
+    .requests[0];
+  expect(first.message).toBe(question);
+  await expect(page.locator(".coach-message")).toContainText(
+    "Trace one small example",
+  );
+
+  await composer.fill("Can we check another example?");
+  await composer.press("Control+Enter");
+  await expect
+    .poll(
+      async () =>
+        (await (await request.get("/api/coach/status")).json()).requests.length,
+    )
+    .toBe(2);
+});
+
 test("explicit assessments wait for conversion and preserve pre-help work", async ({
   page,
   request,
@@ -776,6 +838,66 @@ test("configure company before practice, remember it, and switch without losing 
   await expect(page.locator(".coach-message").last()).toContainText(
     "Trace one small example",
   );
+  const coach = page.getByRole("complementary", { name: "Codex coach" });
+  const question = coach.getByRole("textbox", {
+    name: "Ask your learning coach",
+    exact: true,
+  });
+  const preview = coach.locator(".coach-composer .checkbox");
+  const sendButton = coach.getByRole("button", { name: "Send", exact: true });
+  await expect(sendButton).toBeVisible();
+  const [connection, usage, change, input, choice, action, composer] =
+    await Promise.all([
+      coach.getByText("Company", { exact: true }).boundingBox(),
+      coach
+        .getByText("Usage managed by your organization", { exact: true })
+        .boundingBox(),
+      coach
+        .getByRole("button", { name: "Change connection", exact: true })
+        .boundingBox(),
+      question.boundingBox(),
+      preview.boundingBox(),
+      sendButton.boundingBox(),
+      coach.locator(".coach-composer").boundingBox(),
+    ]);
+  expect(Math.abs(connection!.x - input!.x)).toBeLessThan(2);
+  expect(Math.abs(usage!.x - input!.x)).toBeLessThan(2);
+  expect(
+    Math.abs(change!.x + change!.width - input!.x - input!.width),
+  ).toBeLessThan(2);
+  expect(composer!.height).toBeLessThan(180);
+  expect(choice!.y - input!.y - input!.height).toBeLessThan(28);
+  expect(
+    Math.abs(choice!.y + choice!.height / 2 - action!.y - action!.height / 2),
+  ).toBeLessThan(2);
+  await coach.screenshot({ path: "test-results/coach-company-desktop.png" });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const mobileChoice = await preview.boundingBox();
+  const mobileAction = await sendButton.boundingBox();
+  expect(mobileChoice!.x + mobileChoice!.width).toBeLessThan(mobileAction!.x);
+  expect(
+    Math.abs(
+      mobileChoice!.y +
+        mobileChoice!.height / 2 -
+        mobileAction!.y -
+        mobileAction!.height / 2,
+    ),
+  ).toBeLessThan(2);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await coach.screenshot({ path: "test-results/coach-company-mobile.png" });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.getByLabel("Settings", { exact: true }).click();
+  await page
+    .getByRole("combobox", { name: "Theme", exact: true })
+    .selectOption("light");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await page.getByLabel("Settings", { exact: true }).click();
+  await coach.screenshot({ path: "test-results/coach-company-light.png" });
   const before = (await (await request.get("/api/state")).json()).session;
   await page
     .getByRole("button", { name: "Change connection", exact: true })

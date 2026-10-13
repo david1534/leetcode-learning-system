@@ -40,6 +40,7 @@ export default function CoachPanel({
   const [allowCode, setAllowCode] = useState(false);
   const [error, setError] = useState("");
   const [sending, setSending] = useState(false);
+  const sendingRef = useRef(false);
   const [conversion, setConversion] = useState(false);
   const [preferencesOpen, setPreferencesOpen] = useState(false);
   const [auto, setAuto] = useState(status?.preferences.automatic ?? false);
@@ -84,12 +85,22 @@ export default function CoachPanel({
         ...changes,
       }),
     );
+  const canSend =
+    !!message.trim() &&
+    !sending &&
+    !converting &&
+    !busy &&
+    !status?.active_request &&
+    status?.connection === "connected" &&
+    !status.usage.blocked &&
+    !!(session.initial_reasoning || session.activity === "learn");
   const submit = async () => {
-    if (sending || converting || busy) return;
+    if (!canSend || sendingRef.current) return;
     if (independent) {
       setConversion(true);
       return;
     }
+    sendingRef.current = true;
     setSending(true);
     try {
       await send(message, "question", allowCode);
@@ -97,6 +108,7 @@ export default function CoachPanel({
     } catch (e) {
       setError((e as Error).message);
     } finally {
+      sendingRef.current = false;
       setSending(false);
     }
   };
@@ -150,21 +162,25 @@ export default function CoachPanel({
           )}
         </div>
       </header>
-      <div className="coach-connection-label">
-        <span>
-          {status?.selected_connection
-            ? companyConnection
-              ? "Company"
-              : "Personal ChatGPT"
-            : "Choose a connection"}
-        </span>
-        <button className="text-button" onClick={openConnection}>
-          Change connection
-        </button>
+      <div className="coach-connection-summary">
+        <div className="coach-connection-label">
+          <span>
+            {status?.selected_connection
+              ? companyConnection
+                ? "Company"
+                : "Personal ChatGPT"
+              : "Choose a connection"}
+          </span>
+          <button className="text-button" onClick={openConnection}>
+            Change connection
+          </button>
+        </div>
+        {companyConnection && (
+          <p className="muted coach-connection-hint">
+            Usage managed by your organization
+          </p>
+        )}
       </div>
-      {companyConnection && (
-        <p className="muted">Usage managed by your organization</p>
-      )}
       {status?.connection === "connected" ? (
         status.usage.blocked ? (
           <div className="coach-usage-warning warning-text" role="status">
@@ -373,24 +389,29 @@ export default function CoachPanel({
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           placeholder="Ask a question or explain where you’re stuck…"
-          rows={3}
+          aria-description="Enter to send. Shift+Enter for a new line."
+          rows={2}
           onKeyDown={(e) => {
-            if (e.ctrlKey && e.key === "Enter") {
-              e.preventDefault();
-              void submit();
-            }
+            if (
+              e.key !== "Enter" ||
+              e.shiftKey ||
+              e.nativeEvent.isComposing ||
+              e.nativeEvent.keyCode === 229
+            )
+              return;
+            e.preventDefault();
+            void submit();
           }}
         />
-        <label className="checkbox">
-          <input
-            type="checkbox"
-            checked={allowCode}
-            onChange={(e) => setAllowCode(e.target.checked)}
-          />
-          Allow a code preview
-        </label>
-        <div className="button-row">
-          <span className="spacer" />
+        <div className="coach-composer-actions">
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={allowCode}
+              onChange={(e) => setAllowCode(e.target.checked)}
+            />
+            Allow a code preview
+          </label>
           {status?.active_request ? (
             <button
               type="button"
@@ -401,18 +422,7 @@ export default function CoachPanel({
               Stop coach
             </button>
           ) : (
-            <button
-              className="primary"
-              disabled={
-                sending ||
-                converting ||
-                busy ||
-                !message.trim() ||
-                status?.connection !== "connected" ||
-                status?.usage.blocked ||
-                (!session.initial_reasoning && session.activity !== "learn")
-              }
-            >
+            <button type="submit" className="primary" disabled={!canSend}>
               <Send size={15} />
               Send
             </button>
