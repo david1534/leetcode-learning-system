@@ -573,14 +573,14 @@ class StudyService(GuidedSession):
             return self.state()
 
     def hint(self, revision=None, retried=False, session_id=None):
+        # Keep retried for older CLI and HTTP callers; a saved retry is optional.
         with self.lock:
             session = self._session(revision, session_id)
-            if session.get("workflow_version", 0) >= 3:
-                if session.get("assessment_mode", "independent") == "independent":
-                    raise RuntimeError("Switch to guided practice before revealing a hint.")
-                retried = len(session.get("reasoning_retries", [])) > session.get(
-                    "last_hint_retry", 0
-                )
+            if (
+                session.get("workflow_version", 0) >= 3
+                and session.get("assessment_mode", "independent") == "independent"
+            ):
+                raise RuntimeError("Switch to guided practice before revealing a hint.")
             if not session.get("initial_reasoning") and session["activity"] != "learn":
                 raise RuntimeError("Record your initial attempt before asking for a hint.")
             p = core.problem_by_id(self.root, session["problem_id"])
@@ -590,20 +590,9 @@ class StudyService(GuidedSession):
                     "message": "The hint ladder is complete. Ask Codex for a worked example.",
                     **self.state(),
                 }
-            if (
-                used
-                and not retried
-                and session.get("code_digest") == session.get("last_hint_digest")
-            ):
-                raise RuntimeError(
-                    "Retry the reasoning or code before the next hint; acknowledge a "
-                    "reasoning retry when appropriate."
-                )
             text = p["hints"][used]
             level = p.get("hint_levels", ["minor", "guided", "substantial"])[used]
             session["hints_used"] = used + 1
-            session["last_hint_digest"] = session["code_digest"]
-            session["last_hint_retry"] = len(session.get("reasoning_retries", []))
             session.setdefault("assistance_log", []).append(
                 {
                     "level": level,

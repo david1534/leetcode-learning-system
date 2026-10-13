@@ -160,8 +160,11 @@ def test_start_hint_and_test_lifecycle(monkeypatch, tmp_path, capsys):
     session = core.load_session(root)
     assert session["assistance_log"][0]["level"] == "guided"
     assert session["assistance_log"][0]["source"] == "formal_hint"
-    assert main(["hint"]) == 2
-    assert "Retry the reasoning or code" in capsys.readouterr().err
+    assert main(["hint"]) == 0
+    assert "Hint:" in capsys.readouterr().out
+    session = core.load_session(root)
+    assert session["hints_used"] == 2
+    assert len(session["assistance_log"]) == 2
     assert main(["test"]) == 1
 
 
