@@ -552,6 +552,7 @@ class GuidedSession:
                 "reasoning": session.get("initial_reasoning"),
                 "code": code,
                 "retries": session.get("reasoning_retries", []),
+                "revealed_hints": session.get("revealed_hints", [])[-3:] if not independent else [],
                 "check": safe_check,
                 "takeaways": memory[-3:],
                 "activity": session["activity"],

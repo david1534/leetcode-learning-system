@@ -9,21 +9,9 @@ from types import SimpleNamespace
 import pytest
 from test_guided import repair_setup
 
-from study.coach import attempted_again
 from study.codex_runtime import CodexRuntime
 from study.gitflow import GitFlowError
 from study.service import Conflict, StudyService
-
-
-@pytest.mark.parametrize("code", ["def example(): return 1", "def example(): return 2"])
-def test_original_and_proposed_code_are_not_a_learner_retry(code):
-    prior = {
-        "context": {"code": "def example(): return 1", "retries": []},
-        "proposed_code": "def example(): return 2",
-    }
-    assert not attempted_again({"code": code, "retries": []}, prior)
-    assert attempted_again({"code": "def example(): return 3", "retries": []}, prior)
-    assert attempted_again({"code": code, "retries": [{"answer": "A fresh trace."}]}, prior)
 
 
 @pytest.mark.parametrize("was_paused", [False, True])

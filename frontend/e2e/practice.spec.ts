@@ -349,6 +349,45 @@ test("coach composer sends Enter and keeps Shift+Enter for a new line", async ({
     .toBe(2);
 });
 
+test("follow-up coaching and hints do not require a saved reasoning retry", async ({
+  page,
+  request,
+}) => {
+  await start(page);
+  await idea(page);
+  await connect(page);
+  const composer = page.getByRole("textbox", {
+    name: "Ask your learning coach",
+  });
+  await page.getByRole("checkbox", { name: "Allow a code preview" }).check();
+  await composer.fill("Please explain the first step.");
+  await composer.press("Enter");
+  await expect(page.getByText("Preview proposed code change")).toHaveCount(1);
+
+  await composer.fill("I still need help. Please explain the next step.");
+  await composer.press("Enter");
+  await expect(page.getByText("Preview proposed code change")).toHaveCount(2);
+  const coach = (await (await request.get("/api/coach/status")).json())
+    .requests;
+  expect(coach.map((reply: { status: string }) => reply.status)).toEqual([
+    "completed",
+    "completed",
+  ]);
+  expect(coach[1].reply).not.toContain("Save your reasoning retry");
+
+  await page
+    .getByRole("button", { name: "Give me a hint", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Give me a hint", exact: true })
+    .click();
+  const session = (await (await request.get("/api/state")).json()).session;
+  expect(session.hints_used).toBe(2);
+  expect(session.revealed_hints).toHaveLength(2);
+  expect(session.reasoning_retries ?? []).toEqual([]);
+  expect(session.assistance_log).toHaveLength(4);
+});
+
 test("explicit assessments wait for conversion and preserve pre-help work", async ({
   page,
   request,

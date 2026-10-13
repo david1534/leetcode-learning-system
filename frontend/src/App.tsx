@@ -1339,7 +1339,9 @@ export default function App() {
                                   </p>
                                 ))}
                                 <details>
-                                  <summary>Record a reasoning retry</summary>
+                                  <summary>
+                                    Save a reasoning retry (optional)
+                                  </summary>
                                   <label htmlFor="retry">
                                     What did you try or change?
                                   </label>
