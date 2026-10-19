@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+import study.coach as coach_module
 from study.app import create_app
 from study.coach import Coach, CoachRequest, allowance
 from study.codex_runtime import CONFIG, SUPPORTED_VERSIONS, CodexRuntime
@@ -249,20 +250,66 @@ def test_completed_reply_is_reconciled_without_resending(coach):
     assert len(coach.service.state()["session"]["assistance_log"]) == 1
 
 
-def test_more_substantive_help_needs_a_saved_retry(coach):
+def test_more_substantive_help_does_not_need_a_saved_retry(coach):
     coach.connect()
     coach.service.convert_to_practice()
-    coach.submit(request(coach))
-    wait(coach)
-    coach.submit(request(coach, allow_code=True))
-    assert wait(coach)["status"] == "retry_required"
-    assert len(coach.service.state()["session"]["assistance_log"]) == 1
-    coach.service.record_retry(
-        "On the values 2 and 5, I check whether the earlier value completes 7."
+    first = request(coach, "Explain the first step.", allow_code=True)
+    coach.submit(first)
+    assert wait(coach)["assistance"] == "substantial"
+    second = request(coach, "I still need help with the next step.", allow_code=True)
+    coach.submit(second)
+    result = wait(coach)
+    assert result["status"] == "completed"
+    assert result["assistance"] == "substantial"
+    assert "Save your reasoning retry" not in result["reply"]
+    session = coach.service.state()["session"]
+    assert not session.get("reasoning_retries")
+    assert [event["request_id"] for event in session["assistance_log"]] == [
+        first.request_id,
+        second.request_id,
+    ]
+    assert coach.service.evaluate()["assistance_level"] == "substantial"
+
+
+def test_changed_coach_instructions_start_a_new_thread_with_same_connection_history(
+    coach, monkeypatch
+):
+    coach.connect()
+    coach.service.convert_to_practice()
+    monkeypatch.setattr(coach_module, "COACH_INSTRUCTIONS_VERSION", 1)
+    first = request(coach, "Please explain the previous idea.", allow_code=True)
+    coach.submit(first)
+    first_result = wait(coach)
+    first_thread = coach._load("requests/" + first.request_id)["thread_id"]
+    foreign = coach._load("requests/" + first.request_id).copy()
+    foreign.update(
+        request_id=uuid.uuid4().hex,
+        connection_id="another-connection",
+        connection_mode="company",
+        message="Private question from another connection.",
+        reply="Private coaching from another connection.",
     )
-    coach.submit(request(coach, allow_code=True))
+    coach._save("requests/" + foreign["request_id"], foreign)
+    captured = []
+    original_call = coach.runtime.call
+
+    def capture(method, params=None):
+        if method == "turn/start":
+            captured.append(json.loads(params["input"][0]["text"]))
+        return original_call(method, params)
+
+    monkeypatch.setattr(coach.runtime, "call", capture)
+    monkeypatch.setattr(coach_module, "COACH_INSTRUCTIONS_VERSION", 2)
+    second = request(coach, "What does that explanation mean?", allow_code=True)
+    coach.submit(second)
     assert wait(coach)["status"] == "completed"
-    assert len(coach.service.state()["session"]["assistance_log"]) == 2
+    second_thread = coach._load("requests/" + second.request_id)["thread_id"]
+    assert second_thread != first_thread
+    assert captured[0]["previous_coaching"] == [
+        {"learner": first.message, "coach": first_result["reply"]}
+    ]
+    assert "retry_required" not in captured[0]
+    assert "Private coaching from another connection" not in json.dumps(captured[0])
 
 
 def test_login_cancel_and_api_key_session_remain_optional(coach, monkeypatch):

@@ -557,7 +557,7 @@ def build_parser() -> argparse.ArgumentParser:
     error.add_argument("--corrected-rule", required=True)
     error.add_argument("--repair-prompt", required=True)
     hint = commands.add_parser("hint", help="reveal the next progressive hint")
-    hint.add_argument("--retried", action="store_true", help="confirm a reasoning retry")
+    hint.add_argument("--retried", action="store_true", help=argparse.SUPPRESS)
     commands.add_parser("test", help="run cases for the active attempt")
     checkpoint_command = commands.add_parser(
         "checkpoint", help="run cases and save a local checkpoint"

@@ -183,14 +183,17 @@ def test_switching_preserves_code_evidence_preferences_and_conversation_boundari
     value.submit(request(value, allow_code=True))
     second = wait(value)
     value.worker.join()
-    assert second["status"] == "retry_required"
+    assert second["status"] == "completed"
+    assert second["assistance"] == "substantial"
     assert second["connection_id"] == "personal"
     assert (
         value._load("requests/" + first["request_id"])["thread_id"]
         != value._load("requests/" + second["request_id"])["thread_id"]
     )
     assert value.service._code() == code
-    assert value.service._session()["assistance_log"] == assistance
+    updated_assistance = value.service._session()["assistance_log"]
+    assert updated_assistance[: len(assistance)] == assistance
+    assert updated_assistance[-1]["level"] == "substantial"
     value.save_connection(ConnectionUpdate(selected="company", company=company()))
     assert value.preferences["automatic"] is True
     assert value.preferences["check"] is False

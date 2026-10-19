@@ -17,11 +17,13 @@ def test_parent_session_and_conversion_preserve_original_assessment(guided):
     with pytest.raises(RuntimeError, match="Switch"):
         guided.hint()
     guided.convert_to_practice()
-    guided.hint()
-    with pytest.raises(RuntimeError, match="Retry"):
-        guided.hint(retried=True)
+    first_hint = guided.hint()
+    second_hint = guided.hint()
+    assert first_hint["hint"] != second_hint["hint"]
+    assert guided._session()["hints_used"] == 2
+    assert len(guided._session()["assistance_log"]) == 2
+    assert guided.coach_context()["revealed_hints"] == guided._session()["revealed_hints"]
     guided.record_retry("I traced two values and kept the earlier index separately.")
-    guided.hint()
     receipt = guided.practice_finish(sid, "again", "Check the earlier values first.", stopped=True)
     events = core.load_events(guided.root)
     assert len(events) == 1

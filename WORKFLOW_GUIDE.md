@@ -26,11 +26,11 @@ You can continue typing while an earlier save is awaiting acknowledgement. The a
 
 ## Ask for help when needed
 
-Ordinary practice offers help directly after your initial attempt. Use **Ask coach**, **Give me a hint**, or **Study a worked example**. Assistance is recorded according to what it supplied. Try the reasoning or code again before requesting another step of help.
+Ordinary practice offers help directly after your initial attempt. Use **Ask coach**, **Give me a hint**, or **Study a worked example**. Assistance is recorded according to what it supplied. Trying the reasoning or code again is useful, but you can ask for clarification or another hint without saving a retry. Use **Save a reasoning retry (optional)** in Problem if you want to keep what you tried.
 
 An explicit independent assessment is different: conceptual help first offers **Continue independently** or **Switch to guided practice**. Switching preserves the original assessment and pre-help candidate. Assisted completion cannot become an unseen independent transfer pass.
 
-A worked example preserves your candidate and marks assisted learning. Trace it, explain a step, and then attempt an incomplete example or fresh implementation. A proposed code change is previewed; applying it requires **Apply this change** and a new test run. Viewing a preview, keeping the original code, or applying the proposed code unchanged does not count as a fresh learner retry before another substantive hint.
+A worked example preserves your candidate and marks assisted learning. Trace it, explain a step, and then attempt an incomplete example or fresh implementation. A proposed code change is previewed; applying it requires **Apply this change** and a new test run. Viewing a preview, keeping the original code, or applying the proposed code unchanged does not count as a learner-generated retry. The help shown is still recorded as assistance.
 
 Open **Settings → Coaching connection** before connecting. A new installation suggests Personal ChatGPT or Company from local configuration; review and save your choice once. Existing personal sign-in and history retain Personal. The choice and settings stay on this computer.
 
@@ -38,7 +38,7 @@ For **Personal ChatGPT**, choose **Connect Codex** and **Sign in with ChatGPT**.
 
 For **Company**, enter the HTTPS API base URL, default model, reasoning effort, credential environment-variable name, and optional organization ID. **Use detected settings** fills an editable snapshot from local Codex settings. After saving, Practice Room uses its independent configuration. Enter only a variable name (for example `OPENAI_API_KEY`), never the key itself; after setting the variable in your terminal, run `Start Study.cmd app --restart` from that terminal so the server receives the updated environment. The organization ID is sent as the provider's organization header. Usage is managed by your organization, without a personal allowance meter. Authentication, model-access, throttling, or connectivity failures remain on Company until you explicitly choose another connection.
 
-Practice Room owns its pinned CLI and verifies restricted personal/company configurations. It leaves global Codex settings alone. **Stop coach** and **Stop tests** control separate processes. Finish or stop a running reply before changing connections. Conversations and uncertain-request reconciliation belong to their original connection; switching preserves your code, recorded assistance, and retry requirement.
+Practice Room owns its pinned CLI and verifies restricted personal/company configurations. It leaves global Codex settings alone. **Stop coach** and **Stop tests** control separate processes. Finish or stop a running reply before changing connections. Conversations and uncertain-request reconciliation belong to their original connection; switching preserves your code and recorded assistance.
 
 Automatic coaching starts off for a new connection. Model, effort, and automatic-checkpoint preferences are saved separately for each connection. Approach and test-result checkpoints can be enabled separately. Personal automatic checkpoints conserve allowance at 20% remaining. Reconnection reconciles an uncertain request instead of sending it twice. An expired personal sign-in requires signing in again before a new question is queued; late notifications from a retired coach process cannot disconnect the new connection. Full conversations and all connection settings remain private on this computer. Pause/Sync transfers learning work between computers, while each uses its own saved connection.
 
@@ -110,7 +110,7 @@ Use the installed interpreter, for example `.venv\Scripts\python.exe -m study <c
 | Record help | `study note assistance --level <minor|guided|substantial> --summary "..."` |
 | Check / interrupt code | `study checkpoint --json` / `study stop` |
 | Independent assessment to guided | `study guided` |
-| Record a reasoning retry | `study retry "..."` |
+| Save an optional reasoning retry | `study retry "..."` |
 | Pause / retry synchronization | `study pause` / `study sync` |
 | Finish through a summary | `study complete` |
 | Finish locally | `study finish --rating <again|hard|good|easy|unknown> --takeaway "..."` |
