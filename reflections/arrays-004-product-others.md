@@ -2,5 +2,5 @@
 
 No takeaway recorded.
 
-Activity: learn. Recall: again. Assistance: substantial.
+Activity: implement. Recall: again. Assistance: substantial.
 Explanation recorded: False. Constraints checked: False.

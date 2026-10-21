@@ -1,0 +1,44 @@
+{
+  "practice_id": "87fc53d8987d49e4ae81438b6985082f",
+  "workflow_version": 4,
+  "status": "completed",
+  "completed_at": "2026-10-21T13:59:52.010816+00:00",
+  "started_at": "2026-10-04T22:58:10.706804+00:00",
+  "minutes": 56.365,
+  "timing": {
+    "recall": 54.38,
+    "implementation": 3327.5039999999976
+  },
+  "attempt_ids": [
+    "87fc53d8987d49e4ae81438b6985082f"
+  ],
+  "main_attempt_id": "87fc53d8987d49e4ae81438b6985082f",
+  "main_activity": "implement",
+  "main_was_new": false,
+  "coaching": {
+    "turns": 19,
+    "interruptions": 0,
+    "latency_seconds": [
+      26.047,
+      23.452,
+      20.234,
+      23.391,
+      16.225,
+      15.245,
+      25.565,
+      27.686,
+      17.436,
+      26.589,
+      11.942,
+      15.65,
+      13.7,
+      21.713,
+      11.483,
+      27.219,
+      26.022,
+      13.344,
+      13.922
+    ],
+    "escalations": 3
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "schema_version": 4,
+  "event_id": "87fc53d8987d49e4ae81438b6985082f",
+  "session_id": "87fc53d8987d49e4ae81438b6985082f",
+  "problem_id": "arrays-004-product-others",
+  "topic": "arrays-hashing",
+  "kind": "core",
+  "reviewed_at": "2026-10-21T13:59:52.010816+00:00",
+  "recall_at": "2026-10-04T22:59:05.153765+00:00",
+  "rating": "again",
+  "minutes": 56.365,
+  "timing": {
+    "recall": 54.38,
+    "implementation": 3327.5039999999976
+  },
+  "timing_adjusted": false,
+  "activity": "implement",
+  "attempt_kind": "review",
+  "unseen": false,
+  "recall_outcome": "failure",
+  "recall_quality": "failed",
+  "assistance_level": "substantial",
+  "assistance_count": 10,
+  "hints_used": 0,
+  "first_checkpoint_passed": false,
+  "tests_passed": false,
+  "explained": false,
+  "assessment": {
+    "constraints_met": false,
+    "dimensions": {},
+    "explanation_source": "learner_report",
+    "constraints_source": "learner_report",
+    "status": "stopped"
+  },
+  "skill_ids": [
+    "prefix-suffix-decomposition",
+    "in-place-accumulation",
+    "zero-handling"
+  ],
+  "content_version": 2,
+  "rubric_version": 2,
+  "scheduler": {
+    "library": "fsrs",
+    "version": "6.3.2",
+    "desired_retention": 0.9,
+    "learning_steps": [],
+    "relearning_steps": [],
+    "enable_fuzzing": false
+  },
+  "code_digest": "c5b8a160c38cd18ee8b0410013901d67cfe3fc3738c8fbd982e342c7026187d9",
+  "workflow_version": 4,
+  "practice_session_id": null,
+  "evidence": [],
+  "timing_uncertain": null
+}
