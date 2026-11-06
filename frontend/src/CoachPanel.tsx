@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import type { CoachStatus, Session } from "./types";
 import { useDraft, exportText } from "./persistence";
+import CoachActivity from "./CoachActivity";
 
 interface Props {
   session: Session;
@@ -39,7 +40,14 @@ export default function CoachPanel({
   const [message, setMessage] = useDraft("question-" + session.session_id, "");
   const [allowCode, setAllowCode] = useState(false);
   const [error, setError] = useState("");
-  const [sending, setSending] = useState(false);
+  const [submission, setSubmission] = useState<{
+    sessionId: string;
+    message: string;
+    knownRequests: string[];
+  } | null>(null);
+  const sending = submission !== null;
+  const draft = useRef({ sessionId: session.session_id, message });
+  draft.current = { sessionId: session.session_id, message };
   const sendingRef = useRef(false);
   const [conversion, setConversion] = useState(false);
   const [preferencesOpen, setPreferencesOpen] = useState(false);
@@ -50,6 +58,14 @@ export default function CoachPanel({
   );
   const messages =
     status?.requests.filter((r) => r.session_id === session.session_id) || [];
+  const showSubmission =
+    submission?.sessionId === session.session_id &&
+    !messages.some(
+      (request) =>
+        request.kind === "question" &&
+        request.message === submission.message &&
+        !submission.knownRequests.includes(request.request_id),
+    );
   const stream = useRef<HTMLDivElement>(null);
   const following = useRef(true);
   const independent =
@@ -65,7 +81,7 @@ export default function CoachPanel({
   useEffect(() => {
     if (following.current)
       stream.current?.scrollTo({ top: stream.current.scrollHeight });
-  }, [JSON.stringify(messages)]);
+  }, [JSON.stringify(messages), showSubmission]);
   const act = async (callback: () => Promise<unknown>) => {
     setError("");
     try {
@@ -100,16 +116,26 @@ export default function CoachPanel({
       setConversion(true);
       return;
     }
+    const submitted = {
+      sessionId: session.session_id,
+      message,
+      knownRequests: messages.map((request) => request.request_id),
+    };
     sendingRef.current = true;
-    setSending(true);
+    setError("");
+    setSubmission(submitted);
     try {
-      await send(message, "question", allowCode);
-      setMessage("");
+      await send(submitted.message, "question", allowCode);
+      if (
+        draft.current.sessionId === submitted.sessionId &&
+        draft.current.message === submitted.message
+      )
+        setMessage("");
     } catch (e) {
       setError((e as Error).message);
     } finally {
       sendingRef.current = false;
-      setSending(false);
+      setSubmission(null);
     }
   };
   return (
@@ -297,7 +323,7 @@ export default function CoachPanel({
             e.scrollHeight - e.scrollTop - e.clientHeight < 70;
         }}
       >
-        {!messages.length && (
+        {!messages.length && !showSubmission && (
           <div className="coach-empty">
             <Bot size={32} />
             <h3>A little help, when it matters.</h3>
@@ -313,7 +339,7 @@ export default function CoachPanel({
               <small>{m.kind === "question" ? "You" : "Checkpoint"}</small>
               <p>{m.message}</p>
             </div>
-            <div className="coach-message">
+            <div className={`coach-message${m.reply ? " coach-reply" : ""}`}>
               <small>
                 {m.connection_mode === "company"
                   ? "Company coach"
@@ -361,13 +387,25 @@ export default function CoachPanel({
               )}
               {m.error && <p className="warning-text">{m.error}</p>}
               {["queued", "sending", "running"].includes(m.status) && (
-                <p role="status" className="working">
-                  Considering your saved approach…
-                </p>
+                <CoachActivity phase="reply" />
               )}
             </div>
           </article>
         ))}
+        {showSubmission && submission && (
+          <article className="exchange">
+            <div className="learner-message">
+              <small>You</small>
+              <p>{submission.message}</p>
+            </div>
+            <div className="coach-message">
+              <small>
+                {companyConnection ? "Company coach" : "Personal coach"}
+              </small>
+              <CoachActivity phase="sending" />
+            </div>
+          </article>
+        )}
       </div>
       {error && (
         <div className="inline-error" role="alert">
@@ -387,7 +425,13 @@ export default function CoachPanel({
         <textarea
           id="coach-question"
           value={message}
-          onChange={(e) => setMessage(e.target.value)}
+          onChange={(e) => {
+            draft.current = {
+              sessionId: session.session_id,
+              message: e.target.value,
+            };
+            setMessage(e.target.value);
+          }}
           placeholder="Ask a question or explain where you’re stuck…"
           aria-description="Enter to send. Shift+Enter for a new line."
           rows={2}
@@ -424,7 +468,7 @@ export default function CoachPanel({
           ) : (
             <button type="submit" className="primary" disabled={!canSend}>
               <Send size={15} />
-              Send
+              {sending ? "Sending…" : "Send"}
             </button>
           )}
         </div>
