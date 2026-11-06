@@ -349,6 +349,214 @@ test("coach composer sends Enter and keeps Shift+Enter for a new line", async ({
     .toBe(2);
 });
 
+for (const appearance of [
+  { theme: "dark", width: 1440, reducedMotion: "no-preference" },
+  { theme: "light", width: 1440, reducedMotion: "no-preference" },
+  { theme: "dark", width: 390, reducedMotion: "reduce" },
+] as const) {
+  test(`coach shows immediate activity and hands off one question (${appearance.theme}, ${appearance.width})`, async ({
+    page,
+    request,
+  }) => {
+    await page.addInitScript((theme) => {
+      localStorage.setItem("practice-theme", JSON.stringify(theme));
+    }, appearance.theme);
+    await page.setViewportSize({ width: appearance.width, height: 1000 });
+    await page.emulateMedia({ reducedMotion: appearance.reducedMotion });
+    await start(page);
+    await idea(page);
+    await connect(page);
+    let deliver!: () => void;
+    let acknowledge!: () => void;
+    const delivery = new Promise<void>((resolve) => (deliver = resolve));
+    const acknowledgement = new Promise<void>(
+      (resolve) => (acknowledge = resolve),
+    );
+    await page.route("**/api/coach/requests", async (route) => {
+      await delivery;
+      const response = await route.fetch();
+      await acknowledgement;
+      await route.fulfill({ response });
+    });
+    const composer = page.getByRole("textbox", {
+      name: "Ask your learning coach",
+    });
+    const question = "Can we trace the complement lookup slowly?";
+    const nextQuestion = "How should I check repeated values?";
+    try {
+      await composer.fill(question);
+      await composer.press("Enter");
+      await expect(page.locator(".coach-activity")).toHaveCount(1);
+      await expect(page.locator(".coach-activity")).toContainText(
+        "Sending question…",
+      );
+      await expect(
+        page.getByRole("button", { name: "Sending…", exact: true }),
+      ).toBeDisabled();
+      await expect(page.locator(".learner-message")).toHaveCount(1);
+      await expect(page.locator(".learner-message")).toContainText(question);
+      await expect(page.locator(".coach-empty")).toHaveCount(0);
+      expect(
+        (await (await request.get("/api/coach/status")).json()).requests,
+      ).toHaveLength(0);
+      const dot = page.locator(".coach-activity-dots span").first();
+      await expect(dot).toHaveCSS(
+        "animation-name",
+        appearance.reducedMotion === "reduce" ? "none" : "coach-pulse",
+      );
+      await composer.fill(nextQuestion);
+      await composer.press("Enter");
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+      ).toBe(true);
+      await page
+        .getByRole("complementary", { name: "Codex coach" })
+        .screenshot({
+          path: `test-results/coach-sending-${appearance.theme}-${appearance.width}.png`,
+        });
+
+      const sendingBounds = await page.locator(".coach-composer").boundingBox();
+      // The saved conversation arrives over events before the delayed HTTP receipt.
+      deliver();
+      await expect(page.locator(".coach-activity")).toContainText(
+        "Preparing a reply…",
+      );
+      await expect(page.locator(".coach-activity")).toHaveCount(1);
+      await expect(page.locator(".learner-message")).toHaveCount(1);
+      await expect(
+        page.getByRole("button", { name: "Stop coach", exact: true }),
+      ).toBeVisible();
+      await page
+        .getByRole("complementary", { name: "Codex coach" })
+        .screenshot({
+          path: `test-results/coach-thinking-${appearance.theme}-${appearance.width}.png`,
+        });
+      await expect(page.locator(".coach-message")).toContainText(
+        "Trace one small example",
+      );
+      await expect(page.locator(".coach-activity")).toHaveCount(0);
+      await expect(page.locator(".learner-message")).toHaveCount(1);
+      acknowledge();
+      await expect(
+        page.getByRole("button", { name: "Send", exact: true }),
+      ).toBeEnabled();
+      await expect(composer).toHaveValue(nextQuestion);
+      expect(
+        (await (await request.get("/api/coach/status")).json()).requests,
+      ).toHaveLength(1);
+    } finally {
+      deliver();
+      acknowledge();
+    }
+  });
+}
+
+test("coach explains a longer reply, stops cleanly, and shows a repeated question", async ({
+  page,
+}) => {
+  await start(page);
+  await idea(page);
+  await connect(page);
+  await page.clock.install();
+  const composer = page.getByRole("textbox", {
+    name: "Ask your learning coach",
+  });
+  const question = "Give me a slow response please.";
+  await composer.fill(question);
+  await composer.press("Enter");
+  await expect(composer).toHaveValue("");
+  await expect(page.locator(".coach-activity")).toContainText(
+    "Preparing a reply…",
+  );
+  await page.clock.fastForward(12000);
+  await expect(page.locator(".coach-activity")).toContainText(
+    "Still preparing your reply…",
+  );
+  await page.getByRole("button", { name: "Stop coach", exact: true }).click();
+  await expect(page.locator(".coach-activity")).toHaveCount(0);
+  await expect(page.locator(".coach-message")).toContainText(
+    "Coaching stopped",
+  );
+
+  let deliver!: () => void;
+  const delivery = new Promise<void>((resolve) => (deliver = resolve));
+  await page.route("**/api/coach/requests", async (route) => {
+    await delivery;
+    await route.continue();
+  });
+  try {
+    await composer.fill(question);
+    await composer.press("Enter");
+    await expect(page.locator(".learner-message")).toHaveCount(2);
+    await expect(page.locator(".coach-activity")).toContainText(
+      "Sending question…",
+    );
+    deliver();
+    await expect(page.locator(".coach-message").last()).toContainText(
+      "Trace one small example",
+    );
+    await expect(page.locator(".coach-activity")).toHaveCount(0);
+    await expect(page.locator(".learner-message")).toHaveCount(2);
+  } finally {
+    deliver();
+  }
+});
+
+test("coach explains a longer send and keeps the question when sending fails", async ({
+  page,
+  request,
+}) => {
+  await start(page);
+  await idea(page);
+  await connect(page);
+  await page.clock.install();
+  let reject!: () => void;
+  const rejection = new Promise<void>((resolve) => (reject = resolve));
+  expectedFailures.get(page)!.add("/api/coach/requests");
+  await page.route("**/api/coach/requests", async (route) => {
+    await rejection;
+    await route.fulfill({
+      status: 409,
+      contentType: "application/json",
+      body: JSON.stringify({
+        detail: "Your code changed. Review it and ask again.",
+      }),
+    });
+  });
+  const composer = page.getByRole("textbox", {
+    name: "Ask your learning coach",
+  });
+  const question = "Help me understand my stored state.";
+  try {
+    await composer.fill(question);
+    await page.getByRole("button", { name: "Send", exact: true }).click();
+    await expect(page.locator(".coach-activity")).toContainText(
+      "Sending question…",
+    );
+    await page.clock.fastForward(12000);
+    await expect(page.locator(".coach-activity")).toContainText(
+      "Still sending your question…",
+    );
+    reject();
+    await expect(page.locator(".coach-panel .inline-error")).toContainText(
+      "Your code changed. Review it and ask again.",
+    );
+    await expect(page.locator(".coach-activity")).toHaveCount(0);
+    await expect(page.locator(".learner-message")).toHaveCount(0);
+    await expect(composer).toHaveValue(question);
+    await expect(
+      page.getByRole("button", { name: "Send", exact: true }),
+    ).toBeEnabled();
+    expect(
+      (await (await request.get("/api/coach/status")).json()).requests,
+    ).toHaveLength(0);
+  } finally {
+    reject();
+  }
+});
+
 test("follow-up coaching and hints do not require a saved reasoning retry", async ({
   page,
   request,
@@ -475,6 +683,10 @@ test("stopping tests and coaching uses separate controls and preserves code", as
           .status,
     )
     .toBe("interrupted");
+  await expect(page.locator(".coach-activity")).toHaveCount(0);
+  await expect(page.locator(".coach-message").last()).toContainText(
+    "Coaching stopped",
+  );
   expect(
     (await (await request.get("/api/state")).json()).session.code,
   ).toContain("while True");
@@ -681,6 +893,7 @@ test("malformed coaching, unsafe Markdown, and expired login leave practice usab
   await composer.fill("A malformed reply for this fixture.");
   await page.getByRole("button", { name: "Send", exact: true }).click();
   await expect(page.locator(".coach-messages")).toContainText("invalid reply");
+  await expect(page.locator(".coach-activity")).toHaveCount(0);
   await request.post("/__test__/coach-expired", { headers });
   await expect(page.locator(".coach-connection")).toContainText(
     "sign-in expired",

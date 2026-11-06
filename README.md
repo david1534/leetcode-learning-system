@@ -40,6 +40,8 @@ Automatic coaching starts off for a new connection. Model, effort, and automatic
 
 The coach receives the problem, your recorded idea, current code, and limited check results. Tools and direct file access are disabled. Proposed code needs a preview and **Apply**. Conversations, runtime logs, and authentication stay private; publication includes only the reviewed learning artifacts.
 
+Questions appear immediately when sent, with an animated reply indicator while the coach works. You can keep coding or draft your next question during the wait; reduced-motion settings use a static indicator.
+
 ## Learning evidence
 
 The foundation contains 38 original exercises across diagnostics, Arrays & Hashing, Two Pointers, Stack, and Binary Search. Later topics remain planned. Existing curriculum, prerequisites, repair delays, and FSRS parameters are preserved.
