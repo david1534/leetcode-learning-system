@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "event_id": "31556caea56249f69900382b640a9dcf",
+  "recorded_at": "2026-11-06T16:47:02.774957+00:00",
+  "event_type": "exposure",
+  "problem_id": "arrays-005-sudoku-check",
+  "session_id": "841fa26bfc234243b74467940c1a575d",
+  "activity": "implement",
+  "content_version": 2
+}

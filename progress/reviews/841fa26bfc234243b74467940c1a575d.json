@@ -1,0 +1,56 @@
+{
+  "schema_version": 4,
+  "event_id": "841fa26bfc234243b74467940c1a575d",
+  "session_id": "841fa26bfc234243b74467940c1a575d",
+  "problem_id": "arrays-005-sudoku-check",
+  "topic": "arrays-hashing",
+  "kind": "core",
+  "reviewed_at": "2026-11-11T19:59:29.965684+00:00",
+  "recall_at": "2026-11-06T16:48:45.588547+00:00",
+  "rating": "again",
+  "minutes": 41.513,
+  "timing": {
+    "recall": 102.812,
+    "implementation": 2300.742000000003,
+    "administration": 87.25099999999999
+  },
+  "timing_adjusted": false,
+  "activity": "implement",
+  "attempt_kind": "review",
+  "unseen": false,
+  "recall_outcome": "failure",
+  "recall_quality": "failed",
+  "assistance_level": "substantial",
+  "assistance_count": 4,
+  "hints_used": 0,
+  "first_checkpoint_passed": false,
+  "tests_passed": true,
+  "explained": false,
+  "assessment": {
+    "constraints_met": false,
+    "dimensions": {},
+    "explanation_source": "learner_report",
+    "constraints_source": "learner_report",
+    "status": "completed"
+  },
+  "skill_ids": [
+    "constraint-encoding",
+    "multi-scope-validation",
+    "duplicate-detection"
+  ],
+  "content_version": 2,
+  "rubric_version": 2,
+  "scheduler": {
+    "library": "fsrs",
+    "version": "6.3.2",
+    "desired_retention": 0.9,
+    "learning_steps": [],
+    "relearning_steps": [],
+    "enable_fuzzing": false
+  },
+  "code_digest": "c12910c0547e3057c28f635cb25cb8c473500ed4452ab9a24abbb261697f479d",
+  "workflow_version": 4,
+  "practice_session_id": null,
+  "evidence": [],
+  "timing_uncertain": null
+}
