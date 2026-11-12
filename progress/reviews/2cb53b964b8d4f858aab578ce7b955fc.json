@@ -1,0 +1,55 @@
+{
+  "schema_version": 4,
+  "event_id": "2cb53b964b8d4f858aab578ce7b955fc",
+  "session_id": "2cb53b964b8d4f858aab578ce7b955fc",
+  "problem_id": "arrays-006-top-frequent",
+  "topic": "arrays-hashing",
+  "kind": "core",
+  "reviewed_at": "2026-11-12T16:19:13.091419+00:00",
+  "recall_at": "2026-11-12T14:55:23.830281+00:00",
+  "rating": "unknown",
+  "minutes": 70.047,
+  "timing": {
+    "recall": 438.477,
+    "implementation": 3764.3550000000037
+  },
+  "timing_adjusted": false,
+  "activity": "implement",
+  "attempt_kind": "new",
+  "unseen": true,
+  "recall_outcome": "unknown",
+  "recall_quality": "unknown",
+  "assistance_level": "substantial",
+  "assistance_count": 10,
+  "hints_used": 0,
+  "first_checkpoint_passed": false,
+  "tests_passed": false,
+  "explained": false,
+  "assessment": {
+    "constraints_met": false,
+    "dimensions": {},
+    "explanation_source": "learner_report",
+    "constraints_source": "learner_report",
+    "status": "stopped"
+  },
+  "skill_ids": [
+    "frequency-counting",
+    "bucket-selection",
+    "output-bounds"
+  ],
+  "content_version": 2,
+  "rubric_version": 2,
+  "scheduler": {
+    "library": "fsrs",
+    "version": "6.3.2",
+    "desired_retention": 0.9,
+    "learning_steps": [],
+    "relearning_steps": [],
+    "enable_fuzzing": false
+  },
+  "code_digest": "e9542e45f13137e3b259d9e4fa2a079a33ac41342381764767c7d373b163ffa1",
+  "workflow_version": 4,
+  "practice_session_id": null,
+  "evidence": [],
+  "timing_uncertain": null
+}
