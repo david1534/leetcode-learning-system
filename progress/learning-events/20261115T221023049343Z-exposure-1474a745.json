@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "event_id": "1474a745cde8478ba4f13b112f64e660",
+  "recorded_at": "2026-11-15T22:10:23.049343+00:00",
+  "event_type": "exposure",
+  "problem_id": "arrays-004-product-others",
+  "session_id": "fe501096f6484b3eba74f2aa8a196354",
+  "activity": "implement",
+  "content_version": 2
+}
