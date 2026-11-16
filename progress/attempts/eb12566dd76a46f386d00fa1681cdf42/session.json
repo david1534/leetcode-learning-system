@@ -1,0 +1,73 @@
+{
+  "schema_version": 7,
+  "problem_id": "arrays-001-pair-sum",
+  "attempt_kind": "review",
+  "started_at": "2026-11-16T17:39:53.614607+00:00",
+  "active_started_at": "2026-11-16T18:20:54.950073+00:00",
+  "accumulated_seconds": 2461,
+  "hints_used": 0,
+  "checkpoint_count": 8,
+  "assistance_log": [
+    {
+      "request_id": "1d74498d-6b8e-4565-8a1b-bdc1a6cebe32",
+      "level": "substantial",
+      "supplied_missing_recall": false,
+      "summary": "Integrated coaching supplied substantial assistance.",
+      "source": "codex",
+      "recorded_at": "2026-11-16T18:00:51.923302+00:00"
+    }
+  ],
+  "focus_extensions": [],
+  "learning_event_paths": [
+    "progress/learning-events/20261116T173953707642Z-exposure-3ab75b0d.json"
+  ],
+  "substantial_gate_recorded": false,
+  "workflow_version": 4,
+  "session_id": "eb12566dd76a46f386d00fa1681cdf42",
+  "revision": 119,
+  "activity": "implement",
+  "assessment_mode": "practice",
+  "unseen": false,
+  "phase": "administration",
+  "timing": {
+    "recall": 288.33099999999996,
+    "implementation": 1743.1619999999987,
+    "administration": 429.75299999999993
+  },
+  "phase_started_at": "2026-11-16T18:20:54.950073+00:00",
+  "budget_minutes": 60,
+  "content_version": 2,
+  "rubric_version": 2,
+  "skill_ids": [
+    "complement-lookup",
+    "one-pass-hashing",
+    "index-invariants"
+  ],
+  "sync_branch": "attempt/arrays-001-pair-sum-eb12566dd76a",
+  "code_digest": "7a02bf2c1bdf33e3919d3e3021948018abfa16da88b574f694df73dfc5aa7c14",
+  "saved_at": "2026-11-16T18:20:54.919629+00:00",
+  "initial_reasoning": {
+    "approach": "use the complement and hashmaps",
+    "quality": "unknown",
+    "why": "Not recorded",
+    "invariant": "Not recorded",
+    "expected_complexity": "Not recorded",
+    "edge_case": "Not recorded",
+    "recorded_at": "2026-11-16T17:44:42.037819+00:00"
+  },
+  "first_checkpoint_passed": false,
+  "latest_checkpoint": {
+    "attempt": 8,
+    "checked_at": "2026-11-16T18:13:40.002500+00:00",
+    "passed_cases": 4,
+    "total_cases": 4,
+    "code_digest": "7a02bf2c1bdf33e3919d3e3021948018abfa16da88b574f694df73dfc5aa7c14",
+    "status": "complete"
+  },
+  "previous_phase": "implementation",
+  "recall_self_report": {
+    "quality": "complete",
+    "rating": "good",
+    "recorded_at": "2026-11-16T18:20:54.919589+00:00"
+  }
+}

@@ -1,6 +1,6 @@
 # Learning reflection
 
-Check the complement before storing the current value.
+No takeaway recorded.
 
-Activity: implement. Recall: easy. Assistance: none.
-Explanation recorded: True. Constraints checked: True.
+Activity: implement. Recall: good. Assistance: substantial.
+Explanation recorded: False. Constraints checked: False.
