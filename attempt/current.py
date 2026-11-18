@@ -5,4 +5,5 @@ def most_frequent_values(nums: list[int], k: int) -> list[int]:
             freqMap[currNum] = 1
         else:
             freqMap[currNum] += 1
+    sortedKeys = sorted(freqMap.values())
             
